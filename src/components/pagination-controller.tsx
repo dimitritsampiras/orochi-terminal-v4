@@ -1,3 +1,5 @@
+"use client";
+
 import { Icon } from "@iconify/react";
 import { Button } from "./ui/button";
 import type { Pagination } from "@/lib/types/misc";

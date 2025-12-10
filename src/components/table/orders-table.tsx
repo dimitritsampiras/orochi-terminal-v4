@@ -97,8 +97,8 @@ function OrdersTable({ orders }: { orders: Order[] }) {
                 )
               )
             ) : (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center">
+              <TableRow className="flex justify-end">
+                <TableCell colSpan={8} className="text-center">
                   <p className="text-sm text-muted-foreground py-4">No orders found</p>
                 </TableCell>
               </TableRow>

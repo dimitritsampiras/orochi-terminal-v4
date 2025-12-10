@@ -9,3 +9,9 @@ export type DataResponse<T> =
       data: null;
       error: string;
     };
+
+export type Pagination = {
+  total: number;
+  totalPages: number;
+  currentPage: number;
+};

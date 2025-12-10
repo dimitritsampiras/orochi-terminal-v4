@@ -11,7 +11,6 @@ import { shipmentApi, shipments, shippingPriority } from "@drizzle/schema";
 import { createEasypostShipment } from "./easypost/create-easypost-shipment";
 
 // TODO: add extra product ids to shipment
-
 type Order = Extract<NonNullable<OrderQuery["node"]>, { __typename: "Order" }>;
 
 type GetRateResponse = DataResponse<NormalizedShipmentRate | null>;

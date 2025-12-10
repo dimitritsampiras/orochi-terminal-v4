@@ -6,15 +6,10 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { profiles } from "../../../drizzle/schema";
 import { eq } from "drizzle-orm";
+import { getUserOrSignout } from "@/lib/core/auth/get-user-or-signout";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
-  const userId = (await cookies()).get("user-id")?.value;
-
-  if (!userId) {
-    redirect("/auth/login");
-  }
-
-  const [user] = await db.select().from(profiles).where(eq(profiles.id, userId));
+  const user = await getUserOrSignout();
 
   return (
     <div className="flex bg-zinc-50">
