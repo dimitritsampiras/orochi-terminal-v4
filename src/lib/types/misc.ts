@@ -15,3 +15,8 @@ export type Pagination = {
   totalPages: number;
   currentPage: number;
 };
+
+export interface LocalConfig {
+  serverUrl: string;
+  arxpFolderPath: string;
+}

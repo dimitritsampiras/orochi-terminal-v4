@@ -25,11 +25,16 @@ import { Badge } from "../ui/badge";
 interface FilterProductsFromQueueDialogProps {
   className?: string;
   onApply?: (selectedVariantIds: string[]) => void;
+  initialSelection?: Set<string>; // Add this prop
 }
 
 type Product = NonNullable<GetProductsResponse["data"]>[number];
 
-export function FilterProductsFromQueueDialog({ className, onApply }: FilterProductsFromQueueDialogProps) {
+export function FilterProductsFromQueueDialog({
+  className,
+  onApply,
+  initialSelection, // Destructure it
+}: FilterProductsFromQueueDialogProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
@@ -37,6 +42,13 @@ export function FilterProductsFromQueueDialog({ className, onApply }: FilterProd
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [selectedVariantIds, setSelectedVariantIds] = useState<Set<string>>(new Set());
+
+  // Sync local state with prop when dialog opens
+  useEffect(() => {
+    if (open && initialSelection) {
+      setSelectedVariantIds(new Set(initialSelection));
+    }
+  }, [open, initialSelection]);
 
   // Debounce search query
   const [debouncedQuery, setDebouncedQuery] = useState(query);

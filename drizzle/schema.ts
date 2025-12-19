@@ -1,4 +1,4 @@
-import { pgEnum, pgTable, bigint, uuid, text, integer, timestamp, bigserial, boolean, numeric, doublePrecision, jsonb, json, index, uniqueIndex, foreignKey, primaryKey, unique, pgPolicy } from "drizzle-orm/pg-core"
+import { pgEnum, pgTable, text, bigint, integer, timestamp, uuid, bigserial, numeric, boolean, doublePrecision, json, jsonb, index, uniqueIndex, foreignKey, primaryKey, unique, pgPolicy } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 import { users } from "./auth"
 
@@ -61,6 +61,7 @@ export const blanks = pgTable.withRLS("blanks", {
 	links: text().array().notNull(),
 	customsPrice: doublePrecision("customs_price").notNull(),
 	hsCode: text("hs_code"),
+	productNameGarmentType: text("product_name_garment_type"),
 }, (table) => [
 
 	pgPolicy("Enable insert for authenticated users only", { to: ["authenticated"], using: sql`(auth.uid() IS NOT NULL)` }),

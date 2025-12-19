@@ -8,6 +8,12 @@ const nextConfig: NextConfig = {
         hostname: new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? '').hostname,
         port: '',
         pathname: '/storage/**'
+      },
+      {
+        protocol: 'https',
+        hostname: 'shippo-static.s3.amazonaws.com',
+        port: '',
+        pathname: '/**'
       }
     ]
   }

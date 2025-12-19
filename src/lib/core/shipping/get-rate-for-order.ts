@@ -13,7 +13,7 @@ import { createEasypostShipment } from "./easypost/create-easypost-shipment";
 // TODO: add extra product ids to shipment
 type Order = Extract<NonNullable<OrderQuery["node"]>, { __typename: "Order" }>;
 
-type GetRateResponse = DataResponse<NormalizedShipmentRate | null>;
+type GetRateResponse = DataResponse<{ rate: NormalizedShipmentRate; parcel: GeneralParcel } | null>;
 
 type NormalizedShipmentRate = {
   cost: number;
@@ -132,11 +132,11 @@ export const getRateForOrder = async (order: Order, options?: ShippingOptions): 
     return { data: null, error: "No rate found for shipping priority" };
   }
 
-  return { data: rate, error: null };
+  return { data: { rate, parcel }, error: null };
 };
 
 /**
- * 
+ *
  * stores rate and shipment after generating shipment
  */
 export const storeShipmentAndRate = async (order: Order, rate: NormalizedShipmentRate, parcel: GeneralParcel) => {
@@ -145,16 +145,21 @@ export const storeShipmentAndRate = async (order: Order, rate: NormalizedShipmen
       return { error: "No rate", data: null };
     }
 
-    await db.insert(shipments).values({
-      orderId: order.id,
-      shipmentId: rate.shipmentId,
-      api: rate.api,
-      chosenCarrierName: rate.carrierName,
-      chosenRateId: rate.rateId,
-      cost: rate.cost.toFixed(2),
-      parcelSnapshot: parcel,
-      lineItemIds: parcel.items.map((item) => item.lineItemId),
-    });
+    const shipment = await db
+      .insert(shipments)
+      .values({
+        orderId: order.id,
+        shipmentId: rate.shipmentId,
+        api: rate.api,
+        chosenCarrierName: rate.carrierName,
+        chosenRateId: rate.rateId,
+        cost: rate.cost.toFixed(2),
+        parcelSnapshot: parcel,
+        lineItemIds: parcel.items.map((item) => item.lineItemId),
+      })
+      .returning();
+
+    return { data: shipment[0], error: null };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(`[store rate] Error storing rate: ${errorMessage}`, {
@@ -203,16 +208,19 @@ const resolveLineItems = (order: Order, targetIds?: string[]): DataResponse<Orde
 const determineFulfillableLineItems = (order: Order) => {
   const fulfillableLineItems = order.lineItems.nodes.filter((lineItem) => {
     if (!lineItem.requiresShipping) {
-      logger.info(`[get rate for order] auto filtering ${lineItem.name} - does not require shipping`, {
-        category: "SHIPPING",
-        orderId: order.id,
-      });
+      logger.info(
+        `[get rate for order] auto filtering ${lineItem.name} while fetching rate because it is not fulfillable`,
+        {
+          category: "SHIPPING",
+          orderId: order.id,
+        }
+      );
       return false;
     }
 
     if (lineItem.unfulfilledQuantity <= 0) {
       logger.info(
-        `[get rate for order] auto filtering ${lineItem.name} - unfulfilledQuantity = ${lineItem.unfulfilledQuantity}`,
+        `[get rate for order] auto filtering ${lineItem.name} while fetching rate because it is not fulfillable`,
         {
           category: "SHIPPING",
           orderId: order.id,

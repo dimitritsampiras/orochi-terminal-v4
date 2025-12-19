@@ -1,45 +1,18 @@
 "use client";
-import type { profiles } from "../../../drizzle/schema";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
-import { Button } from "../ui/button";
-import { Avatar, AvatarFallback } from "../ui/avatar";
-import { Icon } from "@iconify/react";
+
+import { useLocalServer } from "@/lib/hooks/use-local-server";
 import MobileMenu from "./mobile-menu";
-import { useState } from "react";
+
 import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { FSConnectedBadge } from "../badges/fs-connected-badge";
 
 interface HeaderProps {
-  user: typeof profiles.$inferSelect;
+  // user: typeof profiles.$inferSelect;
 }
 
-function Header({ user }: HeaderProps) {
+function Header({}: HeaderProps) {
   const router = useRouter();
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleSignOut = async () => {
-    setSubmitting(true);
-    const response = await fetch("/api/auth/logout", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-    if (response.ok) {
-      router.push("/auth/login");
-      toast.success("Signed out successfully");
-    } else {
-      toast.error("Failed to sign out");
-    }
-    setSubmitting(false);
-  };
+  const { isConnected } = useLocalServer();
 
   return (
     <div className="h-16 w-full flex items-center justify-between px-4 md:px-8">
@@ -49,7 +22,8 @@ function Header({ user }: HeaderProps) {
       <div className="text-zinc-400 text-xs">Warehouse Terminal</div>
 
       <div>
-        <DropdownMenu>
+       <FSConnectedBadge status={isConnected} />
+        {/* <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
@@ -68,7 +42,7 @@ function Header({ user }: HeaderProps) {
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuItem onClick={() => router.push("/profile")}>View Profile</DropdownMenuItem>
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu> */}
       </div>
     </div>
   );

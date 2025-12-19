@@ -1,13 +1,12 @@
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { getUserOrSignout } from "@/lib/core/auth/get-user-or-signout";
+import { redirect } from "next/navigation";
 
-export default function Home() {
-  return (
-    <div className="flex h-screen w-full flex-col items-center justify-center">
-      <div className="max-w-md space-y-4">
-        <Input placeholder="Enter your name" />
-        <Button>Click me</Button>
-      </div>
-    </div>
-  );
+export default async function AppPage() {
+  const user = await getUserOrSignout();
+  if (!user) {
+    return redirect("/auth/login");
+  }
+  return redirect("/dashboard");
 }

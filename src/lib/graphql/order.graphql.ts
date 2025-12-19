@@ -9,6 +9,7 @@ export const orderQuery = `#graphql
         updatedAt
         cancelledAt
         note
+        displayFinancialStatus
         totalPriceSet {
           shopMoney {
             amount

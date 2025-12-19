@@ -352,7 +352,7 @@ export type OrderQuery = { node?: AdminTypes.Maybe<(
     & Pick<AdminTypes.OnlineStoreTheme, 'id'>
   ) | (
     { __typename: 'Order' }
-    & Pick<AdminTypes.Order, 'name' | 'createdAt' | 'updatedAt' | 'cancelledAt' | 'note' | 'discountCodes' | 'displayFulfillmentStatus' | 'id'>
+    & Pick<AdminTypes.Order, 'name' | 'createdAt' | 'updatedAt' | 'cancelledAt' | 'note' | 'displayFinancialStatus' | 'discountCodes' | 'displayFulfillmentStatus' | 'id'>
     & { totalPriceSet: { shopMoney: Pick<AdminTypes.MoneyV2, 'amount'> }, risk: { assessments: Array<Pick<AdminTypes.OrderRiskAssessment, 'riskLevel'>> }, localizedFields: { nodes: Array<Pick<AdminTypes.LocalizedField, 'key' | 'purpose' | 'value'>> }, customer?: AdminTypes.Maybe<Pick<AdminTypes.Customer, 'firstName' | 'lastName' | 'numberOfOrders' | 'email' | 'tags'>>, app?: AdminTypes.Maybe<Pick<AdminTypes.OrderApp, 'name'>>, shippingLine?: AdminTypes.Maybe<Pick<AdminTypes.ShippingLine, 'title'>>, shippingAddress?: AdminTypes.Maybe<Pick<AdminTypes.MailingAddress, 'address1' | 'address2' | 'city' | 'country' | 'countryCodeV2' | 'firstName' | 'lastName' | 'phone' | 'company' | 'provinceCode' | 'province' | 'zip'>>, lineItems: { nodes: Array<(
         Pick<AdminTypes.LineItem, 'id' | 'title' | 'variantTitle' | 'quantity' | 'name' | 'vendor' | 'unfulfilledQuantity' | 'requiresShipping' | 'nonFulfillableQuantity'>
         & { image?: AdminTypes.Maybe<Pick<AdminTypes.Image, 'url'>>, originalTotalSet: { shopMoney: Pick<AdminTypes.MoneyV2, 'amount'> }, variant?: AdminTypes.Maybe<(
@@ -602,8 +602,37 @@ export type OrderQuery = { node?: AdminTypes.Maybe<(
     & Pick<AdminTypes.WebhookSubscription, 'id'>
   )> };
 
+export type ProductQueryVariables = AdminTypes.Exact<{
+  id: AdminTypes.Scalars['ID']['input'];
+}>;
+
+
+export type ProductQuery = { product?: AdminTypes.Maybe<(
+    Pick<AdminTypes.Product, 'id' | 'title' | 'vendor' | 'createdAt' | 'updatedAt' | 'status' | 'tracksInventory'>
+    & { featuredMedia?: AdminTypes.Maybe<{ preview?: AdminTypes.Maybe<{ image?: AdminTypes.Maybe<Pick<AdminTypes.Image, 'id' | 'url'>> }> }>, variants: { edges: Array<Pick<AdminTypes.ProductVariantEdge, 'cursor'>>, nodes: Array<Pick<AdminTypes.ProductVariant, 'id' | 'title' | 'price' | 'createdAt' | 'updatedAt'>> } }
+  )> };
+
+export type ProductMediaQueryQueryVariables = AdminTypes.Exact<{
+  query?: AdminTypes.InputMaybe<AdminTypes.Scalars['String']['input']>;
+}>;
+
+
+export type ProductMediaQueryQuery = { files: { edges: Array<{ node: Pick<AdminTypes.ExternalVideo, 'createdAt' | 'updatedAt' | 'alt'> | (
+        { __typename: 'GenericFile' }
+        & Pick<AdminTypes.GenericFile, 'id' | 'url' | 'createdAt' | 'updatedAt' | 'alt'>
+      ) | (
+        { __typename: 'MediaImage' }
+        & Pick<AdminTypes.MediaImage, 'id' | 'alt' | 'createdAt' | 'updatedAt'>
+        & { image?: AdminTypes.Maybe<Pick<AdminTypes.Image, 'id' | 'url'>> }
+      ) | Pick<AdminTypes.Model3d, 'createdAt' | 'updatedAt' | 'alt'> | (
+        { __typename: 'Video' }
+        & Pick<AdminTypes.Video, 'id' | 'createdAt' | 'updatedAt' | 'alt'>
+      ) }> } };
+
 interface GeneratedQueryTypes {
-  "#graphql\n  query Order($id: ID!){\n    node(id: $id) {\n      id\n      __typename\n      ... on Order {\n        name\n        createdAt\n        updatedAt\n        cancelledAt\n        note\n        totalPriceSet {\n          shopMoney {\n            amount\n          }\n        }\n        risk {\n          assessments {\n            riskLevel\n          }\n        }\n        localizedFields(first: 5) {\n          nodes {\n            key\n            purpose\n            value \n          }\n        }\n        customer {\n          firstName\n          lastName\n          numberOfOrders\n          email\n          tags\n        }\n        app {\n          name\n        }\n        discountCodes\n        shippingLine {\n          title\n        }\n        shippingAddress {\n          address1\n          address2\n          city\n          country\n          countryCodeV2\n          firstName\n          lastName\n          phone\n          company\n          provinceCode\n          province\n          zip\n        }\n        displayFulfillmentStatus\n        lineItems(first: 25) {\n          nodes {\n            id\n            title\n            variantTitle\n            quantity\n            name\n            image {\n              url(transform: {maxHeight: 100, maxWidth: 100})\n            }\n            originalTotalSet {\n              shopMoney {\n                amount\n              }\n            }\n            vendor\n            unfulfilledQuantity\n            requiresShipping\n            nonFulfillableQuantity\n            variant {\n              id\n              inventoryItem {\n                measurement {\n                  weight {\n                    unit\n                    value\n                  }\n                }\n              }\n            }\n            product {\n              id\n              tracksInventory\n              productType\n            }\n          }\n        }\n      }\n    }\n  }\n": {return: OrderQuery, variables: OrderQueryVariables},
+  "#graphql\n  query Order($id: ID!){\n    node(id: $id) {\n      id\n      __typename\n      ... on Order {\n        name\n        createdAt\n        updatedAt\n        cancelledAt\n        note\n        displayFinancialStatus\n        totalPriceSet {\n          shopMoney {\n            amount\n          }\n        }\n        risk {\n          assessments {\n            riskLevel\n          }\n        }\n        localizedFields(first: 5) {\n          nodes {\n            key\n            purpose\n            value \n          }\n        }\n        customer {\n          firstName\n          lastName\n          numberOfOrders\n          email\n          tags\n        }\n        app {\n          name\n        }\n        discountCodes\n        shippingLine {\n          title\n        }\n        shippingAddress {\n          address1\n          address2\n          city\n          country\n          countryCodeV2\n          firstName\n          lastName\n          phone\n          company\n          provinceCode\n          province\n          zip\n        }\n        displayFulfillmentStatus\n        lineItems(first: 25) {\n          nodes {\n            id\n            title\n            variantTitle\n            quantity\n            name\n            image {\n              url(transform: {maxHeight: 100, maxWidth: 100})\n            }\n            originalTotalSet {\n              shopMoney {\n                amount\n              }\n            }\n            vendor\n            unfulfilledQuantity\n            requiresShipping\n            nonFulfillableQuantity\n            variant {\n              id\n              inventoryItem {\n                measurement {\n                  weight {\n                    unit\n                    value\n                  }\n                }\n              }\n            }\n            product {\n              id\n              tracksInventory\n              productType\n            }\n          }\n        }\n      }\n    }\n  }\n": {return: OrderQuery, variables: OrderQueryVariables},
+  "#graphql\nquery Product($id: ID!) {\n  product(id: $id) {\n    id\n    title\n    vendor\n    createdAt\n    updatedAt\n    status\n    tracksInventory\n    featuredMedia {\n      preview {\n        image {\n          id\n          url\n        }\n      }\n    }\n    variants(first: 25) {\n      edges {\n        cursor\n      }\n      nodes {\n        id\n        title\n        price\n        createdAt\n        updatedAt\n      }\n    }\n  }\n}": {return: ProductQuery, variables: ProductQueryVariables},
+  "#graphql\n  query ProductMediaQuery($query: String) {\n    files(first: 7, query: $query) {\n      edges {\n        node {\n          createdAt\n          updatedAt\n          alt\n          ... on GenericFile {\n            __typename\n            id\n            url\n          }\n          ... on MediaImage {\n            __typename\n            id\n            alt\n            image {\n              id\n              url(transform: {maxHeight: 750, maxWidth: 750})\n            }\n          }\n          ... on Video {\n            __typename\n            id\n          }\n        }\n      }\n    }\n  }\n": {return: ProductMediaQueryQuery, variables: ProductMediaQueryQueryVariables},
 }
 
 interface GeneratedMutationTypes {

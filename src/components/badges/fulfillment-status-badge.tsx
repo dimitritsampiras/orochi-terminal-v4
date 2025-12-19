@@ -9,7 +9,7 @@ type FulfillmentStatus = `${OrderDisplayFulfillmentStatus}`;
 function FulfillmentStatusBadge({ status, className }: { status: FulfillmentStatus; className?: string }) {
   const colorMap: Record<FulfillmentStatus, string> = {
     FULFILLED: "bg-green-100 text-green-800",
-    IN_PROGRESS: "bg-lime-100 text-lime-800",
+    IN_PROGRESS: "bg-cyan-100 text-cyan-800",
     UNFULFILLED: "bg-amber-100 text-amber-800",
     ON_HOLD: "bg-red-100 text-red-800",
     OPEN: "bg-blue-100 text-blue-800",
@@ -25,7 +25,7 @@ function FulfillmentStatusBadge({ status, className }: { status: FulfillmentStat
 
   return (
     <Badge variant="secondary" className={cn(styles, className, "capitalize")}>
-      {status.toLowerCase()}
+      {status.toLowerCase().replace("_", " ")}
     </Badge>
   );
 }

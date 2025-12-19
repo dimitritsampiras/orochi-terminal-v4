@@ -1,0 +1,60 @@
+import { db } from "@/lib/clients/db";
+import { authorizeUser } from "@/lib/core/auth/authorize-user";
+import { purchaseEasypostRateAndUpdateDatabase } from "@/lib/core/shipping/easypost/purchase-easypost-rate";
+import { purchaseShippoRateAndUpdateDatabase } from "@/lib/core/shipping/shippo/purchase-shippo-rate";
+import { PurchaseShipmentResponse } from "@/lib/types/api";
+import { buildResourceGid } from "@/lib/utils";
+import { NextResponse } from "next/server";
+
+export async function POST(
+  request: Request,
+  { params }: { params: { order_id: string; shipment_id: string } }
+): Promise<NextResponse<PurchaseShipmentResponse>> {
+  const user = await authorizeUser(["superadmin", "admin"]);
+
+  if (!user) {
+    return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { order_id: unparsedOrderId, shipment_id: databaseShipmentUUID } = await params;
+
+  const orderId = buildResourceGid("Order", unparsedOrderId);
+
+  const shipment = await db.query.shipments.findFirst({
+    where: { id: databaseShipmentUUID },
+  });
+
+  if (!shipment) {
+    return NextResponse.json({ data: null, error: "Shipment not found" }, { status: 404 });
+  }
+
+  if (shipment.isPurchased) {
+    return NextResponse.json({ data: null, error: "Shipment already purchased" }, { status: 400 });
+  }
+
+  if (shipment.isRefunded) {
+    return NextResponse.json({ data: null, error: "Shipment already refunded" }, { status: 400 });
+  }
+
+  if (shipment.api === "SHIPPO") {
+    const { data, error } = await purchaseShippoRateAndUpdateDatabase(databaseShipmentUUID, orderId);
+
+    if (data) {
+      return NextResponse.json({ data: "success", error: null });
+    }
+
+    return NextResponse.json({ data: null, error });
+  }
+
+  if (shipment.api === "EASYPOST") {
+    const { data, error } = await purchaseEasypostRateAndUpdateDatabase(databaseShipmentUUID, orderId);
+
+    if (data) {
+      return NextResponse.json({ data: "success", error: null });
+    }
+
+    return NextResponse.json({ data: null, error });
+  }
+
+  return NextResponse.json({ data: null, error: "Unknown error" }, { status: 500 });
+}

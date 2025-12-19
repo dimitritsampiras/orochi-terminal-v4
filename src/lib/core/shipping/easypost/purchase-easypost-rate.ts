@@ -11,12 +11,12 @@ import { easypost } from "@/lib/clients/easypost";
 import { handleEasypostError } from "./handle-easypost-errors";
 
 export const purchaseEasypostRateAndUpdateDatabase = async (
-  shipmentId: string,
+  databaseShipmentUUID: string,
   orderId?: string
 ): Promise<DataResponse<Shipment>> => {
   const shipment = await db.query.shipments.findFirst({
     where: {
-      shipmentId,
+      id: databaseShipmentUUID,
       api: "EASYPOST",
     },
     with: {
@@ -25,7 +25,7 @@ export const purchaseEasypostRateAndUpdateDatabase = async (
   });
 
   if (!shipment) {
-    logger.error(`[purchase easypost shipment] ShipmentId ${shipmentId} not found in database`, {
+    logger.error(`[purchase easypost shipment] ShipmentId ${databaseShipmentUUID} not found in database`, {
       category: "SHIPPING",
       orderId,
     });
@@ -34,25 +34,36 @@ export const purchaseEasypostRateAndUpdateDatabase = async (
 
   // this should never really happen, but just in case
   if (!shipment.order) {
-    logger.error(`[purchase easypost shipment] Order not found when querying database shipment ${shipmentId}`, {
-      category: "SHIPPING",
-      orderId,
-    });
+    logger.error(
+      `[purchase easypost shipment] Order not found when querying database shipment ${databaseShipmentUUID}`,
+      {
+        category: "SHIPPING",
+        orderId,
+      }
+    );
     return { data: null, error: "Order not found" };
   }
 
   if (shipment.isPurchased) {
-    logger.info(`[purchase easypost shipment] Shipment ${shipmentId} already purchased`, {
+    logger.info(`[purchase easypost shipment] Shipment ${databaseShipmentUUID} already purchased`, {
       category: "SHIPPING",
       orderId,
     });
     return { data: null, error: "Shipment already purchased" };
   }
 
+  if (shipment.isRefunded) {
+    logger.info(`[purchase easypost shipment] Shipment ${databaseShipmentUUID} already refunded`, {
+      category: "SHIPPING",
+      orderId,
+    });
+    return { data: null, error: "Shipment already refunded" };
+  }
+
   try {
     const easypostShipment = await easypost.Shipment.retrieve(shipment.shipmentId);
     if (!easypostShipment) {
-      logger.error(`[purchase easypost shipment] ShipmentId ${shipmentId} not found in Easypost`, {
+      logger.error(`[purchase easypost shipment] ShipmentId ${databaseShipmentUUID} not found in Easypost`, {
         category: "SHIPPING",
         orderId,
       });
@@ -63,7 +74,7 @@ export const purchaseEasypostRateAndUpdateDatabase = async (
 
     if (!rate) {
       logger.error(
-        `[purchase easypost shipment] RateId ${shipment.chosenRateId} not found for shipmentId ${shipmentId}`,
+        `[purchase easypost shipment] RateId ${shipment.chosenRateId} not found for shipmentId ${databaseShipmentUUID}`,
         {
           category: "SHIPPING",
           orderId,
@@ -80,7 +91,7 @@ export const purchaseEasypostRateAndUpdateDatabase = async (
       .set({
         isPurchased: true,
       })
-      .where(eq(shipments.shipmentId, shipmentId));
+      .where(eq(shipments.id, databaseShipmentUUID));
 
     return { data: purchasedShipment, error: null };
   } catch (error) {

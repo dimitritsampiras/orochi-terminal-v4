@@ -4,8 +4,6 @@ import { MultiSelectFilter } from "@/components/inputs/multi-select-filter";
 
 import { OrdersTable } from "@/components/table/orders-table";
 
-import { env } from "@/lib/env";
-import { cookies } from "next/headers";
 import type { SearchParams } from "next/dist/server/request/search-params";
 import { db } from "@/lib/clients/db";
 
@@ -23,7 +21,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
 
   const orders = await db.query.orders.findMany({
     limit: 50,
-    orderBy: (orders, { desc }) => [desc(orders.createdAt)],
+    orderBy: { createdAt: "desc" },
     where: q
       ? {
           OR: [

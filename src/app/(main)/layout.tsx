@@ -9,14 +9,12 @@ import { eq } from "drizzle-orm";
 import { getUserOrSignout } from "@/lib/core/auth/get-user-or-signout";
 
 export default async function MainLayout({ children }: { children: React.ReactNode }) {
-  const user = await getUserOrSignout();
-
   return (
     <div className="flex bg-zinc-50">
       <NavBar />
       <div className="w-full overflow-y-scroll">
         {/* TODO: Remove this and implement a proper header */}
-        <Header user={user} />
+        <Header />
         <main className="w-full px-4 pt-6 md:px-8 mb-24">{children}</main>
       </div>
     </div>

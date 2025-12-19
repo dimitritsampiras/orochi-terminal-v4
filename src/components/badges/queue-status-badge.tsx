@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 function QueueStatusBadge({ queued, className }: { queued: boolean; className?: string }) {
   const colorMap: Record<string, string> = {
     queued: "bg-lime-50 text-black",
-    unqueued: "bg-zinc-50 text-zinc-600",
+    unqueued: "bg-zinc-100 text-zinc-600",
   };
   return (
     <Badge

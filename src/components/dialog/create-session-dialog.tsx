@@ -1,3 +1,5 @@
+import { AlertCircleIcon } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -51,32 +53,29 @@ export function CreateSessionDialog({
           </div>
 
           {ordersWithRecentSessions.length > 0 && (
-            <div className="rounded-md bg-amber-50 p-4 border border-amber-200">
-              <p className="mb-2 font-medium text-amber-800 text-sm">
-                Warning: {ordersWithRecentSessions.length} orders have recent activity
-              </p>
-              <p className="mb-3 text-xs text-amber-700">
-                The following orders have had sessions created within the past week. Please verify these orders being in
-                the queue is intentional.
-              </p>
-              <ScrollArea className="h-40 w-full rounded-md border border-amber-200 bg-white">
-                <div className="p-3">
-                  {ordersWithRecentSessions.map((order) => (
-                    <div key={order.id} className="mb-2 flex flex-col gap-1 text-xs last:mb-0">
-                      <Link
-                        className="font-medium text-amber-900 underline underline-offset-2 hover:no-underline"
-                        href={`/orders/${parseGid(order.id)}`}
-                        target="_blank"
-                      >
-                        Order {order.name}
-                      </Link>
-                      <div className="text-amber-700">
-                        Session(s):{" "}
-                        {order.batches?.map((b) => `${b.id} @ ${dayjs(b.createdAt).format("MMMM DD")}`).join(", ")}
-                      </div>
-                    </div>
-                  ))}
+            <div className="p-4 rounded-md bg-white border border-zinc-200">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertCircleIcon size={16} color="oklch(55.5% 0.163 48.998)" />
+                <div className="font-semibold text-sm">
+                  Warning: {ordersWithRecentSessions.length} orders have recent activity
                 </div>
+              </div>
+
+              <ScrollArea className="h-40 w-full">
+                {ordersWithRecentSessions.map((order) => (
+                  <Link
+                    href={`/orders/${parseGid(order.id)}`}
+                    key={order.id}
+                    className="flex items-center justify-between bg-zinc-50 my-2 py-2 px-4 hover:bg-zinc-100 transition-colors cursor-pointer rounded-sm"
+                  >
+                    <div className="text-black text-sm">{order.name}</div>
+                    <div className="text-muted-foreground text-sm">
+                      {order.batches
+                        ?.map((b) => `Session ${b.id} @ ${dayjs(b.createdAt).format("MMMM DD")}`)
+                        .join(", ")}
+                    </div>
+                  </Link>
+                ))}
               </ScrollArea>
             </div>
           )}

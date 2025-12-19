@@ -76,6 +76,7 @@ export const relations = defineRelations(schema, (r) => ({
     shipments: r.many.shipments(),
   },
   products: {
+    productVariants: r.many.productVariants(),
     lineItems: r.many.lineItems(),
     prints: r.many.prints(),
     blankVariants: r.many.blankVariants({
@@ -89,6 +90,10 @@ export const relations = defineRelations(schema, (r) => ({
   },
   productVariants: {
     lineItems: r.many.lineItems(),
+    product: r.one.products({
+      from: r.productVariants.productId,
+      to: r.products.id,
+    }),
   },
   orderHolds: {
     order: r.one.orders({

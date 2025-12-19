@@ -1,0 +1,139 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useProgress } from "@bprogress/next";
+import { Icon } from "@iconify/react";
+import Image from "next/image";
+import dayjs from "dayjs";
+
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { OrderCompletionStatusBadge } from "@/components/badges/order-completion-status-badge";
+import { FulfillmentStatusBadge } from "@/components/badges/fulfillment-status-badge";
+import { CountryFlag } from "@/components/country-flag";
+import { cn, isOrderComplete } from "@/lib/utils";
+import { parseGid } from "@/lib/utils";
+import { lineItems, orders, shipments } from "@drizzle/schema";
+import { Badge } from "../ui/badge";
+
+type Order = typeof orders.$inferSelect & {
+  shipments: (typeof shipments.$inferSelect)[];
+  lineItems: (typeof lineItems.$inferSelect)[];
+  isInShippingDoc: boolean;
+};
+
+interface SessionOrdersTableProps {
+  orders: Order[];
+  sessionId?: number | string;
+}
+
+export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProps) {
+  const router = useRouter();
+  const { start } = useProgress();
+
+  const handleRowClick = (orderId: string) => {
+    start();
+    router.push(`/orders/${parseGid(orderId)}`, {
+      // Note: Next.js router.push doesn't support state like Svelte's goto
+      // You may need to use query params or context if you need to pass state
+    });
+  };
+
+  const renderShipmentsCell = (order: Order) => {
+    if (order.shipments.length === 0) {
+      return <div className="font-light text-gray-400">No shipments</div>;
+    }
+
+    // Check if all shipments are refunded
+    if (order.shipments.every((s) => s.isRefunded)) {
+      return <div className="text-red-500">Refunded</div>;
+    }
+
+    // Check if all shipments have missing label slips
+    if (order.shipments.every((s) => s.labelSlipPath === null)) {
+      return <div className="text-amber-500">Label slip missing [regenerate]</div>;
+    }
+
+    // Get the last non-refunded shipment for carrier info
+    const activeShipments = order.shipments.filter((s) => !s.isRefunded);
+    const lastActiveShipment = activeShipments[activeShipments.length - 1];
+
+    return (
+      <div className="flex w-fit items-center gap-2">
+        {lastActiveShipment?.chosenCarrierName && (
+          <Image
+            src={`https://shippo-static.s3.amazonaws.com/${lastActiveShipment.chosenCarrierName.toLowerCase()}.png`}
+            alt={lastActiveShipment.chosenCarrierName}
+            width={16}
+            height={16}
+            className="h-4 w-4"
+            onError={(e) => {
+              // Hide image if it fails to load
+              e.currentTarget.style.display = "none";
+            }}
+          />
+        )}
+        {order.shipments.some((s) => s.isPurchased) && <Icon icon="ph:file-text" className="h-4 w-4" />}
+        <div className="font-medium">{order.shipments.length} shipment(s)</div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="overflow-clip rounded-md border bg-white">
+      <Table className="w-full">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Order</TableHead>
+            <TableHead>Date</TableHead>
+            <TableHead>Customer</TableHead>
+            <TableHead>Destination</TableHead>
+            <TableHead>Shipments</TableHead>
+            <TableHead>In Latest Doc</TableHead>
+            <TableHead>Completed Status</TableHead>
+            <TableHead>Fulfillment Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {orders.length > 0 ? (
+            orders.map((order, index) => (
+              <TableRow
+                key={order.id}
+                className={cn("hover:cursor-pointer hover:bg-gray-100", index % 2 === 0 && "bg-gray-50")}
+                onClick={() => handleRowClick(order.id)}
+              >
+                <TableCell className="font-semibold">{order.name}</TableCell>
+                <TableCell className="text-gray-500">{dayjs(order.createdAt).format("MMM D, YYYY")}</TableCell>
+                <TableCell>{order.displayCustomerName}</TableCell>
+                <TableCell>
+                  <CountryFlag
+                    countryName={order.displayDestinationCountryName}
+                    countryCode={order.displayDestinationCountryCode || ""}
+                  />
+                </TableCell>
+                <TableCell className="flex w-fit items-center gap-2">{renderShipmentsCell(order)}</TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="flex items-center gap-1 pl-1 pr-2">
+                    {order.isInShippingDoc && <div className="ml-1 h-2 w-2 rounded-full bg-indigo-500" />}
+                    {order.isInShippingDoc ? "In Merged Doc" : "No"}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <OrderCompletionStatusBadge status={isOrderComplete(order.lineItems)} />
+                </TableCell>
+                <TableCell>
+                  <FulfillmentStatusBadge status={order.displayFulfillmentStatus} />
+                </TableCell>
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={7} className="text-center">
+                <p className="text-sm text-muted-foreground py-4">No orders found</p>
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}

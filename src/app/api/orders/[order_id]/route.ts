@@ -1,116 +1,74 @@
-import { db } from '@/lib/clients/db';
-import { createClient } from '@/lib/clients/supabase-server';
-import { type NextRequest, NextResponse } from 'next/server';
-import { orders, ordersProducts, products, users } from '../../../../../drizzle/schema';
-import { and, eq, inArray } from 'drizzle-orm';
-import { editOrderSchema } from '@/lib/schemas/orders-schema';
+import { db } from "@/lib/clients/db";
+import { createClient } from "@/lib/clients/supabase-server";
+import { type NextRequest, NextResponse } from "next/server";
+import { orders, products, profiles, userRole } from "../../../../../drizzle/schema";
+import { and, eq, inArray } from "drizzle-orm";
+import { editOrderSchema } from "@/lib/schemas/order-schema";
+import { logger } from "@/lib/core/logger";
+import { buildResourceGid } from "@/lib/utils";
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ order_id: string }> }
-) {
-  const supabase = await createClient();
-  const {
-    data: { user: authUser }
-  } = await supabase.auth.getUser();
+// TODO: edit these roles god damn
+const authorizedRoles: (typeof userRole.enumValues)[number][] = ["superadmin", "admin", "warehouse", "va"];
 
-  if (!authUser) {
-    return NextResponse.json({ data: null, error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const [user] = await db.select().from(users).where(eq(users.id, authUser.id));
-
-  if (!user) {
-    return NextResponse.json({ data: null, error: 'User not found' }, { status: 404 });
-  }
-
-  if (!['super_admin', 'admin'].includes(user.role) || user.active === false) {
-    return NextResponse.json({ data: null, error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const { order_id } = await params;
-
-  const rawBody = await req.json();
-  const { success, data: body } = editOrderSchema.safeParse(rawBody);
-
-  if (!success) {
-    return NextResponse.json({ data: null, error: 'Invalid request body' }, { status: 400 });
-  }
-
-  const [order] = await db.select().from(orders).where(eq(orders.id, order_id));
-
-  if (!order) {
-    return NextResponse.json({ data: null, error: 'Order not found' }, { status: 404 });
-  }
-
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ order_id: string }> }) {
   try {
-    const updateData: Partial<typeof orders.$inferInsert> = {};
+    const supabase = await createClient();
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
 
-    if (body.assignedTo !== undefined) updateData.assignedTo = body.assignedTo;
-    if (body.paid !== undefined) updateData.paid = body.paid;
-    if (body.paymentMethod !== undefined) updateData.paymentMethod = body.paymentMethod;
-    if (body.deliveryType !== undefined) updateData.deliveryType = body.deliveryType;
-    if (body.status !== undefined) updateData.status = body.status;
-    if (body.bookingDate !== undefined) updateData.bookingDate = body.bookingDate;
-
-    if (Object.keys(updateData).length > 0) {
-      await db.update(orders).set(updateData).where(eq(orders.id, order_id));
+    if (!authUser) {
+      return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
     }
 
-    if (body.removedProducts && body.removedProducts.length > 0) {
-      const productIdsToRemove = body.removedProducts.map((id) => id);
+    const user = await db.query.profiles.findFirst({
+      where: { id: authUser.id },
+    });
 
-      await db
-        .delete(ordersProducts)
-        .where(
-          and(
-            eq(ordersProducts.orderId, order_id),
-            inArray(ordersProducts.productId, productIdsToRemove)
-          )
-        );
+    if (user === undefined || !authorizedRoles.includes(user.role)) {
+      return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
     }
 
-    if (body.addedProducts && body.addedProducts.length > 0) {
-      const existingProducts = await db
-        .select({ id: products.id })
-        .from(products)
-        .where(inArray(products.id, body.addedProducts));
+    const awaitedParams = await params;
 
-      if (existingProducts.length !== body.addedProducts.length) {
-        return NextResponse.json(
-          { data: null, error: 'One or more products not found' },
-          { status: 400 }
-        );
-      }
+    const orderId = buildResourceGid("Order", awaitedParams.order_id);
 
-      const existingOrderProducts = await db
-        .select({ productId: ordersProducts.productId })
-        .from(ordersProducts)
-        .where(
-          and(
-            eq(ordersProducts.orderId, order_id),
-            inArray(ordersProducts.productId, body.addedProducts)
-          )
-        );
+    const rawBody = await req.json();
 
-      const newProductIds = body.addedProducts.filter(
-        (id) => !existingOrderProducts.some((op) => op.productId === id)
-      );
+    const { queued, fulfillmentPriority, shippingPriority } = editOrderSchema.parse(rawBody);
 
-      if (newProductIds.length > 0) {
-        await db.insert(ordersProducts).values(
-          newProductIds.map((productId) => ({
-            orderId: order_id,
-            productId: productId,
-            qty: 1
-          }))
-        );
-      }
+    let updatePayload: Partial<typeof orders.$inferInsert> = {};
+    let logMessage = "";
+
+    if (queued !== undefined) {
+      updatePayload.queued = queued;
+      logMessage = `Order ${queued ? "queued" : "unqueued"} by ${user.username}`;
     }
 
-    return NextResponse.json({ data: 'success', error: null });
+    if (fulfillmentPriority !== undefined) {
+      updatePayload.fulfillmentPriority = fulfillmentPriority;
+      logMessage = `Fulfillment priority updated to ${fulfillmentPriority} by ${user.username}`;
+    }
+
+    if (shippingPriority !== undefined) {
+      updatePayload.shippingPriority = shippingPriority;
+      logMessage = `Shipping priority updated to ${shippingPriority} by ${user.username}`;
+    }
+
+    await db.update(orders).set(updatePayload).where(eq(orders.id, orderId));
+
+    // Smart Logging: If we determined a semantic action occurred, log it
+    if (logMessage) {
+      // Fire and forget logging (don't await if you want faster response, or await for safety)
+      await logger.info(logMessage, {
+        orderId: orderId,
+        profileId: user.id,
+      });
+    }
+
+    return NextResponse.json({ data: "success", error: null });
   } catch (error) {
-    console.error('Error updating order:', error);
-    return NextResponse.json({ data: null, error: 'Failed to update order' }, { status: 500 });
+    console.error("Error updating order:", error);
+    return NextResponse.json({ data: null, error: "Failed to update order" }, { status: 500 });
   }
 }

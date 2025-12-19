@@ -23,8 +23,6 @@ export default function DashboardPage() {
         </div>
         <ArrowRightIcon className="size-4 text-zinc-400" />
       </Link>
-
-      <Button>Testing 123</Button>
     </div>
   );
 }

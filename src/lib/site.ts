@@ -15,7 +15,7 @@ export const SITE = {
     {
       path: "/products",
       name: "Products",
-      icon: "ph:user-list",
+      icon: "ph:tag",
     },
     {
       path: "/inventory",

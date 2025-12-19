@@ -8,12 +8,12 @@ import { shipments } from "@drizzle/schema";
 import { eq } from "drizzle-orm";
 
 export const purchaseShippoRateAndUpdateDatabase = async (
-  shipmentId: string,
+  databaseShipmentUUID: string,
   orderId?: string
 ): Promise<DataResponse<Transaction>> => {
   const shipment = await db.query.shipments.findFirst({
     where: {
-      shipmentId,
+      id: databaseShipmentUUID,
       api: "SHIPPO",
     },
     with: {
@@ -22,7 +22,7 @@ export const purchaseShippoRateAndUpdateDatabase = async (
   });
 
   if (!shipment) {
-    logger.error(`[purchase shippo shipment] ShipmentId ${shipmentId} not found in database`, {
+    logger.error(`[purchase shippo shipment] ShipmentId ${databaseShipmentUUID} not found in database`, {
       category: "SHIPPING",
       orderId,
     });
@@ -31,7 +31,7 @@ export const purchaseShippoRateAndUpdateDatabase = async (
 
   // this should never really happen, but just in case
   if (!shipment.order) {
-    logger.error(`[purchase shippo shipment] Order not found when querying database shipment ${shipmentId}`, {
+    logger.error(`[purchase shippo shipment] Order not found when querying database shipment`, {
       category: "SHIPPING",
       orderId,
     });
@@ -39,17 +39,25 @@ export const purchaseShippoRateAndUpdateDatabase = async (
   }
 
   if (shipment.isPurchased) {
-    logger.info(`[purchase shippo shipment] Shipment ${shipmentId} already purchased`, {
+    logger.info(`[purchase shippo shipment] Shipment already purchased`, {
       category: "SHIPPING",
       orderId,
     });
     return { data: null, error: "Shipment already purchased" };
   }
 
+  if (shipment.isRefunded) {
+    logger.info(`[purchase shippo shipment] Shipment already refunded`, {
+      category: "SHIPPING",
+      orderId,
+    });
+    return { data: null, error: "Shipment already refunded" };
+  }
+
   try {
     const shippoShipment = await shippo.shipments.get(shipment.shipmentId);
     if (!shippoShipment) {
-      logger.error(`[purchase shippo shipment] ShipmentId ${shipmentId} not found in Shippo`, {
+      logger.error(`[purchase shippo shipment] ShipmentId ${databaseShipmentUUID} not found in Shippo`, {
         category: "SHIPPING",
         orderId,
       });
@@ -60,7 +68,7 @@ export const purchaseShippoRateAndUpdateDatabase = async (
 
     if (!rate) {
       logger.error(
-        `[purchase shippo shipment] RateId ${shipment.chosenRateId} not found for shipmentId ${shipmentId}`,
+        `[purchase shippo shipment] RateId ${shipment.chosenRateId} not found for shipmentId ${databaseShipmentUUID}`,
         {
           category: "SHIPPING",
           orderId,
@@ -92,7 +100,7 @@ export const purchaseShippoRateAndUpdateDatabase = async (
           isPurchased: true,
           shippoTransactionId: transaction.objectId,
         })
-        .where(eq(shipments.shipmentId, shipmentId));
+        .where(eq(shipments.id, databaseShipmentUUID));
 
       return { data: transaction, error: null };
     }

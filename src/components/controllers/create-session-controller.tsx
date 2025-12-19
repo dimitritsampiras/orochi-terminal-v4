@@ -10,6 +10,7 @@ import dayjs from "dayjs";
 import { blanks, blankVariants } from "@drizzle/schema";
 import { FilterProductsFromQueueDialog } from "../dialog/filter-products-from-queue";
 import { Badge } from "../ui/badge";
+import { Icon } from "@iconify/react";
 
 type CreateSessionControllerProps = {
   queue: OrderQueue;
@@ -110,10 +111,18 @@ export const CreateSessionController = ({ queue, blankVariants }: CreateSessionC
               <div className="text-sm text-muted-foreground">orders</div>
             </div>
           </div>
+          {filteredVariantIds.size > 0 && (
+            <div className="h-9 flex items-center justify-center text-sm font-medium">
+              {slicedOrders.length} filtered orders
+            </div>
+          )}
           <div className="h-9 flex items-center justify-center text-sm font-medium">{lineItemCount} line items</div>
         </div>
         <div className="flex items-center justify-center gap-4">
-          <FilterProductsFromQueueDialog onApply={(ids) => setFilteredVariantIds(new Set(ids))} />
+          <FilterProductsFromQueueDialog
+            initialSelection={filteredVariantIds} // Pass the state here
+            onApply={(ids) => setFilteredVariantIds(new Set(ids))}
+          />
           <CreateSessionDialog
             className="sm:w-auto w-full"
             numberOfOrders={orderQuantity}
@@ -124,7 +133,17 @@ export const CreateSessionController = ({ queue, blankVariants }: CreateSessionC
       </div>
       {filteredVariantIds.size > 0 && (
         <div className="mb-4">
-          <Badge variant="outline">Filtered by {filteredVariantIds.size} variants</Badge>
+          <Badge variant="outline" className="px-1 py-1 h-fit flex gap-1 items-center">
+            <Button
+              onClick={() => setFilteredVariantIds(new Set())}
+              variant="ghost"
+              size="icon-sm"
+              className="rounded-full hover:bg-zinc-200!"
+            >
+              <Icon icon="ph:x-bold" className="size-3" />
+            </Button>
+            <span className="text-xs pr-2">Filtered by {filteredVariantIds.size} variants</span>
+          </Badge>
         </div>
       )}
       <OrdersTable orders={slicedOrders} />

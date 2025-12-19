@@ -12,9 +12,10 @@ class Logger {
     const { message, orderId, profileId, category, type, metadata } = entry;
 
     try {
-      if (env.SUPPRESS_LOGGING) {
-        return;
-      }
+      // if (env.SUPPRESS_LOGGING) {
+      //   console.log("SUPPRESS_LOGGING is true", message);
+      //   return;
+      // }
 
       await db.insert(logs).values({
         category,
