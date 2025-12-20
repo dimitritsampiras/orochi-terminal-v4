@@ -1,19 +1,54 @@
-import { productQuery } from "@/lib/graphql/product.graphql";
+"use client";
+
+import { Expand } from "lucide-react";
 import { ProductQuery } from "@/lib/types/admin.generated";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTrigger } from "../ui/dialog";
+import { Button } from "../ui/button";
+import { DialogTitle } from "@radix-ui/react-dialog";
+import { cn } from "@/lib/utils";
 
 type Product = NonNullable<ProductQuery["product"]>;
 
+const MediaImage = ({
+  src,
+  alt,
+  className,
+  style,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+  style?: React.CSSProperties;
+}) => {
+  return (
+    <Dialog>
+      <div className="relative group">
+        <img src={src} alt={alt} className={cn("border shadow-sm rounded-md", className)} style={style} />
+        <DialogTrigger asChild>
+          <Button variant="outline" size="icon" className="absolute top-2 right-2 size-7">
+            <Expand className="size-3 text-zinc-500" />
+          </Button>
+        </DialogTrigger>
+      </div>
+      <DialogContent className="max-w-4xl p-2">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Product Media</DialogTitle>
+        </DialogHeader>
+        <img src={src} alt={alt} className="w-full h-auto rounded-md" />
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 export const ProductMediaGrid = ({ media, product }: { media: any[]; product: Product }) => {
+  const featuredImageUrl = product.featuredMedia?.preview?.image?.url;
+
   return (
     <div className="grid grid-cols-6 gap-3">
       <div className="col-span-2 row-span-2">
-        <img
-          className="border shadow-sm rounded-md"
-          style={{ aspectRatio: "3/4" }}
-          src={product.featuredMedia?.preview?.image?.url}
-          alt={product.title}
-        />
+        {featuredImageUrl && (
+          <MediaImage src={featuredImageUrl} alt={product.title} style={{ aspectRatio: "3/4" }} />
+        )}
       </div>
       {media &&
         media.length > 0 &&
@@ -30,13 +65,12 @@ export const ProductMediaGrid = ({ media, product }: { media: any[]; product: Pr
             if (!url) return null;
 
             return (
-              <div key={node.id} className="relative w-full">
-                <img
-                  src={url}
-                  alt={node.alt || "Product media"}
-                  className="h-full w-full object-cover border shadow-sm rounded-md col-span-1 row-span-1"
-                />
-              </div>
+              <MediaImage
+                key={node.id}
+                src={url}
+                alt={node.alt || "Product media"}
+                className="h-full w-full object-cover"
+              />
             );
           })}
     </div>

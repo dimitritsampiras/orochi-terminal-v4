@@ -3,7 +3,9 @@ import { ProductStatusBadge } from "@/components/badges/product-status-badge";
 
 import { ProductMediaGrid } from "@/components/cards/product-media";
 import { ProductVariants } from "@/components/cards/product-variants";
+import { PrintInfoCard } from "@/components/cards/print-info";
 import { SyncBlankToProduct } from "@/components/cards/sync-blank-to-product";
+import { BackButton } from "@/components/nav/back-button";
 
 import { db } from "@/lib/clients/db";
 import shopify from "@/lib/clients/shopify";
@@ -54,7 +56,10 @@ export default async function ProductPage({ params }: { params: Promise<{ produc
 
   return (
     <div>
-      <h1 className="page-title">Product {product.title}</h1>
+      <div className="flex items-center gap-3">
+        <BackButton href="/products" />
+        <h1 className="page-title">{product.title}</h1>
+      </div>
       <div className="flex items-center gap-2 mt-3">
         <IdCopyBadge id={product.id} />
         <div className="flex items-center gap-2 text-xs">
@@ -78,13 +83,11 @@ export default async function ProductPage({ params }: { params: Promise<{ produc
             blank={databaseProduct?.blank}
             prints={databaseProduct?.prints || []}
           />
-          {/* <ShippingInfo orderId={order.id} orderShipmentData={shipmentData} /> */}
-          {/* <OrderLogs logs={logs || []} className="sm:block hidden" /> */}
+          
         </div>
         <div className="flex flex-col gap-4 sm:mt-0 mt-4">
           <SyncBlankToProduct product={databaseProduct} blank={databaseProduct.blank} />
-
-          {/* <OrderLogs logs={logs || []} className="sm:hidden block" /> */}
+          <PrintInfoCard productId={databaseProduct.id} prints={databaseProduct.prints || []} />
         </div>
       </div>
     </div>

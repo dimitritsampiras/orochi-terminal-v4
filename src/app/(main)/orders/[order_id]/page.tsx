@@ -21,6 +21,7 @@ import { buildResourceGid, isOrderComplete } from "@/lib/utils";
 import { Icon } from "@iconify/react";
 import dayjs from "dayjs";
 import Link from "next/link";
+import { BackButton } from "@/components/nav/back-button";
 
 export default async function OrderPage({ params }: { params: Promise<{ order_id: string }> }) {
   const { order_id } = await params;
@@ -61,7 +62,10 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
 
   return (
     <div>
-      <h1 className="page-title">Order {order.name}</h1>
+      <div className="flex items-center gap-3">
+        <BackButton href="/orders" />
+        <h1 className="page-title">Order {order.name}</h1>
+      </div>
       <div className="flex items-center gap-2 mt-3">
         <IdCopyBadge id={order.id} />
         <div className="flex items-center gap-2 text-xs">

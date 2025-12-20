@@ -7,6 +7,7 @@ import { Icon } from "@iconify/react";
 import dayjs from "dayjs";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
+import { BackButton } from "@/components/nav/back-button";
 
 export default async function BlankInventoryPage({ params }: { params: Promise<{ blank_id: string }> }) {
   await getUserOrSignout();
@@ -28,9 +29,12 @@ export default async function BlankInventoryPage({ params }: { params: Promise<{
 
   return (
     <div>
-      <h1 className="page-title capitalize">
-        {blank.blankCompany} {blank.blankName}
-      </h1>
+      <div className="flex items-center gap-3">
+        <BackButton href="/inventory" />
+        <h1 className="page-title capitalize">
+          {blank.blankCompany} {blank.blankName}
+        </h1>
+      </div>
       <div className="flex items-center gap-2 mt-2">
         <IdCopyBadge id={blank.id} />
         <div className="flex items-center gap-2 text-xs text-muted-foreground">

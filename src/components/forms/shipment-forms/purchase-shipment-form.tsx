@@ -19,7 +19,7 @@ export const PurchaseShipmentForm = ({
 
   return (
     <Button variant="outline" onClick={() => trigger()} loading={isLoading}>
-      Purchase Shipment
+      Purchase
     </Button>
   );
 };

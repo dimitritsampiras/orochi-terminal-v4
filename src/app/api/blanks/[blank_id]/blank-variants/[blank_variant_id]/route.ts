@@ -5,6 +5,7 @@ import { updateBlankVariantSchema } from "@/lib/schemas/product-schema";
 import { blankVariants } from "@drizzle/schema";
 import { and, eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
+import { DeleteBlankVariantResponse } from "@/lib/types/api";
 
 export async function PATCH(
   req: NextRequest,
@@ -62,5 +63,33 @@ export async function PATCH(
   } catch (error) {
     console.error("Error updating blank variant:", error);
     return NextResponse.json({ data: null, error: "Failed to update blank variant" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ blank_id: string; blank_variant_id: string }> }
+): Promise<NextResponse<DeleteBlankVariantResponse>> {  
+  try {
+    const user = await authorizeUser();
+
+    if (!user) {
+      return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { blank_variant_id, blank_id } = await params;
+
+    await db
+      .delete(blankVariants)
+      .where(and(eq(blankVariants.id, blank_variant_id), eq(blankVariants.blankId, blank_id)));
+
+    await logger.info(`Blank Variant ${blank_variant_id} deleted by ${user.username}`, {
+      profileId: user.id,
+    });
+
+    return NextResponse.json({ data: "success", error: null });
+  } catch (error) {
+    console.error("Error deleting blank variant:", error);
+    return NextResponse.json({ data: null, error: "Failed to delete blank variant" }, { status: 500 });
   }
 }

@@ -26,3 +26,55 @@ export const syncBlankSchema = z.object({
 });
 
 export type SyncBlankSchema = z.infer<typeof syncBlankSchema>;
+
+export const createBlankVariantSchema = z.object({
+  color: z.string().min(1),
+  size: z.enum(["xs", "sm", "md", "lg", "xl", "2xl", "3xl", "4xl", "5xl", "os"]),
+  weight: z.number().min(0),
+  volume: z.number().min(0),
+  quantity: z.number().int().min(0).optional().default(0),
+});
+
+export type CreateBlankVariantSchema = z.infer<typeof createBlankVariantSchema>;
+
+export const updateBlankSchema = z.object({
+  blankCompany: z.string().min(1).optional(),
+  blankName: z.string().min(1).optional(),
+  garmentType: z
+    .enum([
+      "coat",
+      "jacket",
+      "hoodie",
+      "crewneck",
+      "longsleeve",
+      "tee",
+      "shorts",
+      "sweatpants",
+      "headwear",
+      "accessory",
+    ])
+    .optional(),
+  customsPrice: z.number().min(0).optional(),
+  hsCode: z.string().nullable().optional(),
+});
+
+export type UpdateBlankSchema = z.infer<typeof updateBlankSchema>;
+
+// Print schemas
+const printLocationEnum = z.enum(["front", "back", "left_sleeve", "right_sleeve", "other"]);
+
+export const createPrintSchema = z.object({
+  location: printLocationEnum,
+  heatTransferCode: z.string().nullable().optional(),
+  isSmallPrint: z.boolean().optional().default(false),
+});
+
+export type CreatePrintSchema = z.infer<typeof createPrintSchema>;
+
+export const updatePrintSchema = z.object({
+  location: printLocationEnum.optional(),
+  heatTransferCode: z.string().nullable().optional(),
+  isSmallPrint: z.boolean().optional(),
+});
+
+export type UpdatePrintSchema = z.infer<typeof updatePrintSchema>;

@@ -68,6 +68,37 @@ export function BlanksInventoryTable({ blanks }: { blanks: Blank[] }) {
   );
 }
 
+/**
+ * For a given color, determines which sizes are "expected" (within the min-max range).
+ * Returns a set of sizes that should exist for this color.
+ */
+function getExpectedSizesForColor(
+  variants: (typeof blankVariants.$inferSelect)[],
+  color: string
+): Set<GarmentSize> {
+  const colorVariants = variants.filter((v) => v.color === color);
+  const presentIndices = colorVariants
+    .map((v) => SIZES.indexOf(v.size))
+    .filter((i) => i !== -1)
+    .sort((a, b) => a - b);
+
+  if (presentIndices.length < 2) {
+    // Only one size present, no range to check
+    return new Set(colorVariants.map((v) => v.size));
+  }
+
+  const minIdx = presentIndices[0];
+  const maxIdx = presentIndices[presentIndices.length - 1];
+
+  // All sizes between min and max are "expected"
+  const expected = new Set<GarmentSize>();
+  for (let i = minIdx; i <= maxIdx; i++) {
+    expected.add(SIZES[i]);
+  }
+
+  return expected;
+}
+
 function BlankInventoryCard({ blank }: { blank: Blank }) {
   // Create a lookup map: "color@size" -> variant
   const variantMap = useMemo(() => {
@@ -84,6 +115,15 @@ function BlankInventoryCard({ blank }: { blank: Blank }) {
     const colorSet = new Set(blank.blankVariants.map((v) => v.color));
     return Array.from(colorSet).sort((a, b) => a.localeCompare(b));
   }, [blank.blankVariants]);
+
+  // Precompute expected sizes for each color
+  const expectedSizesMap = useMemo(() => {
+    const map = new Map<string, Set<GarmentSize>>();
+    for (const color of colors) {
+      map.set(color, getExpectedSizesForColor(blank.blankVariants, color));
+    }
+    return map;
+  }, [blank.blankVariants, colors]);
 
   return (
     <Card>
@@ -111,44 +151,55 @@ function BlankInventoryCard({ blank }: { blank: Blank }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {colors.map((color) => (
-              <TableRow key={color}>
-                <TableCell className="font-medium">{color}</TableCell>
-                {SIZES.map((size) => {
-                  const key = `${color}@${size}`;
-                  const variant = variantMap.get(key);
+            {colors.map((color) => {
+              const expectedSizes = expectedSizesMap.get(color) || new Set();
 
-                  return (
-                    <TableCell key={size}>
-                      <div className="flex items-center justify-end h-full w-full">
-                        {variant ? (
-                          <UpdateBlankQuantityForm
-                            blankId={blank.id}
-                            blankVariantId={variant.id}
-                            currentQuantity={variant.quantity}
-                          />
-                        ) : (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="h-8 bg-amber-50 text-amber-600 cursor-help rounded-md w-16 flex items-center justify-center">
-                                  <Icon icon="ph:warning" />
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="text-center text-xs">
-                                  Missing variant: {color} / {size.toUpperCase()}
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                      </div>
-                    </TableCell>
-                  );
-                })}
-              </TableRow>
-            ))}
+              return (
+                <TableRow key={color}>
+                  <TableCell className="font-medium">{color}</TableCell>
+                  {SIZES.map((size) => {
+                    const key = `${color}@${size}`;
+                    const variant = variantMap.get(key);
+                    const isExpected = expectedSizes.has(size);
+
+                    return (
+                      <TableCell key={size}>
+                        <div className="flex items-center justify-end h-full w-full">
+                          {variant ? (
+                            <UpdateBlankQuantityForm
+                              blankId={blank.id}
+                              blankVariantId={variant.id}
+                              currentQuantity={variant.quantity}
+                            />
+                          ) : isExpected ? (
+                            // Missing variant within expected range - show warning
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="h-8 bg-amber-50 text-amber-600 cursor-help rounded-md w-16 flex items-center justify-center">
+                                    <Icon icon="ph:warning" />
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="text-center text-xs">
+                                    Missing variant: {color} / {size.toUpperCase()}
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : (
+                            // Size outside expected range - just show minus
+                            <div className="h-8 text-zinc-300 rounded-md w-16 flex items-center justify-center">
+                              <Icon icon="ph:minus" />
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              );
+            })}
             {colors.length === 0 && (
               <TableRow>
                 <TableCell colSpan={SIZES.length + 1} className="text-center text-muted-foreground">
