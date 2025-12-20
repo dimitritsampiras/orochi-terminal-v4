@@ -67,6 +67,7 @@ export const relations = defineRelations(schema, (r) => ({
       alias: "orders_id_profiles_id_via_logs",
     }),
     orderHolds: r.many.orderHolds(),
+    orderNotes: r.many.orderNotes(),
     profilesViaOrderNotes: r.many.profiles({
       from: r.orders.id.through(r.orderNotes.orderId),
       to: r.profiles.id.through(r.orderNotes.profileId),
@@ -74,6 +75,16 @@ export const relations = defineRelations(schema, (r) => ({
     }),
     batches: r.many.batches(),
     shipments: r.many.shipments(),
+  },
+  orderNotes: {
+    order: r.one.orders({
+      from: r.orderNotes.orderId,
+      to: r.orders.id,
+    }),
+    profile: r.one.profiles({
+      from: r.orderNotes.profileId,
+      to: r.profiles.id,
+    }),
   },
   products: {
     productVariants: r.many.productVariants(),

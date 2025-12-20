@@ -10,15 +10,15 @@ export const editOrderSchema = z.object({
 export type EditOrderSchema = z.infer<typeof editOrderSchema>;
 
 export const editLineItemSchema = z.object({
-  completionStatus: z.enum([
-    "not_printed",
-    "partially_printed",
-    "printed",
-    "in_stock",
-    "oos_blank",
-    "skipped",
-    "ignore",
-  ]).optional(),
+  completionStatus: z
+    .enum(["not_printed", "partially_printed", "printed", "in_stock", "oos_blank", "skipped", "ignore"])
+    .optional(),
 });
 
 export type EditLineItemSchema = z.infer<typeof editLineItemSchema>;
+
+export const purchaseShipmentSchema = z.object({
+  sessionId: z.string().optional(),
+});
+
+export type PurchaseShipmentSchema = z.infer<typeof purchaseShipmentSchema>;

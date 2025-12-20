@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useFetcher } from "@/lib/hooks/use-fetcher";
+import { PurchaseShipmentSchema } from "@/lib/schemas/order-schema";
 import { parseGid } from "@/lib/utils";
 
 export const PurchaseShipmentForm = ({
@@ -11,7 +12,7 @@ export const PurchaseShipmentForm = ({
   databaseShipmentUUID: string;
   orderId: string;
 }) => {
-  const { isLoading, trigger } = useFetcher({
+  const { isLoading, trigger } = useFetcher<PurchaseShipmentSchema>({
     path: `/api/orders/${parseGid(orderId)}/shipments/${databaseShipmentUUID}/purchase`,
     method: "POST",
     successMessage: "Shipment purchased successfully",

@@ -6,6 +6,10 @@ import { logger } from "../logger";
 import { WeightUnit } from "@/lib/types/admin.types";
 import { HS_CODE_LOOKUP } from "./shipping-utils";
 import { DataResponse } from "@/lib/types/misc";
+import { GeneralParcel } from "./parcel-schema";
+
+// Re-export from parcel-schema for convenience
+export { generalParcelSchema, type GeneralParcel } from "./parcel-schema";
 
 // TODO: figure out how to accomodate user selecting additional product to add to parcel
 
@@ -23,24 +27,6 @@ const PARCEL_TEMPLATE_FALLBACK = {
 
 type Order = Extract<NonNullable<OrderQuery["node"]>, { __typename: "Order" }>;
 type OrderLineItem = Order["lineItems"]["nodes"][number] & { orderId: string };
-
-export interface GeneralParcel {
-  totalWeight: number;
-  totalValue: number;
-  totalVolume: number;
-  parcelTemplate: Omit<typeof parcelTemplates.$inferSelect, "id">;
-  items: {
-    weight: number;
-    volume: number;
-    value: number;
-    quantity: number;
-    customsDescription: string;
-    hsCode: string;
-    sku: string;
-    lineItemId: string;
-    itemName: string;
-  }[];
-}
 
 export const createParcelFromOrder = async (order: Order): Promise<DataResponse<GeneralParcel>> => {
   // doing this so i can log item issues as part of the order later

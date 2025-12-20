@@ -43,6 +43,7 @@ export const POST = async (
       category: "SHIPPING",
       orderId: order.node.id,
     });
+
     return NextResponse.json({ data: null, error: error || "Unknown error" }, { status: 500 });
   }
 

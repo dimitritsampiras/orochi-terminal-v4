@@ -3,18 +3,22 @@
 import { Icon } from "@iconify/react";
 import { Badge } from "../ui/badge";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
-export const IdCopyBadge = ({ id }: { id: string }) => {
+export const IdCopyBadge = ({ id, iconOnly = false }: { id: string; iconOnly?: boolean }) => {
   return (
     <Badge
       variant="outline"
-      className="hover:bg-zinc-100 bg-white cursor-pointer text-[10px] text-muted-foreground transition-colors"
+      className={cn(
+        "hover:bg-zinc-100 bg-white cursor-pointer text-[10px] text-muted-foreground transition-colors",
+        iconOnly && "p-1!"
+      )}
       onClick={() => {
         navigator.clipboard.writeText(id);
-        toast.success("Copied to clipboard");
+        toast.success("ID Copied to clipboard");
       }}
     >
-      ID: {id}
+      {iconOnly === false && `ID: ${id}`}
       <Icon icon="ph:copy" />
     </Badge>
   );

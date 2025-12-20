@@ -11,6 +11,7 @@ interface OrderLogsProps {
   className?: string;
 }
 
+// create a better timeline that consolodates logs within the same time frame
 export function OrderLogs({ logs, className }: OrderLogsProps) {
   return (
     <Card className={className}>

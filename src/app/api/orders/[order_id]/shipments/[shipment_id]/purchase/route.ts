@@ -3,6 +3,7 @@ import { authorizeUser } from "@/lib/core/auth/authorize-user";
 import { createAndStoreShippingDocs } from "@/lib/core/shipping/create-and-store-shipping-docs";
 import { purchaseEasypostRateAndUpdateDatabase } from "@/lib/core/shipping/easypost/purchase-easypost-rate";
 import { purchaseShippoRateAndUpdateDatabase } from "@/lib/core/shipping/shippo/purchase-shippo-rate";
+import { purchaseShipmentSchema } from "@/lib/schemas/order-schema";
 import { PurchaseShipmentResponse } from "@/lib/types/api";
 import { buildResourceGid } from "@/lib/utils";
 import { NextResponse } from "next/server";
@@ -19,6 +20,9 @@ export async function POST(
 
   const { order_id: unparsedOrderId, shipment_id: databaseShipmentUUID } = await params;
 
+  const body = await request.json().catch(() => ({}));
+  const { sessionId } = purchaseShipmentSchema.parse(body);
+  
   const orderId = buildResourceGid("Order", unparsedOrderId);
 
   const shipment = await db.query.shipments.findFirst({
@@ -40,8 +44,8 @@ export async function POST(
   if (shipment.api === "SHIPPO") {
     const { data, error } = await purchaseShippoRateAndUpdateDatabase(databaseShipmentUUID, orderId);
 
-    if (data && data.trackingUrlProvider) {
-      await createAndStoreShippingDocs(shipment, orderId, data.trackingUrlProvider);
+    if (data && data.labelUrl) {
+      await createAndStoreShippingDocs(shipment, orderId, data.labelUrl, sessionId);
       return NextResponse.json({ data: "success", error: null });
     }
 
@@ -52,7 +56,7 @@ export async function POST(
     const { data, error } = await purchaseEasypostRateAndUpdateDatabase(databaseShipmentUUID, orderId);
 
     if (data && data.postage_label.label_url) {
-      await createAndStoreShippingDocs(shipment, orderId, data.postage_label.label_url);
+      await createAndStoreShippingDocs(shipment, orderId, data.postage_label.label_url, sessionId);
       return NextResponse.json({ data: "success", error: null });
     }
 

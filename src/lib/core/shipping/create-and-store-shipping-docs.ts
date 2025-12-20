@@ -13,7 +13,8 @@ type Shipment = typeof shipments.$inferSelect;
 export const createAndStoreShippingDocs = async (
   shipment: Shipment,
   orderId: string,
-  shippingLabelURL: string
+  shippingLabelURL: string,
+  sessionId?: string
 ): Promise<DataResponse<"success">> => {
   const { data: orderData, errors: orderErrors } = await shopify.request(orderQuery, {
     variables: { id: orderId },
@@ -33,9 +34,11 @@ export const createAndStoreShippingDocs = async (
       generatePackingSlip(order, shipment, {
         lineItemIds: shipment.lineItemIds || undefined,
         shippingLabelURL,
+        sessionId,
       }),
       generatePackingSlip(order, shipment, {
         lineItemIds: shipment.lineItemIds || undefined,
+        sessionId,
       }),
     ]);
 

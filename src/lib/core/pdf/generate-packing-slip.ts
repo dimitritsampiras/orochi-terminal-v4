@@ -2,7 +2,7 @@ import { OrderQuery } from "@/lib/types/admin.generated";
 import { DataResponse } from "@/lib/types/misc";
 import { shipments } from "@drizzle/schema";
 import dayjs from "dayjs";
-import PDFDocument from "pdfkit";
+import { PDFDocument, StandardFonts, rgb, degrees } from "pdf-lib";
 
 type Order = Extract<NonNullable<OrderQuery["node"]>, { __typename: "Order" }>;
 type Shipment = typeof shipments.$inferSelect;
@@ -10,7 +10,6 @@ type Shipment = typeof shipments.$inferSelect;
 type Options = {
   sessionId?: string;
   shippingLabelURL?: string;
-  // only include these line items on the packing slip
   lineItemIds?: string[];
 };
 
@@ -29,24 +28,30 @@ export const generatePackingSlip = async (
   const titleSpacing = 1.5;
   const lineHeight = 15;
   const infoColumnWidth = 215;
+  const fontSize = 12;
 
-  // Create a PDF document
+  // Letter size: 612 x 792 points
+  const pageWidth = 612;
+  const pageHeight = 792;
 
-  const doc = new PDFDocument({
-    margins: {
-      top: marginY,
-      bottom: marginY,
-      left: marginX,
-      right: marginX,
-    },
-  });
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([pageWidth, pageHeight]);
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-  doc.text(`PROJECT OROCHI`);
-  doc.text(`Order number ${order.name}`);
-  doc.moveDown(2);
+  // Helper to convert PDFKit Y (top-down) to pdf-lib Y (bottom-up)
+  const toY = (pdfKitY: number) => pageHeight - pdfKitY;
 
-  const infoY = doc.y;
+  // Track current Y position (in PDFKit coordinates - top-down)
+  let currentY = marginY;
 
+  // Title
+  page.drawText("PROJECT OROCHI", { x: marginX, y: toY(currentY + fontSize), size: fontSize, font });
+  currentY += lineHeight;
+
+  page.drawText(`Order number ${order.name}`, { x: marginX, y: toY(currentY + fontSize), size: fontSize, font });
+  currentY += lineHeight * 2; // moveDown(2)
+
+  const infoY = currentY;
   const contentY = infoY + lineHeight * titleSpacing;
   let multiplier = 1;
 
@@ -58,82 +63,145 @@ export const generatePackingSlip = async (
     shippingAddress: { address1, address2, city, provinceCode, zip, country },
   } = order;
 
-  doc.text("SHIPPING INFO", marginX, infoY);
-  doc.text(address1 || "", marginX, contentY);
+  // SHIPPING INFO column
+  page.drawText("SHIPPING INFO", { x: marginX, y: toY(infoY + fontSize), size: fontSize, font });
+  page.drawText(address1 || "", { x: marginX, y: toY(contentY + fontSize), size: fontSize, font });
 
-  address2 && doc.text(address2, marginX, contentY + lineHeight * multiplier++);
+  if (address2) {
+    page.drawText(address2, {
+      x: marginX,
+      y: toY(contentY + lineHeight * multiplier + fontSize),
+      size: fontSize,
+      font,
+    });
+    multiplier++;
+  }
 
-  doc.text(`${city || ""}, ${provinceCode || ""}, ${zip || ""}`, marginX, contentY + lineHeight * multiplier++);
+  page.drawText(`${city || ""}, ${provinceCode || ""}, ${zip || ""}`, {
+    x: marginX,
+    y: toY(contentY + lineHeight * multiplier + fontSize),
+    size: fontSize,
+    font,
+  });
+  multiplier++;
 
-  doc.text(country || "", marginX, contentY + lineHeight * multiplier++);
+  page.drawText(country || "", {
+    x: marginX,
+    y: toY(contentY + lineHeight * multiplier + fontSize),
+    size: fontSize,
+    font,
+  });
 
+  // ORDER INFO column
   multiplier = 1;
-  doc.text("ORDER INFO", marginX + infoColumnWidth, infoY);
-  doc.text(`Order Placed: ${dayjs(order.createdAt).format("MMM DD, YYYY")}`, marginX + infoColumnWidth, contentY);
+  page.drawText("ORDER INFO", { x: marginX + infoColumnWidth, y: toY(infoY + fontSize), size: fontSize, font });
+  page.drawText(`Order Placed: ${dayjs(order.createdAt).format("MMM DD, YYYY")}`, {
+    x: marginX + infoColumnWidth,
+    y: toY(contentY + fontSize),
+    size: fontSize,
+    font,
+  });
+
+  let orderInfoOffset = 1;
+
   if (sessionId) {
-    doc.text(`Batch: ${sessionId}`, marginX + infoColumnWidth, contentY + lineHeight);
+    page.drawText(`Batch: ${sessionId}`, {
+      x: marginX + infoColumnWidth,
+      y: toY(contentY + lineHeight * orderInfoOffset + fontSize),
+      size: fontSize,
+      font,
+    });
+    orderInfoOffset++;
   }
 
-  // render carrier
   if (shipment.chosenCarrierName) {
-    doc.text(
-      `Shipping Provider: ${shipment.chosenCarrierName?.toUpperCase()}`,
-      marginX + infoColumnWidth,
-      contentY + lineHeight * 2
-    );
+    page.drawText(`Shipping Provider: ${shipment.chosenCarrierName?.toUpperCase()}`, {
+      x: marginX + infoColumnWidth,
+      y: toY(contentY + lineHeight * orderInfoOffset + fontSize),
+      size: fontSize,
+      font,
+    });
   }
 
-  // Add more content as needed based on the shipment data
+  // Horizontal line
+  multiplier = 4; // was multiplier += 3, starting from 1
+  const lineY = toY(contentY + lineHeight * multiplier);
+  page.drawLine({
+    start: { x: marginX, y: lineY },
+    end: { x: marginX + (pageWidth - marginX * 2), y: lineY },
+    thickness: 1,
+    color: rgb(0, 0, 0),
+  });
 
-  // line
-  doc
-    .moveTo(marginX, contentY + lineHeight * (multiplier += 3))
-    .lineTo(marginX + (doc.page.width - marginX * 2), contentY + lineHeight * multiplier)
-    .stroke();
+  // ITEMS section
+  multiplier += 2;
+  let itemsY = contentY + lineHeight * multiplier;
 
-  // reset y and x
-  doc.y = contentY + lineHeight * (multiplier += 2);
-  doc.x = marginX;
+  page.drawText("ITEMS", { x: marginX, y: toY(itemsY + fontSize), size: fontSize, font });
+  itemsY += lineHeight;
 
-  doc.text("ITEMS");
-  doc.y += lineHeight;
   for (const item of lineItems) {
     const { name, quantity } = item;
-    doc.text(`${name} x${quantity}`);
-    doc.y += lineHeight * 0.5;
+    page.drawText(`${name} x${quantity}`, { x: marginX, y: toY(itemsY + fontSize), size: fontSize, font });
+    itemsY += lineHeight * 1.5;
   }
 
+  // Shipping label image (the critical part)
   if (shippingLabelURL) {
     const response = await fetch(shippingLabelURL);
     if (!response.ok) {
       return { data: null, error: "Failed to fetch shipping label" };
     }
     const arrayBuffer = await response.arrayBuffer();
-    const imageBuffer = Buffer.from(arrayBuffer);
+    const imageBytes = new Uint8Array(arrayBuffer);
 
-    const imageX = inchesToPoint(8.5 - 6 - 0.125);
-    const imageY = inchesToPoint(11 - 0.25 - 4);
-    const imageWidth = inchesToPoint(4);
-    const imageHeight = inchesToPoint(6);
+    // Determine image type and embed
+    let image;
+    try {
+      image = await pdfDoc.embedPng(imageBytes);
+    } catch {
+      try {
+        image = await pdfDoc.embedJpg(imageBytes);
+      } catch {
+        return { data: null, error: "Unsupported image format for shipping label" };
+      }
+    }
 
-    doc.rotate(90, { origin: [imageX, imageY] });
+    // Original PDFKit positioning (matching exactly):
+    // imageX = inchesToPoint(8.5 - 6 - 0.125) = inchesToPoint(2.375)
+    // imageY = inchesToPoint(11 - 0.25 - 4) = inchesToPoint(6.75)
+    // imageWidth = inchesToPoint(4)
+    // imageHeight = inchesToPoint(6)
+    // Then rotate 90° around (imageX, imageY) and draw at (imageX, inchesToPoint(0.725))
 
-    doc.image(imageBuffer, imageX, inchesToPoint(0.85 - 0.125), {
-      fit: [imageWidth, imageHeight],
+    const imageX = inchesToPoint(2.375); // 171pt
+    const imageWidth = inchesToPoint(4); // 288pt - becomes vertical extent after rotation
+    const imageHeight = inchesToPoint(6); // 432pt - becomes horizontal extent after rotation
+
+    // After 90° rotation around origin point, the image placement changes
+    // The original draws at Y = inchesToPoint(0.85 - 0.125) = inchesToPoint(0.725) ≈ 52.2pt from top
+    // In pdf-lib coordinates (bottom-up), we need to calculate the final position
+
+    // For the rotated label on integrated shipping paper:
+    // The label needs to land in the bottom-right portion of the page
+    // Original: rotated 90° CW, fitting in 4" wide x 6" tall area
+
+    const labelX = pageWidth - inchesToPoint(0.125); // 594pt (right edge minus margin)
+    const labelY = inchesToPoint(0.25); // 18pt (bottom margin)
+
+    page.drawImage(image, {
+      x: labelX,
+      y: labelY,
+      width: imageWidth,
+      height: imageHeight,
+      rotate: degrees(90),
     });
   }
 
-  // Convert the PDF to a buffer
-  const pdfBuffer = await new Promise<Buffer>((resolve) => {
-    const chunks: Uint8Array[] = [];
-    doc.on("data", (chunk) => chunks.push(chunk));
-    doc.on("end", () => resolve(Buffer.concat(chunks)));
-    doc.end();
-  });
-
-  return { data: pdfBuffer, error: null };
+  const pdfBytes = await pdfDoc.save();
+  return { data: Buffer.from(pdfBytes), error: null };
 };
 
 const inchesToPoint = (inches: number) => {
-  return inches * (792.0 / 11);
+  return inches * 72;
 };

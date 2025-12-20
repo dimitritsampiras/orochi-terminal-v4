@@ -5,6 +5,7 @@ import { QueueStatusBadge } from "@/components/badges/queue-status-badge";
 import { CustomerCard } from "@/components/cards/customer-card";
 import { OrderLineItems } from "@/components/cards/order-line-items";
 import { OrderLogs } from "@/components/cards/order-logs";
+import { OrderNotesCard } from "@/components/cards/order-notes";
 import { ShippingInfo } from "@/components/cards/shipping-info";
 import { CountryFlag } from "@/components/country-flag";
 import { QueueOrderForm } from "@/components/forms/order-forms/queue-order-form";
@@ -14,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 
 import { db } from "@/lib/clients/db";
 import shopify from "@/lib/clients/shopify";
+import { createClient } from "@/lib/clients/supabase-server";
 import { retrieveShipmentDataFromOrder } from "@/lib/core/shipping/retrieve-shipments-from-order";
 
 import { orderQuery } from "@/lib/graphql/order.graphql";
@@ -28,7 +30,12 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
 
   const gid = buildResourceGid("Order", order_id);
 
-  const [shopifyOrder, databaseOrder, logs] = await Promise.all([
+  const supabase = await createClient();
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser();
+
+  const [shopifyOrder, databaseOrder, logs, currentUserProfile] = await Promise.all([
     shopify.request(orderQuery, {
       variables: {
         id: gid,
@@ -44,12 +51,31 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
           },
         },
         shipments: true,
+        orderNotes: {
+          with: {
+            profile: {
+              columns: {
+                id: true,
+                username: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
       },
     }),
     db.query.logs.findMany({
       where: { orderId: gid },
       orderBy: { createdAt: "desc" },
     }),
+    authUser
+      ? db.query.profiles.findFirst({
+          where: { id: authUser.id },
+          columns: { username: true },
+        })
+      : null,
   ]);
 
   if (shopifyOrder.data?.node?.__typename !== "Order" || !databaseOrder) {
@@ -121,7 +147,7 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
             shopifyLineItems={order.lineItems.nodes}
             databaseLineItems={databaseOrder.lineItems}
           />
-          <ShippingInfo orderId={order.id} orderShipmentData={shipmentData} /> {/* Pass shipments here */}
+          <ShippingInfo orderId={order.id} orderShipmentData={shipmentData} lineItems={order.lineItems.nodes} />
           <OrderLogs logs={logs || []} className="sm:block hidden" />
         </div>
         <div className="flex flex-col gap-4 sm:mt-0 mt-4">
@@ -140,6 +166,12 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
           {order.customer && (
             <CustomerCard customer={order.customer} shippingAddress={order.shippingAddress ?? undefined} />
           )}
+          <OrderNotesCard
+            orderId={order.id}
+            shopifyNote={order.note}
+            databaseNotes={databaseOrder.orderNotes}
+            currentUsername={currentUserProfile?.username || ""}
+          />
           <OrderLogs logs={logs || []} className="sm:hidden block" />
         </div>
       </div>

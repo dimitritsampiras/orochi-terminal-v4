@@ -103,8 +103,13 @@ function LineItemRow({
         </div>
 
         {/* Right: Actions & Status */}
-        <div className="flex items-center gap-3">
-          {dbItem.markedAsPackaged && <div className="h-2.5 w-2.5 rounded-full bg-red-600" />}
+        <div className="flex items-center gap-2">
+          {dbItem.markedAsPackaged && (
+            <Badge variant="outline">
+              <div className="h-1.5 w-1.5 rounded-full bg-rose-600" />
+              packaged
+            </Badge>
+          )}
 
           <LineItemStatusBadge status={dbItem.completionStatus} />
 

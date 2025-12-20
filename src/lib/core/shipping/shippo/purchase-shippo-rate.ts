@@ -79,6 +79,8 @@ export const purchaseShippoRateAndUpdateDatabase = async (
 
     const transaction = await shippo.transactions.create({
       rate: rate.objectId,
+      labelFileType: "PNG",
+      async: false,
     });
 
     if (transaction.status === "ERROR") {
