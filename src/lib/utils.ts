@@ -113,5 +113,32 @@ export const getProductDetailsForARXP = (
   return { baseName, color, size, path };
 };
 
+export const getCarrierImage = (carrierName: string) => {
+  const baseUrl = "https://assets.easyship.com/app/courier-logos/";
 
+  const carriers: { [key: string]: string } = {
+    asendia: "asendia-mini.svg",
+    globalpost: "globalpost-mini.svg",
+    aramex: "aramex-mini.svg",
+    orangeds: "orangeds-mini.svg",
+    usps: "usps-mini.svg",
+    ups: "ups-mini.svg",
+    upsdap: "ups-mini.svg",
+    dhl: "dhl-mini.svg",
+    shypmax: "shypmax-mini.svg",
+    skypostal: "skypostal-mini.svg",
+    sfexpress: "sfexpress-mini.svg",
+    sendle: "sendle-mini.svg",
+    bringer: "bringer-mini.svg",
+    apc: "apc-mini.svg",
+    apg: "apg-mini.svg",
+    fedex: "fedex-mini.svg",
+    fedexdefault: "fedex-mini.svg",
+  };
 
+  for (const carrier in carriers) {
+    if (carrierName.toLowerCase().includes(carrier)) {
+      return `${baseUrl}${carriers[carrier]}`;
+    }
+  }
+};

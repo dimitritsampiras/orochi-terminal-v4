@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ZodSchema } from "zod";
 
-interface UseFetcherOptions<T> {
+interface UseFetcherOptions<T, K = unknown> {
   path: string;
   method: "POST" | "PUT" | "PATCH" | "DELETE";
   successMessage?: string;
   errorMessage?: string;
-  onSuccess?: () => void;
-  showToast?: boolean
+  onSuccess?: (data: K) => void;
+  showToast?: boolean;
 }
 
 interface TriggerOptions {
@@ -19,14 +19,14 @@ interface TriggerOptions {
   errorMessage?: string;
 }
 
-export function useFetcher<T>({
+export function useFetcher<T, K = unknown>({
   path,
   method,
   successMessage = "Operation successful",
   errorMessage = "Operation failed",
   showToast = true,
   onSuccess,
-}: UseFetcherOptions<T>) {
+}: UseFetcherOptions<T, K>) {
   const router = useRouter();
   // Manage fetch loading state
   const [isFetching, setIsFetching] = useState(false);
@@ -50,15 +50,18 @@ export function useFetcher<T>({
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
-        console.error("API Error:", error);
-        throw new Error(error.message || finalErrorMessage);
+        console.log("API Error:", error);
+        toast.error(error.message || finalErrorMessage);
+        return;
       }
+
+      const data = (await response.json()) as K;
 
       if (showToast) {
         toast.success(finalSuccessMessage);
       }
 
-      onSuccess?.();
+      onSuccess?.(data);
 
       // Refresh the route and mark transaction as finished
       startTransition(() => {

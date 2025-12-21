@@ -40,7 +40,7 @@ export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProp
 
   const renderShipmentsCell = (order: Order) => {
     if (order.shipments.length === 0) {
-      return <div className="font-light text-gray-400">No shipments</div>;
+      return <div className="font-light text-zinc-400">No shipments</div>;
     }
 
     // Check if all shipments are refunded
@@ -102,7 +102,7 @@ export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProp
                 onClick={() => handleRowClick(order.id)}
               >
                 <TableCell className="font-semibold">{order.name}</TableCell>
-                <TableCell className="text-gray-500">{dayjs(order.createdAt).format("MMM D, YYYY")}</TableCell>
+                <TableCell className="text-zinc-500">{dayjs(order.createdAt).format("MMM D, YYYY")}</TableCell>
                 <TableCell>{order.displayCustomerName}</TableCell>
                 <TableCell>
                   <CountryFlag
@@ -112,9 +112,12 @@ export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProp
                 </TableCell>
                 <TableCell className="flex w-fit items-center gap-2">{renderShipmentsCell(order)}</TableCell>
                 <TableCell>
-                  <Badge variant="outline" className="flex items-center gap-1 pl-1 pr-2">
+                  <Badge
+                    variant="outline"
+                    className={cn("flex items-center gap-1", order.isInShippingDoc ? "pl-1" : 'text-muted-foreground')}
+                  >
                     {order.isInShippingDoc && <div className="ml-1 h-2 w-2 rounded-full bg-indigo-500" />}
-                    {order.isInShippingDoc ? "In Merged Doc" : "No"}
+                    {order.isInShippingDoc ? "In Merged Doc" : "Not in Merged Doc "}
                   </Badge>
                 </TableCell>
                 <TableCell>

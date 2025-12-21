@@ -62,11 +62,13 @@ export type UpdateBlankSchema = z.infer<typeof updateBlankSchema>;
 
 // Print schemas
 const printLocationEnum = z.enum(["front", "back", "left_sleeve", "right_sleeve", "other"]);
+const pretreatEnum = z.enum(["light", "dark"]);
 
 export const createPrintSchema = z.object({
   location: printLocationEnum,
   heatTransferCode: z.string().nullable().optional(),
   isSmallPrint: z.boolean().optional().default(false),
+  pretreat: pretreatEnum.nullable().optional(),
 });
 
 export type CreatePrintSchema = z.infer<typeof createPrintSchema>;
@@ -75,6 +77,7 @@ export const updatePrintSchema = z.object({
   location: printLocationEnum.optional(),
   heatTransferCode: z.string().nullable().optional(),
   isSmallPrint: z.boolean().optional(),
+  pretreat: pretreatEnum.nullable().optional(),
 });
 
 export type UpdatePrintSchema = z.infer<typeof updatePrintSchema>;

@@ -72,13 +72,15 @@ export const retrieveShipmentDataFromOrder = async (
     .map(async (orderShipment): Promise<EasyPostShipmentData | null> => {
       return easypost.Shipment.retrieve(orderShipment.shipmentId)
         .then(async (easypostShipment) => {
+          // Convert EasyPost class instance to plain object (removes _params, prototype, etc.)
+          const plainShipment = JSON.parse(JSON.stringify(easypostShipment)) as typeof easypostShipment;
           const easypostData: EasyPostShipmentData = {
             ...orderShipment,
             api: "EASYPOST",
             easypostInfo: {
-              chosenRate: easypostShipment.rates.find((rate) => rate.id === orderShipment.chosenRateId) || null,
+              chosenRate: plainShipment.rates.find((rate) => rate.id === orderShipment.chosenRateId) || null,
               issues: [],
-              ...easypostShipment,
+              ...plainShipment,
             },
           };
           return easypostData;

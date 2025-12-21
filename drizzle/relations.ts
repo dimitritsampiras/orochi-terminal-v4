@@ -105,6 +105,10 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.productVariants.productId,
       to: r.products.id,
     }),
+    blankVariant: r.one.blankVariants({
+      from: r.productVariants.blankVariantId,
+      to: r.blankVariants.id,
+    }),
   },
   orderHolds: {
     order: r.one.orders({

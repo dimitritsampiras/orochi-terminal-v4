@@ -1,9 +1,21 @@
 "use client";
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { SessionOrdersTable } from "@/components/table/session-orders-table";
-import { orders, lineItems, shipments } from "@drizzle/schema";
+import { orders, lineItems, shipments, batchDocuments } from "@drizzle/schema";
+import { SessionDocumentsTable } from "../table/session-documents-table";
+import { Icon } from "@iconify/react";
+import { buttonVariants } from "../ui/button";
 
 type Order = typeof orders.$inferSelect & {
   shipments: (typeof shipments.$inferSelect)[];
@@ -13,10 +25,11 @@ type Order = typeof orders.$inferSelect & {
 
 interface SessionControllerProps {
   orders: Order[];
+  batchDocuments: (typeof batchDocuments.$inferSelect)[];
   sessionId?: number | string;
 }
 
-export function SessionController({ orders, sessionId }: SessionControllerProps) {
+export function SessionController({ orders, sessionId, batchDocuments }: SessionControllerProps) {
   const [searchTerm, setSearchTerm] = useState("");
 
   const filteredOrders = useMemo(() => {
@@ -44,7 +57,22 @@ export function SessionController({ orders, sessionId }: SessionControllerProps)
           onChange={(e) => setSearchTerm(e.target.value)}
           className="h-10 w-56 bg-white"
         />
+        <DropdownMenu>
+          <DropdownMenuTrigger className={buttonVariants({ variant: "default" })}>
+            Generate Documents
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem>Merged Packing Slips</DropdownMenuItem>
+            <DropdownMenuItem>Billing</DropdownMenuItem>
+            <DropdownMenuItem>Team</DropdownMenuItem>
+            <DropdownMenuItem>Subscription</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+
+      {batchDocuments && batchDocuments.length > 0 && (
+        <SessionDocumentsTable documents={batchDocuments} className="mb-8" />
+      )}
 
       <div className="mb-32 mt-4">
         <SessionOrdersTable orders={filteredOrders} sessionId={sessionId} />

@@ -38,7 +38,7 @@ export async function PATCH(
 
     const rawBody = await req.json();
 
-    const { completionStatus } = editLineItemSchema.parse(rawBody);
+    const { completionStatus, markedAsPackaged } = editLineItemSchema.parse(rawBody);
 
     const lineItemUpdatePayload: Partial<typeof lineItems.$inferInsert> = {};
 
@@ -47,6 +47,11 @@ export async function PATCH(
     if (completionStatus) {
       lineItemUpdatePayload.completionStatus = completionStatus;
       logMessage = `Line item marked as '${completionStatus.replaceAll("_", " ")}' by ${user.username}`;
+    }
+
+    if (markedAsPackaged !== undefined) {
+      lineItemUpdatePayload.markedAsPackaged = markedAsPackaged;
+      logMessage = `Line item ${markedAsPackaged ? "marked" : "unmarked"} as packaged by ${user.username}`;
     }
 
     await db

@@ -1,5 +1,6 @@
 import { SessionController } from "@/components/controllers/session-controller";
 import { BackButton } from "@/components/nav/back-button";
+import { SessionDocumentsTable } from "@/components/table/session-documents-table";
 import { SessionOrdersTable } from "@/components/table/session-orders-table";
 import { db } from "@/lib/clients/db";
 
@@ -42,13 +43,22 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
       </div>
       <SessionController
         orders={
-          session?.orders.map((order) => ({
-            ...order,
-            // placeholder for now
-            isInShippingDoc: true,
-          })) || []
+          session?.orders.map((order) => {
+            const isInLatestMergedPackingSlip = session?.batchDocuments.some(
+              (document) =>
+                document.documentType === "merged_label_slips" &&
+                document.batchId === session?.id &&
+                document.mergedPdfOrderIds?.includes(order.id)
+            );
+            return {
+              ...order,
+              // placeholder for now
+              isInShippingDoc: isInLatestMergedPackingSlip,
+            };
+          }) || []
         }
         sessionId={session?.id}
+        batchDocuments={session?.batchDocuments || []}
       />
     </div>
   );

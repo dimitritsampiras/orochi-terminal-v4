@@ -1,6 +1,8 @@
 import { blanks, blankVariants, prints, products, productVariants, shipments } from "@drizzle/schema";
 import { getOrderQueue } from "../core/orders/get-order-queue";
 import { DataResponse } from "./misc";
+import { NormalizedShipmentRate } from "./shipping.types";
+import { GeneralParcel } from "../core/shipping/parcel-schema";
 
 export type QueueResponse = DataResponse<Awaited<ReturnType<typeof getOrderQueue>>>;
 
@@ -20,7 +22,6 @@ export type GetBlanksResponse = DataResponse<
   })[]
 >;
 
-
 export type SyncBlankResponse = DataResponse<"success" | null>;
 
 export type DeleteBlankVariantResponse = DataResponse<"success" | null>;
@@ -33,3 +34,9 @@ export type UpdateBlankResponse = DataResponse<typeof blanks.$inferSelect | null
 export type CreatePrintResponse = DataResponse<typeof prints.$inferSelect | null>;
 export type UpdatePrintResponse = DataResponse<typeof prints.$inferSelect | null>;
 export type DeletePrintResponse = DataResponse<"success" | null>;
+
+export type GetRateResponse = DataResponse<{
+  rate: NormalizedShipmentRate;
+  parcel: GeneralParcel;
+  otherRates: NormalizedShipmentRate[];
+} | null>;

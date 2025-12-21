@@ -2,29 +2,18 @@ import { OrderQuery } from "@/lib/types/admin.generated";
 import { createShippoShipment } from "./shippo/create-shippo-shipment";
 import { createParcelFromOrder, GeneralParcel } from "./create-parcel-from-order";
 import { logger } from "../logger";
-import { ShippingOptions } from "@/lib/types/shipping.types";
+import { NormalizedShipmentRate, ShippingOptions } from "@/lib/types/shipping.types";
 import { db } from "@/lib/clients/db";
 import { DataResponse } from "@/lib/types/misc";
 import { Shipment as EasyPostShipment } from "@easypost/api";
 import { Shipment, Shipment as ShippoShipment } from "shippo";
 import { shipmentApi, shipments, shippingPriority } from "@drizzle/schema";
 import { createEasypostShipment } from "./easypost/create-easypost-shipment";
+import { GetRateResponse } from "@/lib/types/api";
+import { getCarrierImage } from "@/lib/utils";
 
 // TODO: add extra product ids to shipment
 type Order = Extract<NonNullable<OrderQuery["node"]>, { __typename: "Order" }>;
-
-type GetRateResponse = DataResponse<{ rate: NormalizedShipmentRate; parcel: GeneralParcel } | null>;
-
-type NormalizedShipmentRate = {
-  cost: number;
-  rateId: string;
-  api: (typeof shipmentApi.enumValues)[number];
-  shipmentId: string;
-  eta: number | undefined;
-  carrierName: string;
-  serviceName: string | undefined;
-  serviceToken: string | undefined;
-};
 
 /**
  *
@@ -57,6 +46,9 @@ export const getRateForOrder = async (order: Order, options?: ShippingOptions): 
   if (!parcel) {
     return { data: null, error: parcelError };
   }
+
+  console.log('parcel', parcel);
+  
 
   const databaseOrder = await db.query.orders.findFirst({
     where: { id: order.id },
@@ -101,6 +93,19 @@ export const getRateForOrder = async (order: Order, options?: ShippingOptions): 
 
   let rate: NormalizedShipmentRate | null = null;
 
+  if (options?.targetRateId) {
+    const targetRate = rates.find((r) => r.rateId === options.targetRateId);
+    if (targetRate) {
+      return { data: { rate: targetRate, parcel, otherRates: rates }, error: null };
+    }
+    logger.warn("[get rate for order] Target rate not found", {
+      category: "SHIPPING",
+      orderId: order.id,
+    });
+
+    return { data: null, error: "Target rate not found" };
+  }
+
   switch (databaseOrder.shippingPriority) {
     case "standard":
       rate = determineCheapestRate(rates);
@@ -132,7 +137,7 @@ export const getRateForOrder = async (order: Order, options?: ShippingOptions): 
     return { data: null, error: "No rate found for shipping priority" };
   }
 
-  return { data: { rate, parcel }, error: null };
+  return { data: { rate, parcel, otherRates: rates }, error: null };
 };
 
 /**
@@ -254,6 +259,7 @@ const standardizeShipmentRates = ({
     carrierName: rate.provider,
     serviceName: rate.servicelevel.name,
     serviceToken: rate.servicelevel.token,
+    carrierLogo: rate.providerImage200,
   }));
 
   const normalizedEasypostRates = easypostShipment.rates.map<NormalizedShipmentRate>((rate) => ({
@@ -265,6 +271,7 @@ const standardizeShipmentRates = ({
     carrierName: rate.carrier,
     serviceName: rate.service,
     serviceToken: `ep-${rate.service.toLowerCase().replace(" ", "-")}`,
+    carrierLogo: getCarrierImage(rate.carrier),
   }));
 
   return [...normalizedShippoRates, ...normalizedEasypostRates];

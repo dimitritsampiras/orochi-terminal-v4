@@ -10,13 +10,13 @@ export function FSConnectedBadge({ status, className }: { status: boolean; class
   const styles = colorMap[status ? "active" : "inactive"];
 
   return (
-    <Badge variant="secondary" className={cn(styles.background, "flex items-center gap-2", className)}>
+    <Badge variant="secondary" className={cn(styles.background, "flex items-center gap-2 sm:py-1 py-2", className)}>
       <div className="flex items-center gap-2">
         <div className={cn(styles.icon, "size-1.5 rounded-full", status && "animate-pulse")} />
-        <div className={cn(styles.text, "capitalize")}>{status ? "Connected To File System" : "Not Connected To File System"}</div>
+        <div className={cn(styles.text, "capitalize sm:block hidden")}>
+          {status ? "Connected To File System" : "Not Connected To File System"}
+        </div>
       </div>
     </Badge>
   );
 }
-
-

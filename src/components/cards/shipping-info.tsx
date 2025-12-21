@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 
-import { cn } from "@/lib/utils";
+import { cn, getCarrierImage } from "@/lib/utils";
 import { shipmentApi } from "@drizzle/schema";
 import { Icon } from "@iconify/react";
 import Link from "next/link";
@@ -15,6 +15,7 @@ import { generalParcelSchema } from "@/lib/core/shipping/parcel-schema";
 import { OrderQuery } from "@/lib/types/admin.generated";
 import dayjs from "dayjs";
 import { AutoCreateShipmentForm } from "../forms/shipment-forms/auto-create-shipment-form";
+import { CreateCustomShipmentForm } from "../forms/shipment-forms/create-custom-shipment-form";
 import Image from "next/image";
 import { PurchaseShipmentForm } from "../forms/shipment-forms/purchase-shipment-form";
 import { DeleteShipmentForm } from "../forms/shipment-forms/delete-shipment-form";
@@ -130,7 +131,7 @@ function normalizeShipmentData(shipment: OrderShipmentData): NormalizedShipmentD
       createdAt: shipment.createdAt,
       isPurchased: shipment.isPurchased,
       isRefunded: shipment.isRefunded ?? false,
-      carrierLogo: null,
+      carrierLogo: getCarrierImage(rate.carrier) ?? null,
       carrierName: rate.carrier,
       serviceName: rate.service,
       amount: rate.rate,
@@ -169,9 +170,7 @@ export function ShippingInfo({ orderId, orderShipmentData, lineItems = [] }: Shi
           <CardTitle>Shipping Info</CardTitle>
           <div className="flex items-center gap-2">
             <AutoCreateShipmentForm orderId={orderId} />
-            <Button variant="outline" className="bg-white!" size="icon">
-              <Icon icon="ph:plus" />
-            </Button>
+            <CreateCustomShipmentForm orderId={orderId} lineItems={lineItems} />
           </div>
         </div>
       </CardHeader>
@@ -284,7 +283,7 @@ const ShipmentCard = ({ shipment, lineItems }: { shipment: NormalizedShipmentDis
             )}
           </div>
           {!shipment.isRefunded ? (
-            <div className="mt-2 flex items-center justify-between">
+            <div className="mt-4 flex items-center justify-between">
               <div className="flex items-center">
                 <RefundShipmentForm shipmentId={shipment.id} orderId={shipment.orderId} />
               </div>
@@ -351,7 +350,7 @@ const ShipmentCard = ({ shipment, lineItems }: { shipment: NormalizedShipmentDis
               </div>
             </div>
           ) : (
-            <Alert variant="default" className="text-red-600 mt-2">
+            <Alert variant="default" className="text-red-600 mt-4">
               <Icon icon="ph:info" />
               <AlertTitle>Shipment is refunded</AlertTitle>
               <AlertDescription>This shipment was refunded</AlertDescription>
@@ -540,10 +539,10 @@ const ShipmentDetailsSheet = ({
   );
 };
 
-export const ShippingAPI = ({ api }: { api: (typeof shipmentApi)["enumValues"][number] }) => {
+export const ShippingAPI = ({ api, className }: { api: (typeof shipmentApi)["enumValues"][number]; className?: string }) => {
   const styles: Record<(typeof shipmentApi.enumValues)[number], string> = {
     SHIPPO: "text-green-700",
     EASYPOST: "text-blue-700",
   };
-  return <div className={cn(styles[api], "font-semibold uppercase text-sm")}>{api}</div>;
+  return <div className={cn(styles[api], "font-semibold uppercase text-sm", className)}>{api}</div>;
 };

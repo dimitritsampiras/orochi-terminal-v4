@@ -1,7 +1,7 @@
 "use client";
 
 import { prints, printLocation } from "@drizzle/schema";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -29,14 +29,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useFetcher } from "@/lib/hooks/use-fetcher";
 import { CreatePrintSchema, UpdatePrintSchema } from "@/lib/schemas/product-schema";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { parseGid, standardizePrintOrder } from "@/lib/utils";
 import { Badge } from "../ui/badge";
 
 type Print = typeof prints.$inferSelect;
 type PrintLocation = (typeof printLocation.enumValues)[number];
 
-const PRINT_LOCATIONS: PrintLocation[] = ["front", "back", "left_sleeve", "right_sleeve", "other"];
+const PRINT_LOCATIONS: PrintLocation[] = ["back", "front", "left_sleeve", "right_sleeve", "other"];
 
 const formatLocation = (location: string) => location.replace(/_/g, " ");
 
@@ -62,6 +62,27 @@ export function PrintInfoCard({ productId, prints }: { productId: string; prints
       <Card>
         <CardHeader>
           <CardTitle>Prints</CardTitle>
+          <CardDescription className="flex items-center justify-between">
+            {standardizePrintOrder(
+              PRINT_LOCATIONS.map((location) => ({
+                id: location,
+                location,
+                heatTransferCode: null,
+                isSmallPrint: null,
+                productId: null,
+                pretreat: null,
+              }))
+            ).map((print, index, array) => (
+              <div key={print.id} className="flex items-center gap-1">
+                <Badge key={print.id} variant="secondary" className="text-[8px] rounded-md px-1">
+                  {print.location.replaceAll("_", " ")}
+                </Badge>
+                {index < array.length - 1 && (
+                  <Icon key={`caret-${print.id}`} icon="ph:caret-right" className="size-3 text-zinc-400" />
+                )}
+              </div>
+            ))}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-2">
@@ -130,17 +151,17 @@ function PrintDialog({
   const [location, setLocation] = useState<PrintLocation | "">(print?.location || "");
   const [heatTransferCode, setHeatTransferCode] = useState(print?.heatTransferCode || "");
   const [isSmallPrint, setIsSmallPrint] = useState(print?.isSmallPrint || false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [pretreat, setPretreat] = useState<"light" | "dark" | null>(print?.pretreat || null);
 
-  // Reset form when dialog opens with different print
-  const handleOpenChange = (isOpen: boolean) => {
-    onOpenChange(isOpen);
-    if (isOpen) {
+  // Sync form values when dialog opens or print changes
+  useEffect(() => {
+    if (open) {
       setLocation(print?.location || "");
       setHeatTransferCode(print?.heatTransferCode || "");
       setIsSmallPrint(print?.isSmallPrint || false);
+      setPretreat(print?.pretreat || null);
     }
-  };
+  }, [open, print]);
 
   const { trigger: createTrigger, isLoading: isCreating } = useFetcher<CreatePrintSchema>({
     path: `/api/products/${numericProductId}/prints`,
@@ -167,7 +188,6 @@ function PrintDialog({
     method: "DELETE",
     successMessage: "Print deleted",
     onSuccess: () => {
-      setDeleteDialogOpen(false);
       onOpenChange(false);
       onSuccess();
     },
@@ -176,10 +196,12 @@ function PrintDialog({
   const handleSubmit = () => {
     if (!location) return;
 
+    const isDTG = !heatTransferCode;
     const data = {
       location,
       heatTransferCode: heatTransferCode || null,
       isSmallPrint: heatTransferCode ? isSmallPrint : false,
+      pretreat: isDTG ? pretreat : null,
     };
 
     if (isEditing) {
@@ -194,7 +216,7 @@ function PrintDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={handleOpenChange}>
+      <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{isEditing ? "Edit Print" : "Add Print"}</DialogTitle>
@@ -222,6 +244,34 @@ function PrintDialog({
               </Select>
             </div>
 
+            {/* Pretreat - Only enabled for DTG (no heat transfer code) */}
+            <div className="grid gap-2">
+              <Label>Pretreat</Label>
+              <div className="flex gap-1">
+                <Button
+                  type="button"
+                  variant={!heatTransferCode && pretreat === "light" ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1"
+                  disabled={!!heatTransferCode}
+                  onClick={() => setPretreat(pretreat === "light" ? null : "light")}
+                >
+                  Light
+                </Button>
+                <Button
+                  type="button"
+                  variant={!heatTransferCode && pretreat === "dark" ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1"
+                  disabled={!!heatTransferCode}
+                  onClick={() => setPretreat(pretreat === "dark" ? null : "dark")}
+                >
+                  Dark
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">Select pretreat type for DTG printing.</p>
+            </div>
+
             {/* Heat Transfer Code */}
             <div className="grid gap-2">
               <Label htmlFor="heatTransferCode">Heat Transfer Code (optional)</Label>
@@ -229,13 +279,17 @@ function PrintDialog({
                 id="heatTransferCode"
                 placeholder="e.g. GM12, GM8"
                 value={heatTransferCode}
-                onChange={(e) => setHeatTransferCode(e.target.value.toUpperCase())}
+                onChange={(e) => {
+                  const value = e.target.value.toUpperCase();
+                  setHeatTransferCode(value);
+                  // Clear pretreat when heat transfer code is entered
+                  if (value) setPretreat(null);
+                }}
               />
               <p className="text-xs text-muted-foreground">Leave empty if DTG printing is required.</p>
             </div>
 
             {/* Small Heat Press */}
-
             <div className="flex items-center space-x-2">
               {heatTransferCode ? (
                 <Checkbox
@@ -254,7 +308,7 @@ function PrintDialog({
 
           <DialogFooter className={isEditing ? "justify-between!" : ""}>
             {isEditing && (
-              <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
+              <Button variant="destructive" onClick={() => deleteTrigger(null)} loading={isDeleting}>
                 Delete
               </Button>
             )}
@@ -269,26 +323,6 @@ function PrintDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Delete Confirmation */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Print</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this print? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction asChild>
-              <Button variant="destructive" onClick={() => deleteTrigger(null)} loading={isDeleting}>
-                Delete
-              </Button>
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 }

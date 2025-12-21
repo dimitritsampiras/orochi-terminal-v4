@@ -14,6 +14,12 @@ const nextConfig: NextConfig = {
         hostname: 'shippo-static.s3.amazonaws.com',
         port: '',
         pathname: '/**'
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.shopify.com',
+        port: '',
+        pathname: '/**'
       }
     ]
   }

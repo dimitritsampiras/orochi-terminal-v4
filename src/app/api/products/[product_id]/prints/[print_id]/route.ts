@@ -27,11 +27,7 @@ export async function PATCH(
       return NextResponse.json({ data: null, error: "No fields to update" }, { status: 400 });
     }
 
-    const [updatedPrint] = await db
-      .update(prints)
-      .set(updateData)
-      .where(eq(prints.id, print_id))
-      .returning();
+    const [updatedPrint] = await db.update(prints).set(updateData).where(eq(prints.id, print_id)).returning();
 
     if (!updatedPrint) {
       return NextResponse.json({ data: null, error: "Print not found" }, { status: 404 });
@@ -73,4 +69,3 @@ export async function DELETE(
     return NextResponse.json({ data: null, error: "Failed to delete print" }, { status: 500 });
   }
 }
-

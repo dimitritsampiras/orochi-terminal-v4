@@ -141,9 +141,9 @@ export const ProductVariants = ({
                   />
                 </TableCell>
                 <TableCell className="text-right flex gap-2 items-center justify-end">
-                  <Button variant="outline" size="icon">
+                  {/* <Button variant="outline" size="icon">
                     <Icon icon="ph:arrows-counter-clockwise" />
-                  </Button>
+                  </Button> */}
 
                   <PrintProductVariantForm
                     productVariant={variant.databaseVariant}

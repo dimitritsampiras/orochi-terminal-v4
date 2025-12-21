@@ -1,5 +1,8 @@
 import { shipmentApi } from "@drizzle/schema";
 
+// Re-export from schema for backwards compatibility
+export { type NormalizedShipmentRate } from "@/lib/schemas/order-schema";
+
 // shipping options
 export type ShippingOptions = {
   targetRateId?: string; // if user manually selects a rate to choose form
