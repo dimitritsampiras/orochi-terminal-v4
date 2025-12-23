@@ -12,6 +12,7 @@ import {
   blankVariants,
   garmentSize,
   garmentType,
+  printLogs,
 } from "../../../../drizzle/schema";
 import { DataResponse } from "@/lib/types/misc";
 import z from "zod";
@@ -48,10 +49,20 @@ const GARMENT_TYPE_ORDER: (typeof garmentType.enumValues)[number][] = [
   "coat",
 ];
 
-const LIGHT_COLORS_FALLBACK = ["white", "natural", "bone", "cream", "ivory", "light yellow", "banana", "yellow", "seafoam"];
+const LIGHT_COLORS_FALLBACK = [
+  "white",
+  "natural",
+  "bone",
+  "cream",
+  "ivory",
+  "light yellow",
+  "banana",
+  "yellow",
+  "seafoam",
+];
 
 export type OrderWithLineItems = typeof orders.$inferSelect & {
-  lineItems: Pick<typeof lineItems.$inferSelect, "id" | "name">[];
+  lineItems: Pick<typeof lineItems.$inferSelect, "id" | "name" | "completionStatus">[];
 };
 
 export type AssemblyLineItem = typeof lineItems.$inferSelect & {
@@ -61,6 +72,10 @@ export type AssemblyLineItem = typeof lineItems.$inferSelect & {
   blank: typeof blanks.$inferSelect | null;
   productVariant: typeof productVariants.$inferSelect | null;
   blankVariant: typeof blankVariants.$inferSelect | null;
+};
+
+export type AssemblyLineItemWithPrintLogs = AssemblyLineItem & {
+  printLogs: (typeof printLogs.$inferSelect)[];
 };
 
 export type SortedAssemblyLineItem = AssemblyLineItem & {
@@ -95,19 +110,19 @@ export const getAssemblyLine = async (
 
         return { data: { lineItems: sortedLineItems, batch }, error: null };
       } else {
-        logger.error(`Wrong format for assembly line JSON for batch ${batchId}`, {
-          category: "ASSEMBLY",
-        });
+        // logger.error(`Wrong format for assembly line JSON for batch ${batchId}`, {
+        //   category: "ASSEMBLY",
+        // });
       }
     } catch {
-      logger.error(`Invalid assembly line JSON for batch ${batchId}`, {
-        category: "ASSEMBLY",
-      });
+      // logger.error(`Invalid assembly line JSON for batch ${batchId}`, {
+      //   category: "ASSEMBLY",
+      // });
     }
   }
 
   // Fall back to generating fresh sorted assembly line
-  const { data: sortedData, error: sortError } = await generateSortedAssemblyLine(batchId);
+  const { data: sortedData, error: sortError } = await createSortedAssemblyLine(batchId);
   if (!sortedData) {
     return { data: null, error: sortError || "Failed to generate assembly line" };
   }
@@ -151,7 +166,10 @@ export const getLineItemsByBatchId = async (
 
     // Group results by line item and aggregate prints, also track line items per order
     const lineItemMap = new Map<string, AssemblyLineItem>();
-    const orderLineItemsMap = new Map<string, Pick<typeof lineItems.$inferSelect, "id" | "name">[]>();
+    const orderLineItemsMap = new Map<
+      string,
+      Pick<typeof lineItems.$inferSelect, "id" | "name" | "completionStatus">[]
+    >();
 
     // First pass: collect all line items per order
     for (const row of results) {
@@ -161,7 +179,11 @@ export const getLineItemsByBatchId = async (
       }
       const orderLineItems = orderLineItemsMap.get(orderId)!;
       if (!orderLineItems.some((li) => li.id === row.lineItem.id)) {
-        orderLineItems.push({ id: row.lineItem.id, name: row.lineItem.name });
+        orderLineItems.push({
+          id: row.lineItem.id,
+          name: row.lineItem.name,
+          completionStatus: row.lineItem.completionStatus,
+        });
       }
     }
 
@@ -210,7 +232,7 @@ export const getLineItemsByBatchId = async (
   }
 };
 
-export const generateSortedAssemblyLine = async (
+export const createSortedAssemblyLine = async (
   batchId: number,
   assemblyLineItems?: AssemblyLineItem[]
 ): Promise<DataResponse<SortedAssemblyLineItem[]>> => {
@@ -401,4 +423,83 @@ const getItemBlankColor = (item: AssemblyLineItem) => {
 
 const getOrderLineItemCount = (order: AssemblyLineItem["order"]) => {
   return order.lineItems.length;
+};
+
+// Add to src/lib/core/session/generate-assembly-list.ts
+
+/**
+ * Get a single line item by ID with all related data
+ * Returns the same structure as AssemblyLineItem
+ */
+export const getLineItemById = async (lineItemId: string): Promise<DataResponse<AssemblyLineItemWithPrintLogs>> => {
+  try {
+    const results = await db
+      .select({
+        lineItem: lineItems,
+        order: orders,
+        product: products,
+        print: prints,
+        printLog: printLogs, // Add
+        blank: blanks,
+        productVariant: productVariants,
+        blankVariant: blankVariants,
+      })
+      .from(lineItems)
+      .innerJoin(orders, eq(lineItems.orderId, orders.id))
+      .leftJoin(products, eq(lineItems.productId, products.id))
+      .leftJoin(prints, eq(products.id, prints.productId))
+      .leftJoin(printLogs, eq(lineItems.id, printLogs.lineItemId)) // Add
+      .leftJoin(blanks, eq(products.blankId, blanks.id))
+      .leftJoin(productVariants, eq(lineItems.variantId, productVariants.id))
+      .leftJoin(blankVariants, eq(productVariants.blankVariantId, blankVariants.id))
+      .where(eq(lineItems.id, lineItemId));
+
+    if (results.length === 0) {
+      return { data: null, error: `Line item with id ${lineItemId} not found` };
+    }
+
+    // Get all line items for the order (for the order.lineItems count)
+    const orderLineItems = await db
+      .select({ id: lineItems.id, name: lineItems.name, completionStatus: lineItems.completionStatus })
+      .from(lineItems)
+      .where(eq(lineItems.orderId, results[0].order.id));
+
+    // Aggregate prints from multiple rows (due to prints LEFT JOIN)
+    const printsArray: (typeof prints.$inferSelect)[] = [];
+    for (const row of results) {
+      if (row.print && !printsArray.some((p) => p.id === row.print?.id)) {
+        printsArray.push(row.print);
+      }
+    }
+
+    // And aggregate:
+    const printLogsArray: (typeof printLogs.$inferSelect)[] = [];
+    for (const row of results) {
+      if (row.printLog && !printLogsArray.some((pl) => pl.id === row.printLog?.id)) {
+        printLogsArray.push(row.printLog);
+      }
+    }
+
+    const firstRow = results[0];
+    const assemblyLineItem: AssemblyLineItemWithPrintLogs = {
+      ...firstRow.lineItem,
+      order: {
+        ...firstRow.order,
+        lineItems: orderLineItems,
+      },
+      product: firstRow.product,
+      prints: printsArray,
+      printLogs: printLogsArray,
+      blank: firstRow.blank,
+      productVariant: firstRow.productVariant,
+      blankVariant: firstRow.blankVariant,
+    };
+
+    return { data: assemblyLineItem, error: null };
+  } catch (error) {
+    return {
+      data: null,
+      error: error instanceof Error ? error.message : "An unknown error occurred",
+    };
+  }
 };

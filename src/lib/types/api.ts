@@ -3,6 +3,7 @@ import { getOrderQueue } from "../core/orders/get-order-queue";
 import { DataResponse } from "./misc";
 import { NormalizedShipmentRate } from "./shipping.types";
 import { GeneralParcel } from "../core/shipping/parcel-schema";
+import { SortedAssemblyLineItem } from "../core/session/create-assembly-line";
 
 export type QueueResponse = DataResponse<Awaited<ReturnType<typeof getOrderQueue>>>;
 
@@ -40,3 +41,8 @@ export type GetRateResponse = DataResponse<{
   parcel: GeneralParcel;
   otherRates: NormalizedShipmentRate[];
 } | null>;
+
+export type GetAssemblyLineResponse = DataResponse<{
+  lineItems: SortedAssemblyLineItem[];
+  batchId: number;
+}>;

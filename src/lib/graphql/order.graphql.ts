@@ -64,6 +64,7 @@ export const orderQuery = `#graphql
             quantity
             name
             image {
+              id
               url(transform: {maxHeight: 100, maxWidth: 100})
             }
             originalTotalSet {

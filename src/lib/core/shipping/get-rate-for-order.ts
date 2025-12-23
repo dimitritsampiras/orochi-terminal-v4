@@ -47,8 +47,13 @@ export const getRateForOrder = async (order: Order, options?: ShippingOptions): 
     return { data: null, error: parcelError };
   }
 
-  console.log('parcel', parcel);
-  
+  if (parcel.items.length === 0) {
+    logger.error("[get rate for order] The parcel created has no items", {
+      category: "SHIPPING",
+      orderId: order.id,
+    });
+    return { data: null, error: "No items to ship" };
+  }
 
   const databaseOrder = await db.query.orders.findFirst({
     where: { id: order.id },

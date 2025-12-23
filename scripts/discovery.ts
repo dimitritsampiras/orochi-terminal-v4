@@ -6,7 +6,7 @@ import { OrderQuery } from "@/lib/types/admin.generated";
 import { buildResourceGid } from "@/lib/utils";
 import { generatePackingSlip } from "@/lib/core/pdf/generate-packing-slip";
 import fs from "fs";
-import { getLineItemsByBatchId } from "@/lib/core/session/generate-assembly-list";
+import { getLineItemsByBatchId } from "@/lib/core/session/create-assembly-line";
 
 async function main() {
   // const orderNumber = "6342766035158";

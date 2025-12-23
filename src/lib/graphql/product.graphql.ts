@@ -34,28 +34,17 @@ query Product($id: ID!) {
 export const productMediaQuery = `#graphql
   query ProductMediaQuery($query: String) {
     files(first: 7, query: $query) {
-      edges {
-        node {
-          createdAt
-          updatedAt
+      nodes {
+        createdAt
+        updatedAt
+        alt
+        ... on MediaImage {
+          __typename
+          id
           alt
-          ... on GenericFile {
-            __typename
+          image {
             id
-            url
-          }
-          ... on MediaImage {
-            __typename
-            id
-            alt
-            image {
-              id
-              url(transform: {maxHeight: 750, maxWidth: 750})
-            }
-          }
-          ... on Video {
-            __typename
-            id
+            url(transform: {maxHeight: 750, maxWidth: 750})
           }
         }
       }
