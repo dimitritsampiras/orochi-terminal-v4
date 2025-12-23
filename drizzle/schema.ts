@@ -177,6 +177,7 @@ export const lineItems = pgTable("line_items", {
   hasDeprecatedBlankStock: boolean("has_deprecated_blank_stock"),
   hasDeprecatedVariantStock: boolean("has_deprecated_variant_stock"),
   markedAsPackaged: boolean("marked_as_packaged").default(false).notNull(),
+  // requiresShipping: boolean("requires_shipping"),
 });
 
 export const logs = pgTable("logs", {

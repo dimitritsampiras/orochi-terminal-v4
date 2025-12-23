@@ -11,6 +11,7 @@ import { MediaImage } from "@/lib/types/misc";
 import { buildResourceGid } from "@/lib/utils";
 import { Icon } from "@iconify/react";
 import { notFound, redirect } from "next/navigation";
+import { log } from "node:console";
 
 export default async function AssemblyItemPage({ params }: { params: Promise<{ item_id: string; batch_id: string }> }) {
   const { item_id } = await params;
@@ -34,6 +35,8 @@ export default async function AssemblyItemPage({ params }: { params: Promise<{ i
   const { data: orderData } = orderRes;
 
   let order = orderData?.node?.__typename === "Order" ? orderData.node : undefined;
+
+  console.log(mediaRes);
 
   return (
     <AssemblyItemController

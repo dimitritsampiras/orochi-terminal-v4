@@ -41,6 +41,9 @@ export const AssemblyItemController = ({
 
   const shopifyLineItem = order?.lineItems.nodes.find((lineItem) => lineItem.id === item.id);
 
+  const noSyncedPrints = item.prints.length === 0 && !Boolean(item.product?.isBlackLabel);
+  const noSyncedBlank = !Boolean(item.product?.isBlackLabel) && !Boolean(item.blankVariant);
+
   useEffect(() => {
     setHasMounted(true); // Add this
   }, []);
@@ -126,6 +129,19 @@ export const AssemblyItemController = ({
           </Alert>
         )}
 
+        {noSyncedPrints && (
+          <Alert className="text-red-700 bg-red-50">
+            <Icon icon="ph:warning-circle" className="size-4" />
+            <AlertTitle>No synced prints</AlertTitle>
+            <AlertDescription>
+              <p>
+                This item has no synced prints. Either declare how many prints it needs in the product page or set it as
+                a black label item.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {(order?.cancelledAt || item.order.displayIsCancelled) && (
           <Alert className="text-red-700 bg-red-50">
             <Icon icon="ph:warning-circle" className="size-4" />
@@ -138,6 +154,19 @@ export const AssemblyItemController = ({
           </Alert>
         )}
 
+        {noSyncedBlank && (
+          <Alert className="text-red-700 bg-red-50">
+            <Icon icon="ph:warning-circle" className="size-4" />
+            <AlertTitle>No synced blank</AlertTitle>
+            <AlertDescription>
+              <p>
+                This item has no synced blank. Inventory can not be tracked effectively. Please either declare a blank in the
+                product page or set it as a black label item.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {shopifyLineItem && (
           <>
             {shopifyLineItem.unfulfilledQuantity <= 0 && (
@@ -145,7 +174,7 @@ export const AssemblyItemController = ({
                 <Icon icon="ph:warning-circle" className="size-4" />
                 <AlertTitle>Line item is not fulfillable</AlertTitle>
                 <AlertDescription>
-                  <p>This line item is not fulfillable. The order has likely already been fulfilled.</p>
+                  <p>This line item is not fulfillable. The order has likely already been fulfilled or removed fr.</p>
                 </AlertDescription>
               </Alert>
             )}
@@ -355,7 +384,7 @@ const Prints = ({ item }: { item: AssemblyLineItemWithPrintLogs }) => {
           </Tooltip>
         </TooltipProvider>
         <div className="mt-4 flex items-center gap-2 flex-wrap w-full">
-          <Button variant="outline" disabled={item.completionStatus === 'not_printed'}>
+          <Button variant="outline" disabled={item.completionStatus === "not_printed"}>
             <Icon icon="ph:arrow-counter-clockwise" className="size-4" />
             Reset
           </Button>

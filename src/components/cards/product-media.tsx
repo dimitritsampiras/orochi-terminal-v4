@@ -72,6 +72,8 @@ export const ProductMediaGrid = ({ media, product }: { media: MediaImageType[]; 
 };
 
 export const AssemblyLineMediaGrid = ({ media, firstId }: { media: MediaImageType[]; firstId?: string }) => {
+  console.log("media", media, "first", firstId);
+
   const firstIdNumeric = firstId ? parseGid(firstId) : null;
 
   const sortedMedia = media.toSorted((a, b) => {
@@ -85,7 +87,7 @@ export const AssemblyLineMediaGrid = ({ media, firstId }: { media: MediaImageTyp
   const firstMedia = sortedMedia[0];
   const slicedMedia = sortedMedia.slice(1, 8);
 
-  return (
+  return media.length > 0 && Boolean(firstMedia) ? (
     <div className="grid grid-cols-6 gap-3">
       <div className="col-span-2 row-span-2">
         {firstMedia.image?.url && (
@@ -105,6 +107,10 @@ export const AssemblyLineMediaGrid = ({ media, firstId }: { media: MediaImageTyp
 
         return <MediaImage key={id} src={url} alt={alt || "Product media"} className="h-full w-full object-cover" />;
       })}
+    </div>
+  ) : (
+    <div className="flex items-center justify-center h-full w-full bg-zinc-100 p-8">
+      <div className="text-sm">No media available</div>
     </div>
   );
 };
