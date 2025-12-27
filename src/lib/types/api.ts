@@ -5,6 +5,8 @@ import { NormalizedShipmentRate } from "./shipping.types";
 import { GeneralParcel } from "../core/shipping/parcel-schema";
 import { SortedAssemblyLineItem } from "../core/session/create-assembly-line";
 
+export type LoginResponse = DataResponse<"success" | null>;
+
 export type QueueResponse = DataResponse<Awaited<ReturnType<typeof getOrderQueue>>>;
 
 export type GetProductsResponse = DataResponse<
