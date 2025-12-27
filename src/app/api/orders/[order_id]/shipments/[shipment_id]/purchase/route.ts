@@ -10,7 +10,7 @@ import { NextResponse } from "next/server";
 
 export async function POST(
   request: Request,
-  { params }: { params: { order_id: string; shipment_id: string } }
+  { params }: { params: Promise<{ order_id: string; shipment_id: string }> }
 ): Promise<NextResponse<PurchaseShipmentResponse>> {
   const user = await authorizeUser(["superadmin", "admin"]);
 
