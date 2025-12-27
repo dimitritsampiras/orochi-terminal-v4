@@ -15,6 +15,7 @@ import { productMediaQuery, productQuery } from "@/lib/graphql/product.graphql";
 import { buildResourceGid } from "@/lib/utils";
 import { Icon } from "@iconify/react";
 import dayjs from "dayjs";
+import { MediaImage } from "@/lib/types/misc";
 
 export default async function ProductPage({ params }: { params: Promise<{ product_id: string }> }) {
   const { product_id } = await params;
@@ -44,7 +45,7 @@ export default async function ProductPage({ params }: { params: Promise<{ produc
   ]);
 
   const product = shopifyProduct.data?.product;
-  const media = shopifyMedia.data?.files?.edges;
+  const media = shopifyMedia.data?.files?.nodes;
 
   if (!product) {
     throw Error("Something went wrong fetching the product");
@@ -74,7 +75,9 @@ export default async function ProductPage({ params }: { params: Promise<{ produc
       <div className="mb-24 mt-4 grid-cols-[2fr_1fr] gap-4 md:grid">
         <div className="flex flex-col gap-4">
           {/* MEDIA IMAGES */}
-          {media && <ProductMediaGrid media={media} product={product} />}
+          {media && (media[0] as MediaImage).image?.url && (
+            <ProductMediaGrid media={media as MediaImage[]} product={product} />
+          )}
           <ProductVariants
             product={databaseProduct}
             variants={product.variants.nodes}
@@ -83,7 +86,6 @@ export default async function ProductPage({ params }: { params: Promise<{ produc
             blank={databaseProduct?.blank}
             prints={databaseProduct?.prints || []}
           />
-          
         </div>
         <div className="flex flex-col gap-4 sm:mt-0 mt-4">
           <SyncBlankToProduct product={databaseProduct} blank={databaseProduct.blank} />

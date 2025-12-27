@@ -62,27 +62,6 @@ export function PrintInfoCard({ productId, prints }: { productId: string; prints
       <Card>
         <CardHeader>
           <CardTitle>Prints</CardTitle>
-          <CardDescription className="flex items-center justify-between">
-            {standardizePrintOrder(
-              PRINT_LOCATIONS.map((location) => ({
-                id: location,
-                location,
-                heatTransferCode: null,
-                isSmallPrint: null,
-                productId: null,
-                pretreat: null,
-              }))
-            ).map((print, index, array) => (
-              <div key={print.id} className="flex items-center gap-1">
-                <Badge key={print.id} variant="secondary" className="text-[8px] rounded-md px-1">
-                  {print.location.replaceAll("_", " ")}
-                </Badge>
-                {index < array.length - 1 && (
-                  <Icon key={`caret-${print.id}`} icon="ph:caret-right" className="size-3 text-zinc-400" />
-                )}
-              </div>
-            ))}
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-2">

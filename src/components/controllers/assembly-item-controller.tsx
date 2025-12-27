@@ -337,7 +337,7 @@ const Prints = ({ item }: { item: AssemblyLineItemWithPrintLogs }) => {
               className="flex-1 h-auto p-4 border-zinc-200 border-2 bg-zinc-100 border-dashed rounded-lg flex items-center justify-center text-muted-foreground"
             >
               {/* <Icon icon="ph:placeholder" className="size-5 opacity-30" /> */}
-              <div className="text-sm">No {getOrdinalPrintName(printCount + i + 1)} print</div>
+              <div className="text-sm">No {getOrdinalPrintName(printCount + i + 1)} print declared</div>
             </div>
           ))}
         </div>
