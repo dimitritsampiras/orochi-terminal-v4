@@ -4,8 +4,9 @@ import { type NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/clients/db";
 import { profiles, userRole } from "../../../../../drizzle/schema";
 import { eq } from "drizzle-orm";
-import type { LoginResponse } from "@/lib/types/misc";
+
 import { z } from "zod";
+import { LoginResponse } from "@/lib/types/api";
 
 export async function POST(request: NextRequest): Promise<NextResponse<LoginResponse>> {
   const body = await request.json();

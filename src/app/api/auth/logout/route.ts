@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/clients/supabase-server';
-import type { LogoutResponse } from '@/lib/types/misc';
+import { LoginResponse as LogoutResponse } from '@/lib/types/api';
+
 import { type NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest): Promise<NextResponse<LogoutResponse>> {

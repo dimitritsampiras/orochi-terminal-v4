@@ -9,7 +9,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../ui/form";
 import { loginSchema } from "@/lib/schemas/auth-schema";
 import { useRouter } from "next/navigation";
-import type { LoginResponse } from "@/lib/types/misc";
+import { LoginResponse } from "@/lib/types/api";
+
 
 export default function LoginForm() {
   const router = useRouter();
