@@ -14,6 +14,7 @@ import { cn, isOrderComplete } from "@/lib/utils";
 import { parseGid } from "@/lib/utils";
 import { lineItems, orders, shipments } from "@drizzle/schema";
 import { Badge } from "../ui/badge";
+import { useOrderNavigation } from "@/lib/stores/order-navigation";
 
 type Order = typeof orders.$inferSelect & {
   shipments: (typeof shipments.$inferSelect)[];
@@ -23,19 +24,22 @@ type Order = typeof orders.$inferSelect & {
 
 interface SessionOrdersTableProps {
   orders: Order[];
-  sessionId?: number | string;
+  sessionId: number | string;
 }
 
 export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProps) {
   const router = useRouter();
   const { start } = useProgress();
+  const { setNavigation } = useOrderNavigation();
 
   const handleRowClick = (orderId: string) => {
+    // Set navigation context with all orders in this session
+    setNavigation(
+      { type: "session", sessionId: Number(sessionId) },
+      orders.map((o) => ({ id: o.id, name: o.name }))
+    );
     start();
-    router.push(`/orders/${parseGid(orderId)}`, {
-      // Note: Next.js router.push doesn't support state like Svelte's goto
-      // You may need to use query params or context if you need to pass state
-    });
+    router.push(`/orders/${parseGid(orderId)}?from=session&session_id=${sessionId}`);
   };
 
   const renderShipmentsCell = (order: Order) => {

@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ZodSchema } from "zod";
 
 interface UseFetcherOptions<T, K = unknown> {
   path: string;
@@ -12,6 +11,7 @@ interface UseFetcherOptions<T, K = unknown> {
   errorMessage?: string;
   onSuccess?: (data: K) => void;
   showToast?: boolean;
+  loadingMessage?: string;
 }
 
 interface TriggerOptions {
@@ -26,6 +26,7 @@ export function useFetcher<T, K = unknown>({
   errorMessage = "Operation failed",
   showToast = true,
   onSuccess,
+  loadingMessage,
 }: UseFetcherOptions<T, K>) {
   const router = useRouter();
   // Manage fetch loading state
@@ -35,6 +36,10 @@ export function useFetcher<T, K = unknown>({
 
   const trigger = async (body?: T, options?: TriggerOptions) => {
     setIsFetching(true);
+    let loadingToastId: number | string | undefined;
+    if (loadingMessage) {
+      loadingToastId = toast.loading(loadingMessage);
+    }
 
     const finalSuccessMessage = options?.successMessage ?? successMessage;
     const finalErrorMessage = options?.errorMessage ?? errorMessage;
@@ -52,6 +57,9 @@ export function useFetcher<T, K = unknown>({
         const error = await response.json().catch(() => ({}));
         console.log("API Error:", error);
         toast.error(error.message || finalErrorMessage);
+        if (loadingToastId) {
+          toast.dismiss(loadingToastId);
+        }
         return;
       }
 
@@ -59,6 +67,9 @@ export function useFetcher<T, K = unknown>({
 
       if (showToast) {
         toast.success(finalSuccessMessage);
+      }
+      if (loadingToastId) {
+        toast.dismiss(loadingToastId);
       }
 
       onSuccess?.(data);
@@ -74,6 +85,9 @@ export function useFetcher<T, K = unknown>({
       }
     } finally {
       setIsFetching(false);
+      if (loadingToastId) {
+        toast.dismiss(loadingToastId);
+      }
     }
   };
 

@@ -12,6 +12,7 @@ import { FulfillmentPriorityBadge } from "../badges/fulfillment-priority-badge";
 import { ShippingPriorityBadge } from "../badges/shipping-priority-badge";
 import { FulfillmentStatusBadge } from "../badges/fulfillment-status-badge";
 import { useRouter } from "next/navigation";
+import { useOrderNavigation, type OrderNavigationContext } from "@/lib/stores/order-navigation";
 
 import { useProgress } from "@bprogress/next";
 
@@ -29,14 +30,26 @@ type Order = Pick<
   | "shippingPriority"
 >;
 
-function OrdersTable({ orders }: { orders: Order[] }) {
+interface OrdersTableProps {
+  orders: Order[];
+  /** Override the navigation context. Defaults to "orders" */
+  from?: "orders" | "create_session";
+}
+
+function OrdersTable({ orders, from = "orders" }: OrdersTableProps) {
   const router = useRouter();
   const { start } = useProgress();
+  const { setNavigation } = useOrderNavigation();
 
   const handleRowClick = (id: string) => {
+    // Set navigation context with all visible orders
+    const context: OrderNavigationContext = { type: from };
+    setNavigation(
+      context,
+      orders.map((o) => ({ id: o.id, name: o.name }))
+    );
     start();
-    router.push(`/orders/${parseGid(id)}`);
-    // The progress will automatically complete when navigation finishes
+    router.push(`/orders/${parseGid(id)}?from=${from}`);
   };
 
   return (

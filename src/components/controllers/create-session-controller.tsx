@@ -125,9 +125,10 @@ export const CreateSessionController = ({ queue, blankVariants }: CreateSessionC
           />
           <CreateSessionDialog
             className="sm:w-auto w-full"
-            numberOfOrders={orderQuantity}
+            numberOfOrders={slicedOrders.length}
             numberOfLineItems={lineItemCount}
             ordersWithRecentSessions={ordersWithRecentSessions}
+            orderIds={slicedOrders.map((order) => order.id)}
           />
         </div>
       </div>
@@ -146,7 +147,7 @@ export const CreateSessionController = ({ queue, blankVariants }: CreateSessionC
           </Badge>
         </div>
       )}
-      <OrdersTable orders={slicedOrders} />
+      <OrdersTable orders={slicedOrders} from="create_session" />
     </div>
   );
 };

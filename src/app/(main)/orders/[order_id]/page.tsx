@@ -24,6 +24,7 @@ import { Icon } from "@iconify/react";
 import dayjs from "dayjs";
 import Link from "next/link";
 import { BackButton } from "@/components/nav/back-button";
+import { OrderNavigation } from "@/components/nav/order-navigation";
 
 export default async function OrderPage({ params }: { params: Promise<{ order_id: string }> }) {
   const { order_id } = await params;
@@ -88,9 +89,12 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
 
   return (
     <div>
-      <div className="flex items-center gap-3">
-        <BackButton href="/orders" />
-        <h1 className="page-title">Order {order.name}</h1>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <BackButton fallbackHref="/orders" />
+          <h1 className="page-title">Order {order.name}</h1>
+        </div>
+        <OrderNavigation orderId={order.id} />
       </div>
       <div className="flex items-center gap-2 mt-3">
         <IdCopyBadge id={order.id} />

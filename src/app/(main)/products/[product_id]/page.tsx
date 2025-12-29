@@ -6,6 +6,7 @@ import { ProductVariants } from "@/components/cards/product-variants";
 import { PrintInfoCard } from "@/components/cards/print-info";
 import { SyncBlankToProduct } from "@/components/cards/sync-blank-to-product";
 import { BackButton } from "@/components/nav/back-button";
+import { ProductNavigation } from "@/components/nav/product-navigation";
 
 import { db } from "@/lib/clients/db";
 import shopify from "@/lib/clients/shopify";
@@ -57,9 +58,12 @@ export default async function ProductPage({ params }: { params: Promise<{ produc
 
   return (
     <div>
-      <div className="flex items-center gap-3">
-        <BackButton href="/products" />
-        <h1 className="page-title">{product.title}</h1>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <BackButton fallbackHref="/products" />
+          <h1 className="page-title">{product.title}</h1>
+        </div>
+        <ProductNavigation productId={product.id} />
       </div>
       <div className="flex items-center gap-2 mt-3">
         <IdCopyBadge id={product.id} />

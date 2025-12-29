@@ -2,12 +2,13 @@
 
 import { AssemblyLineItemWithPrintLogs, type AssemblyLineItem } from "@/lib/core/session/create-assembly-line";
 import { BackButton } from "../nav/back-button";
+import { NavButton } from "../nav/nav-button";
 import { useAssemblyNavigation } from "@/lib/stores";
 import { useEffect, useMemo, useState } from "react";
 import { GetAssemblyLineResponse } from "@/lib/types/api";
 import { toast } from "sonner";
 import Link from "next/link";
-import { Button, buttonVariants } from "../ui/button";
+import { Button } from "../ui/button";
 import { Icon } from "@iconify/react";
 import { cn, getProductDetailsForARXP, parseGid, standardizePrintOrder } from "@/lib/utils";
 import { ProductMediaGrid, AssemblyLineMediaGrid } from "../cards/product-media";
@@ -71,7 +72,7 @@ export const AssemblyItemController = ({
     <div>
       <div className="flex justify-between items-center">
         <div className="flex items-start gap-3">
-          <BackButton href="/assembly" className="mt-1" />
+          <BackButton fallbackHref="/assembly" className="mt-1" />
           <div>
             <h1 className="page-title">
               {hasNavigation && `${position + 1}. `}
@@ -90,8 +91,14 @@ export const AssemblyItemController = ({
 
         {hasNavigation && (
           <div className="flex items-center gap-2">
-            <NavButton direction="prev" item={prev} />
-            <NavButton direction="next" item={next} />
+            <NavButton 
+              direction="up" 
+              href={prev ? `/assembly/${parseGid(prev.id)}` : null} 
+            />
+            <NavButton 
+              direction="down" 
+              href={next ? `/assembly/${parseGid(next.id)}` : null} 
+            />
           </div>
         )}
       </div>
@@ -461,25 +468,6 @@ const Prints = ({ item }: { item: AssemblyLineItemWithPrintLogs }) => {
         </div>
       </div>
     </div>
-  );
-};
-
-// Clean reusable nav button
-const NavButton = ({ direction, item }: { direction: "prev" | "next"; item: { id: string } | null }) => {
-  const icon = direction === "prev" ? "ph:caret-up" : "ph:caret-down";
-
-  if (item) {
-    return (
-      <Link className={buttonVariants({ variant: "outline", size: "icon" })} href={`/assembly/${parseGid(item.id)}`}>
-        <Icon icon={icon} />
-      </Link>
-    );
-  }
-
-  return (
-    <Button variant="outline" size="icon" disabled>
-      <Icon icon={icon} />
-    </Button>
   );
 };
 

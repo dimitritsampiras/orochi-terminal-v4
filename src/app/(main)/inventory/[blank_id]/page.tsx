@@ -30,7 +30,7 @@ export default async function BlankInventoryPage({ params }: { params: Promise<{
   return (
     <div>
       <div className="flex items-center gap-3">
-        <BackButton href="/inventory" />
+        <BackButton fallbackHref="/inventory" />
         <h1 className="page-title capitalize">
           {blank.blankCompany} {blank.blankName}
         </h1>

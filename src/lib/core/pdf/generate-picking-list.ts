@@ -1,15 +1,19 @@
 import { AssemblyLineItem } from "@/lib/core/session/create-assembly-line";
+import { createPickingList } from "@/lib/core/picking/create-picking-list";
 import { DataResponse } from "@/lib/types/misc";
 import { batches, garmentSize } from "@drizzle/schema";
 import dayjs from "dayjs";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument, StandardFonts } from "pdf-lib";
 
 type Batch = typeof batches.$inferSelect;
+type GarmentSize = (typeof garmentSize.enumValues)[number];
 
-export const generateAssemblyList = async (
+export const generatePickingList = async (
   assemblyLine: AssemblyLineItem[],
   batch: Pick<Batch, "id" | "createdAt" | "active">
 ): Promise<DataResponse<Buffer>> => {
+  const { sortedPickingList: pickingList, unaccountedLineItems } = createPickingList(assemblyLine);
+
   const marginX = 50;
   const marginY = 50;
 
@@ -26,8 +30,8 @@ export const generateAssemblyList = async (
   const toY = (topDownY: number) => pageHeight - topDownY;
 
   // Table headers and column widths
-  const headers = [" ", "Name", "Size", "Color", "Type", "Stock", "Check"];
-  const colWidths = [20, 130, 70, 100, 110, 50, 50];
+  const headers = ["Blank", "Color", "Size", "Type", "Qty", "Check"];
+  const colWidths = [130, 100, 70, 110, 50, 50];
 
   // Font sizes
   const titleFontSize = 12;
@@ -99,8 +103,8 @@ export const generateAssemblyList = async (
     drawHeaders();
   };
 
-  // Title: "Assembly Line"
-  page.drawText("Assembly Line", {
+  // Title: "Picking List"
+  page.drawText("Picking List", {
     x: marginX,
     y: toY(currentY + titleFontSize),
     size: titleFontSize,
@@ -129,25 +133,54 @@ export const generateAssemblyList = async (
   drawHeaders();
 
   // Draw table rows
-  for (let index = 0; index < assemblyLine.length; index++) {
-    const lineItem = assemblyLine[index];
-
+  for (const pickingItem of pickingList) {
     // Check if we need a new page (30 points buffer for bottom margin)
     if (currentY > pageHeight - marginY - 30) {
       addNewPage();
     }
 
     const rowData = [
-      (index + 1).toString(),
-      normalize(lineItem.name.split(" - ")[0]),
-      dbSizeToDisplaySize(lineItem.blankVariant?.size),
-      lineItem.blankVariant?.color || "--",
-      lineItem.blank ? `${lineItem.blank.garmentType} (${abbreviateBlankName(lineItem.blank.blankCompany)})` : "--",
-      (lineItem.productVariant?.warehouseInventory ?? "--").toString(),
-      lineItem.quantity > 1 ? `____ x${lineItem.quantity}` : "____",
+      pickingItem.blankName,
+      pickingItem.color,
+      dbSizeToDisplaySize(pickingItem.size),
+      pickingItem.garmentType,
+      pickingItem.quantity.toString(),
+      "____",
     ];
 
     drawRow(rowData, false);
+  }
+
+  // Add unaccounted items section if any
+  if (unaccountedLineItems.length > 0) {
+    currentY += lineHeight * 3;
+
+    // Check if we need a new page for unaccounted section
+    if (currentY > pageHeight - marginY - 100) {
+      addNewPage();
+    }
+
+    page.drawText("Unaccounted Items", {
+      x: marginX,
+      y: toY(currentY + titleFontSize),
+      size: titleFontSize,
+      font: fontBold,
+    });
+    currentY += lineHeight * 1.5;
+
+    for (const item of unaccountedLineItems) {
+      if (currentY > pageHeight - marginY - 30) {
+        addNewPage();
+      }
+
+      page.drawText(item.name, {
+        x: marginX,
+        y: toY(currentY + bodyFontSize),
+        size: bodyFontSize,
+        font,
+      });
+      currentY += lineHeight;
+    }
   }
 
   // Add final page number
@@ -162,11 +195,9 @@ export const generateAssemblyList = async (
   return { data: Buffer.from(pdfBytes), error: null };
 };
 
-const normalize = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-const dbSizeToDisplaySize = (size?: (typeof garmentSize.enumValues)[number]): string => {
+const dbSizeToDisplaySize = (size?: GarmentSize): string => {
   if (!size) return "--";
-  const map: Record<(typeof garmentSize.enumValues)[number], string> = {
+  const map: Record<GarmentSize, string> = {
     xs: "xsmall",
     sm: "small",
     md: "medium",
@@ -179,9 +210,4 @@ const dbSizeToDisplaySize = (size?: (typeof garmentSize.enumValues)[number]): st
     os: "one-size",
   };
   return map[size];
-};
-
-const abbreviateBlankName = (name: string) => {
-  if (name === "independant") return "ind";
-  return name;
 };

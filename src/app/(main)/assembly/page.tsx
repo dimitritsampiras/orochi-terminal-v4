@@ -15,7 +15,7 @@ export default async function AssemblyPage() {
   if (activeSession.length > 1) {
     return (
       <div>
-        <h1 className="page-title">Assembly</h1>
+        <h1 className="page-title mb-4">Assembly</h1>
         <Alert variant="destructive">
           <Icon icon="ph:warning-circle" />
           <AlertTitle>Multiple active sessions</AlertTitle>
@@ -28,7 +28,7 @@ export default async function AssemblyPage() {
   if (activeSession.length === 0) {
     return (
       <div>
-        <h1 className="page-title">Assembly</h1>
+        <h1 className="page-title mb-4">Assembly</h1>
         <Alert>
           <Icon icon="ph:info" />
           <AlertTitle>No active sessions</AlertTitle>
@@ -43,7 +43,7 @@ export default async function AssemblyPage() {
   if (error || !data) {
     return (
       <div>
-        <h1 className="page-title">Assembly</h1>
+        <h1 className="page-title mb-4">Assembly</h1>
         <Alert variant="destructive">
           <Icon icon="ph:warning-circle" />
           <AlertTitle>Error generating assembly line</AlertTitle>

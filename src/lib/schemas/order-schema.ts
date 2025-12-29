@@ -57,3 +57,10 @@ export const createShipmentSchema = z.object({
 });
 
 export type CreateShipmentSchema = z.infer<typeof createShipmentSchema>;
+
+export const createBatchSchema = z.object({
+  orderIds: z.array(z.string()).min(1, "At least one order is required"),
+  setAsActive: z.boolean().optional(),
+});
+
+export type CreateBatchSchema = z.infer<typeof createBatchSchema>;

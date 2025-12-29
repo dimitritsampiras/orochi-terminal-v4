@@ -1,4 +1,4 @@
-import { blanks, blankVariants, prints, products, productVariants, shipments } from "@drizzle/schema";
+import { batches, blanks, blankVariants, prints, products, productVariants, shipments } from "@drizzle/schema";
 import { getOrderQueue } from "../core/orders/get-order-queue";
 import { DataResponse } from "./misc";
 import { NormalizedShipmentRate } from "./shipping.types";
@@ -48,3 +48,5 @@ export type GetAssemblyLineResponse = DataResponse<{
   lineItems: SortedAssemblyLineItem[];
   batchId: number;
 }>;
+
+export type CreateBatchResponse = DataResponse<typeof batches.$inferSelect | null>;

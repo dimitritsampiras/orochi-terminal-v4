@@ -2,16 +2,11 @@
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-import { orders, products, productVariants } from "@drizzle/schema";
+import { products, productVariants } from "@drizzle/schema";
 
-import { QueueStatusBadge } from "../badges/queue-status-badge";
-import dayjs from "dayjs";
-import { CountryFlag } from "../country-flag";
-import { cn, parseGid, truncate } from "@/lib/utils";
-import { FulfillmentPriorityBadge } from "../badges/fulfillment-priority-badge";
-import { ShippingPriorityBadge } from "../badges/shipping-priority-badge";
-import { FulfillmentStatusBadge } from "../badges/fulfillment-status-badge";
+import { cn, parseGid } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { useProductNavigation } from "@/lib/stores/product-navigation";
 
 import { useProgress } from "@bprogress/next";
 import { ProductStatusBadge } from "../badges/product-status-badge";
@@ -25,10 +20,16 @@ type Product = typeof products.$inferSelect & {
 function ProductsTable({ products }: { products: Product[] }) {
   const router = useRouter();
   const { start } = useProgress();
+  const { setNavigation } = useProductNavigation();
 
-  const handleRowClick = (id: string) => {
+  const handleRowClick = (id: string, title: string) => {
+    // Set navigation context with all visible products
+    setNavigation(
+      { type: "products" },
+      products.map((p) => ({ id: p.id, title: p.title }))
+    );
     start();
-    router.push(`/products/${parseGid(id)}`);
+    router.push(`/products/${parseGid(id)}?from=products`);
   };
 
   return (
@@ -64,7 +65,7 @@ function ProductsTable({ products }: { products: Product[] }) {
                 }
 
                 return (
-                  <TableRow key={id} onClick={() => handleRowClick(id)} className="cursor-pointer hover:bg-zinc-50">
+                  <TableRow key={id} onClick={() => handleRowClick(id, title)} className="cursor-pointer hover:bg-zinc-50">
                     <TableCell className="font-semibold">{title}</TableCell>
 
                     {isBlackLabel ? (
