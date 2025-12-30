@@ -45,7 +45,7 @@ export function BlanksInventoryTable({ blanks }: { blanks: Blank[] }) {
 
   return (
     <Tabs value={selectedTab} onValueChange={setSelectedTab} className="mt-4">
-      <div className="w-full overflow-y-scroll h-12">
+      <div className="w-full overflow-y-scroll flex items-center px-2 rounded-full h-12 bg-zinc-100">
         <TabsList>
           {GARMENT_TABS.map((type) => (
             <TabsTrigger key={type} value={type} className="capitalize">
@@ -72,10 +72,7 @@ export function BlanksInventoryTable({ blanks }: { blanks: Blank[] }) {
  * For a given color, determines which sizes are "expected" (within the min-max range).
  * Returns a set of sizes that should exist for this color.
  */
-function getExpectedSizesForColor(
-  variants: (typeof blankVariants.$inferSelect)[],
-  color: string
-): Set<GarmentSize> {
+function getExpectedSizesForColor(variants: (typeof blankVariants.$inferSelect)[], color: string): Set<GarmentSize> {
   const colorVariants = variants.filter((v) => v.color === color);
   const presentIndices = colorVariants
     .map((v) => SIZES.indexOf(v.size))

@@ -8,6 +8,7 @@ import { SortedAssemblyLineItem } from "../core/session/create-assembly-line";
 export type LoginResponse = DataResponse<"success" | null>;
 
 export type QueueResponse = DataResponse<Awaited<ReturnType<typeof getOrderQueue>>>;
+export type GetOrdersResponse = QueueResponse;
 
 export type GetProductsResponse = DataResponse<
   (typeof products.$inferSelect & {

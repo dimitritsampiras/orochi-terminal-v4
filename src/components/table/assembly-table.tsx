@@ -15,7 +15,15 @@ import { useProgress } from "@bprogress/next";
 import { Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
 import { Button, buttonVariants } from "../ui/button";
 import { Icon } from "@iconify/react";
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogTitle, DialogTrigger } from "../ui/dialog";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+  DialogTrigger,
+} from "../ui/dialog";
 
 export function AssemblyTable({ assemblyLine, batchId }: { assemblyLine: SortedAssemblyLineItem[]; batchId: number }) {
   const [filter, setFilter] = useState("");
@@ -25,7 +33,11 @@ export function AssemblyTable({ assemblyLine, batchId }: { assemblyLine: SortedA
   const filteredItems = assemblyLine.filter((item) => item.name.toLowerCase().includes(filter.toLowerCase()));
 
   const itemsWithUnsyncedPrints = filteredItems.filter(
-    (item) => item.prints.length === 0 && !Boolean(item.product?.isBlackLabel)
+    (item) => item.prints.length === 0 && !Boolean(item.product?.isBlackLabel) && item.product?.id
+  );
+
+  const itemsWithUnsyncedBlank = filteredItems.filter(
+    (item) => !Boolean(item.blankVariant) && !Boolean(item.product?.isBlackLabel) && item.product?.id
   );
 
   const handleRowClick = (id: string) => {
@@ -37,54 +49,29 @@ export function AssemblyTable({ assemblyLine, batchId }: { assemblyLine: SortedA
 
   return (
     <div className="mt-4">
-      {itemsWithUnsyncedPrints.length > 0 && (
-        <Card className="@container/card bg-red-50 max-w-96 gap-2 my-4">
-          <CardHeader>
-            <CardDescription>Items with Unsynced Prints</CardDescription>
-            <CardTitle className="text-2xl flex items-center gap-2 font-semibold tabular-nums @[250px]/card:text-3xl text-red-700">
-              <Icon icon="ph:warning-circle-bold" className="size-6" />
-              {itemsWithUnsyncedPrints.length}
-            </CardTitle>
-            <CardAction>
-              <Dialog>
-                <DialogTrigger>
-                  <Button variant="fill">View Items</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogTitle>Unsynced Prints</DialogTitle>
-                  <DialogDescription>
-                    <div>These need to be adjusted before beginning printing.</div>
-                  </DialogDescription>
-                  <div>
-                    {itemsWithUnsyncedPrints
-                      .filter((item) => item.product?.id)
-                      .map((item) => (
-                        <div className="flex items-center gap-2 justify-between" key={item.id}>
-                          <Link
-                            key={item.id}
-                            href={`/products/${parseGid(item.product?.id ?? "")}`}
-                            className={buttonVariants({ variant: "link", className: "px-0! mx-0!" })}
-                          >
-                            {item.name}
-                          </Link>
-                          <div className="text-sm text-zinc-500">{item.prints.length} prints</div>
-                        </div>
-                      ))}
-                  </div>
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button variant="outline">Close</Button>
-                    </DialogClose>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </CardAction>
-          </CardHeader>
-          <CardFooter className="flex-col items-start gap-1.5 text-sm">
-            <div>These need to be adjusted before beginning printing.</div>
-          </CardFooter>
-        </Card>
-      )}
+      <div className="flex items-center gap-2 flex-wrap my-4">
+        {itemsWithUnsyncedPrints.length > 0 && (
+          <AssemblyIssueCard
+            color="orange"
+            label="Unsynced Prints"
+            items={itemsWithUnsyncedPrints}
+            description="These need to be adjusted before beginning printing."
+            renderDetail={(item) => <span>{item.prints.length} prints</span>}
+          />
+        )}
+        {itemsWithUnsyncedBlank.length > 0 && (
+          <AssemblyIssueCard
+            label="Unsynced Blank"
+            items={itemsWithUnsyncedBlank}
+            description="These need to be adjusted before beginning printing."
+            renderDetail={(item) => (
+              <span>
+                {item.blankVariant?.color} {item.blankVariant?.size}
+              </span>
+            )}
+          />
+        )}
+      </div>
       <div className="mb-4">
         <Input
           placeholder="Filter by item name..."
@@ -165,5 +152,77 @@ export function AssemblyTable({ assemblyLine, batchId }: { assemblyLine: SortedA
         </Table>
       </div>
     </div>
+  );
+}
+
+/** Card for displaying assembly line items with issues */
+function AssemblyIssueCard({
+  label,
+  items,
+  description,
+  renderDetail,
+  color = "red",
+}: {
+  label: string;
+  items: SortedAssemblyLineItem[];
+  description: string;
+  renderDetail?: (item: SortedAssemblyLineItem) => React.ReactNode;
+  color?: "red" | "yellow" | "green" | "blue" | "rose" | "orange";
+}) {
+  const colorMap = {
+    red: { bg: "bg-red-50", text: "text-red-700" },
+    yellow: { bg: "bg-yellow-50", text: "text-yellow-700" },
+    green: { bg: "bg-green-50", text: "text-green-700" },
+    blue: { bg: "bg-blue-50", text: "text-blue-700" },
+    rose: { bg: "bg-rose-50", text: "text-rose-700" },
+    orange: { bg: "bg-orange-50", text: "text-orange-700" },
+  };
+  const { bg, text } = colorMap[color || "red"];
+  return (
+    <Card className={cn(bg, "max-w-80 gap-2 shadow-none")}>
+      <CardHeader>
+        <CardDescription>{label}</CardDescription>
+        <CardTitle
+          className={cn(text, "text-2xl flex items-center gap-2 font-semibold tabular-nums @[250px]/card:text-3xl")}
+        >
+          <Icon icon="ph:warning-circle-bold" className="size-6" />
+          {items.length}
+        </CardTitle>
+        <CardAction>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="fill">View</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogTitle>{label}</DialogTitle>
+              <DialogDescription>{description}</DialogDescription>
+              <div className="min-h-[400px]">
+                {items
+                  .filter((item) => item.product?.id)
+                  .map((item) => (
+                    <div className="flex items-center gap-2 justify-between" key={item.id}>
+                      <Link
+                        href={`/products/${parseGid(item.product?.id ?? "")}`}
+                        className={buttonVariants({ variant: "link", className: "px-0! mx-0!" })}
+                      >
+                        {item.name}
+                      </Link>
+                      {renderDetail && <div className="text-sm text-zinc-500">{renderDetail(item)}</div>}
+                    </div>
+                  ))}
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline">Close</Button>
+                </DialogClose>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </CardAction>
+      </CardHeader>
+      <CardFooter className="flex-col items-start gap-1.5 text-sm">
+        <div>{description}</div>
+      </CardFooter>
+    </Card>
   );
 }

@@ -50,12 +50,21 @@ export const getOrderQueue = async (
             id: true,
             name: true,
             productId: true,
+            quantity: true,
+            requiresShipping: true
           },
           with: {
             productVariant: {
               columns: {
                 blankVariantId: true,
                 id: true,
+              },
+            },
+            product: {
+              columns: {
+                id: true,
+                isBlackLabel: true,
+                blankId: true,
               },
             },
           },

@@ -1,34 +1,24 @@
 import "dotenv/config";
 import { db } from "@/lib/clients/db";
 import dayjs from "dayjs";
+import { lineItems, orders } from "@drizzle/schema";
+import { eq, like } from "drizzle-orm";
 
 async function main() {
-  const orders = await db.query.orders.findMany({
-    where: {
-      queued: false,
-      displayFulfillmentStatus: { NOT: "FULFILLED" },
-      displayIsCancelled: false,
-      createdAt: {
-        gte: new Date("2025-10-10"),
-      },
-    },
-    with: {
-      batches: {
-        columns: {
-          id: true,
-        },
-      },
-    },
-  });
-
-  let count = 0;
-  for (const order of orders) {
-    if (order.batches.length === 0) {
-      count++;
-      console.log(order.name, order.queued, order.displayFulfillmentStatus, dayjs(order.createdAt).format("MMMM DD"));
+  // There is no 'includes' or 'contains' function in drizzle-orm for Postgres;
+  // instead, use the 'like' operator with wildcards for substring search:
+  const tips = await db.select().from(lineItems).where(like(lineItems.name, "%Gift Card%"));
+  for (const tip of tips) {
+    console.log(tip.name);
+    if (tip.name.includes("Gift Card")) {
+      await db
+        .update(lineItems)
+        .set({
+          requiresShipping: false,
+        })
+        .where(eq(lineItems.id, tip.id));
     }
   }
-  console.log(`Total orders: ${count}`);
 }
 
 main()
