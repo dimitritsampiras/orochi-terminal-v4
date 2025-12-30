@@ -1,3 +1,5 @@
+'use client'
+
 import { LocalConfig } from "../types/misc";
 
 export interface PingResponse {

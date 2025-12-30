@@ -5,7 +5,7 @@ import { generatePickingList } from "@/lib/core/pdf/generate-picking-list";
 import { createSortedAssemblyLine } from "@/lib/core/session/create-assembly-line";
 import { createBatchSchema } from "@/lib/schemas/order-schema";
 import { CreateBatchResponse } from "@/lib/types/api";
-import { batches, batchDocuments, orders, ordersBatches } from "@drizzle/schema";
+import { batches, batchDocuments, orders, ordersBatches, logs } from "@drizzle/schema";
 import { eq, inArray, max } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -51,8 +51,23 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreateBat
         }))
       );
 
+      const orderData = await tx
+        .select({ id: orders.id, name: orders.name })
+        .from(orders)
+        .where(inArray(orders.id, orderIds));
+
       // Mark orders as no longer queued
       await tx.update(orders).set({ queued: false }).where(inArray(orders.id, orderIds));
+
+      // Bulk insert logs for all orders in a single query
+      await tx.insert(logs).values(
+        orderData.map<typeof logs.$inferInsert>((order) => ({
+          type: "INFO",
+          category: "AUTOMATED",
+          message: `Order ${order.name} added to batch ${batchId}`,
+          orderId: order.id,
+        }))
+      );
 
       return insertedBatch;
     });
@@ -122,9 +137,11 @@ async function generateBatchDocuments(
     const pickingPath = `batch-documents/picking-list-${batchId}-${timestamp}.pdf`;
     uploadPromises.push(
       (async () => {
-        const { error: uploadError } = await admin.storage.from("packing-slips").upload(pickingPath, pickingResult.data!, {
-          contentType: "application/pdf",
-        });
+        const { error: uploadError } = await admin.storage
+          .from("packing-slips")
+          .upload(pickingPath, pickingResult.data!, {
+            contentType: "application/pdf",
+          });
 
         if (!uploadError) {
           await db.insert(batchDocuments).values({
@@ -148,9 +165,11 @@ async function generateBatchDocuments(
     const assemblyPath = `batch-documents/assembly-list-${batchId}-${timestamp}.pdf`;
     uploadPromises.push(
       (async () => {
-        const { error: uploadError } = await admin.storage.from("packing-slips").upload(assemblyPath, assemblyResult.data!, {
-          contentType: "application/pdf",
-        });
+        const { error: uploadError } = await admin.storage
+          .from("packing-slips")
+          .upload(assemblyPath, assemblyResult.data!, {
+            contentType: "application/pdf",
+          });
 
         if (!uploadError) {
           await db.insert(batchDocuments).values({

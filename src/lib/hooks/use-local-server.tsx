@@ -7,7 +7,7 @@ import { LocalConfig } from "../types/misc";
 const STORAGE_KEY = "orochi-local-config";
 
 const DEFAULT_CONFIG: LocalConfig = {
-  serverUrl: "http://localhost:3001",
+  serverUrl: "http://127.0.0.1:3001",
   arxpFolderPath: "/Users/dimitritsampiras/Documents/Orochi/ARXP",
 };
 

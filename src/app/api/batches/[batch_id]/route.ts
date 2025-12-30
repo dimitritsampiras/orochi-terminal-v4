@@ -1,7 +1,7 @@
 import { db } from "@/lib/clients/db";
 import { authorizeUser } from "@/lib/core/auth/authorize-user";
 import { DataResponse } from "@/lib/types/misc";
-import { batches, orders, ordersBatches } from "@drizzle/schema";
+import { batches, logs, orders, ordersBatches } from "@drizzle/schema";
 import { eq, inArray } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 import z from "zod";
@@ -121,7 +121,23 @@ export async function DELETE(
         const ordersToRequeue = orderIds.filter((id) => !ordersStillInSessionIds.has(id));
 
         if (ordersToRequeue.length > 0) {
+          // Fetch order names for logging
+          const orderData = await tx
+            .select({ id: orders.id, name: orders.name })
+            .from(orders)
+            .where(inArray(orders.id, ordersToRequeue));
+
           await tx.update(orders).set({ queued: true }).where(inArray(orders.id, ordersToRequeue));
+
+          // Bulk insert logs for all requeued orders
+          await tx.insert(logs).values(
+            orderData.map<typeof logs.$inferInsert>((order) => ({
+              type: "INFO",
+              category: "AUTOMATED",
+              message: `Batch ${batchId} deleted and order ${order.name} was requeued`,
+              orderId: order.id,
+            }))
+          );
         }
       }
     });
@@ -135,4 +151,3 @@ export async function DELETE(
     );
   }
 }
-
