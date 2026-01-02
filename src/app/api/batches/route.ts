@@ -95,9 +95,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreateBat
     // Wrapped in try-catch so document generation errors don't fail batch creation
     if (assemblyLineData && createdBatch) {
       try {
-        await generateBatchDocuments(assemblyLineData, createdBatch);
+        // await generateBatchDocuments(assemblyLineData, createdBatch);
       } catch (err) {
-        console.error("Error generating batch documents (non-fatal):", err);
+        // console.error("Error generating batch documents (non-fatal):", err);
       }
     }
 
