@@ -106,7 +106,8 @@ export const getAssemblyLine = async (
             // Items not in the stored order go to the end
             return (aIndex === -1 ? Infinity : aIndex) - (bIndex === -1 ? Infinity : bIndex);
           })
-          .map((item, index) => ({ ...item, itemPosition: index }));
+          .map((item, index) => ({ ...item, itemPosition: index }))
+          .filter((item) => item.requiresShipping);
 
         return { data: { lineItems: sortedLineItems, batch }, error: null };
       } else {
@@ -361,7 +362,9 @@ export const createSortedAssemblyLine = async (
     return a.name.localeCompare(b.name);
   });
 
-  const sortedLineLineItemsWithIndex = sortedLineItems.map((item, index) => ({ ...item, itemPosition: index }));
+  const sortedLineLineItemsWithIndex = sortedLineItems
+    .map((item, index) => ({ ...item, itemPosition: index }))
+    .filter((item) => item.requiresShipping);
 
   return { data: sortedLineLineItemsWithIndex, error: null };
 };

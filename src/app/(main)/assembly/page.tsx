@@ -56,6 +56,7 @@ export default async function AssemblyPage() {
   return (
     <div>
       <h1 className="page-title">Assembly</h1>
+      <div className="text-sm text-muted-foreground">Session: {activeSession[0].id}</div>
       <AssemblyTable assemblyLine={data.lineItems} batchId={activeSession[0].id} />
     </div>
   );

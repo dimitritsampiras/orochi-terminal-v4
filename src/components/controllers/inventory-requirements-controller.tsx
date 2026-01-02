@@ -436,7 +436,7 @@ export const InventoryRequirementsController = ({ blanks }: { blanks: Blank[] })
           <TabsContent key={type} value={type} className="space-y-4">
             {filteredBlankRequirements.length === 0 ? (
               <div className="text-zinc-500 bg-zinc-100 w-full flex items-center justify-center p-4 h-30 rounded-lg">
-                No blanks with requirements found
+                No blanks with requirements found. Might need to fetch orders again.
               </div>
             ) : (
               filteredBlankRequirements.map((req) => <BlankRequirementCard key={req.blank.id} data={req} />)

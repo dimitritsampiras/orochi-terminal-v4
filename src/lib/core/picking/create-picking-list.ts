@@ -21,7 +21,8 @@ export const createPickingList = (lineItems: AssemblyLineItem[]): PickingListRes
   const pickingList: PickingItem[] = [];
   const unaccountedLineItems: AssemblyLineItem[] = [];
 
-  for (const item of lineItems) {
+  const filteredLineItems = lineItems.filter((item) => item.requiresShipping);
+  for (const item of filteredLineItems) {
     const blank = item.blank;
     const blankVariant = item.blankVariant;
 

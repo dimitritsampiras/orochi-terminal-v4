@@ -23,6 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { FulfillmentStatusBadge } from "../badges/fulfillment-status-badge";
 import { LineItemStatusBadge } from "../badges/line-item-status-badge";
 import { lineItemCompletionStatus } from "@drizzle/schema";
+import { IdCopyBadge } from "../badges/id-copy-badge";
 
 type Order = Extract<NonNullable<OrderQuery["node"]>, { __typename: "Order" }>;
 
@@ -78,27 +79,22 @@ export const AssemblyItemController = ({
               {hasNavigation && `${position + 1}. `}
               {item.name}
             </h1>
-            <div className="flex items-center gap-4 mt-2">
+            <div className="flex items-center gap-2 mt-2">
               {hasNavigation && (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground mr-2">
                   {position + 1} of {items.length}
                 </p>
               )}
               <LineItemStatusBadge status={item.completionStatus} />
+              <IdCopyBadge id={item.id} />
             </div>
           </div>
         </div>
 
         {hasNavigation && (
           <div className="flex items-center gap-2">
-            <NavButton 
-              direction="up" 
-              href={prev ? `/assembly/${parseGid(prev.id)}` : null} 
-            />
-            <NavButton 
-              direction="down" 
-              href={next ? `/assembly/${parseGid(next.id)}` : null} 
-            />
+            <NavButton direction="up" href={prev ? `/assembly/${parseGid(prev.id)}` : null} />
+            <NavButton direction="down" href={next ? `/assembly/${parseGid(next.id)}` : null} />
           </div>
         )}
       </div>
@@ -167,8 +163,8 @@ export const AssemblyItemController = ({
             <AlertTitle>No synced blank</AlertTitle>
             <AlertDescription>
               <p>
-                This item has no synced blank. Inventory can not be tracked effectively. Please either declare a blank in the
-                product page or set it as a black label item.
+                This item has no synced blank. Inventory can not be tracked effectively. Please either declare a blank
+                in the product page or set it as a black label item.
               </p>
             </AlertDescription>
           </Alert>

@@ -42,11 +42,13 @@ interface NormalizedShipmentDisplay {
   isPurchased: boolean;
   isRefunded: boolean;
   // Rate info
-  carrierLogo: string | null;
-  carrierName: string;
-  serviceName: string;
-  amount: string;
-  estimatedDays: number | null;
+  rateInfo: {
+    carrierLogo: string | null;
+    carrierName: string;
+    serviceName: string;
+    amount: string;
+    estimatedDays: number | null;
+  };
   labelSlipURL: string | null;
   plainSlipURL: string | null;
   // For details sheet
@@ -67,7 +69,8 @@ interface NormalizedShipmentDisplay {
 function normalizeShipmentData(shipment: OrderShipmentData): NormalizedShipmentDisplay | null {
   if (shipment.api === "SHIPPO") {
     const rate = shipment.shippoInfo.rates.find((r) => r.objectId === shipment.chosenRateId);
-    if (!rate) return null;
+
+    // if (!rate) return null;
 
     const transaction = shipment.shippoInfo.transaction;
 
@@ -87,11 +90,16 @@ function normalizeShipmentData(shipment: OrderShipmentData): NormalizedShipmentD
       createdAt: shipment.createdAt,
       isPurchased: shipment.isPurchased,
       isRefunded: shipment.isRefunded ?? false,
-      carrierLogo: rate.providerImage200 ?? null,
-      carrierName: rate.provider,
-      serviceName: rate.servicelevel.name || rate.servicelevel.token || "",
-      amount: rate.amount,
-      estimatedDays: rate.estimatedDays ?? null,
+      rateInfo: {
+        carrierLogo:
+          rate?.providerImage200 ||
+          getCarrierImage(shipment.shippoInfo.chosenRate?.provider || shipment.chosenCarrierName || "") ||
+          null,
+        carrierName: rate?.provider || shipment.shippoInfo.chosenRate?.provider || shipment.chosenCarrierName || "???",
+        serviceName: rate?.servicelevel.name || shipment.shippoInfo.chosenRate?.servicelevel.name || "???",
+        amount: rate?.amount || shipment.cost || "???",
+        estimatedDays: rate?.estimatedDays ?? null,
+      },
       labelSlipURL: shipment.labelSlipPath ? `${PACKING_SLIPS_BASE_URL}/${shipment.labelSlipPath}` : null,
       plainSlipURL: shipment.plainSlipPath ? `${PACKING_SLIPS_BASE_URL}/${shipment.plainSlipPath}` : null,
       apiShipmentId: shipment.shipmentId,
@@ -111,7 +119,6 @@ function normalizeShipmentData(shipment: OrderShipmentData): NormalizedShipmentD
 
   if (shipment.api === "EASYPOST") {
     const rate = shipment.easypostInfo.chosenRate;
-    if (!rate) return null;
 
     const hasTracking = !!shipment.easypostInfo.tracking_code;
 
@@ -131,11 +138,13 @@ function normalizeShipmentData(shipment: OrderShipmentData): NormalizedShipmentD
       createdAt: shipment.createdAt,
       isPurchased: shipment.isPurchased,
       isRefunded: shipment.isRefunded ?? false,
-      carrierLogo: getCarrierImage(rate.carrier) ?? null,
-      carrierName: rate.carrier,
-      serviceName: rate.service,
-      amount: rate.rate,
-      estimatedDays: rate.delivery_days ?? null,
+      rateInfo: {
+        carrierLogo: getCarrierImage(shipment.easypostInfo.chosenRate?.carrier || shipment.chosenCarrierName || '') || null,
+        carrierName: shipment.easypostInfo.chosenRate?.carrier || shipment.chosenCarrierName || "???",
+        serviceName: shipment.easypostInfo.chosenRate?.service || "???",
+        amount: shipment.easypostInfo.chosenRate?.rate || shipment.cost || "???",
+        estimatedDays: shipment.easypostInfo.chosenRate?.delivery_days ?? null,
+      },
       labelSlipURL: shipment.labelSlipPath ? `${PACKING_SLIPS_BASE_URL}/${shipment.labelSlipPath}` : null,
       plainSlipURL: shipment.plainSlipPath ? `${PACKING_SLIPS_BASE_URL}/${shipment.plainSlipPath}` : null,
       apiShipmentId: shipment.shipmentId,
@@ -209,21 +218,27 @@ const ShipmentCard = ({ shipment, lineItems }: { shipment: NormalizedShipmentDis
       </div>
       <div className="flex items-center justify-between gap-2 mt-2">
         <div className="flex items-center gap-2">
-          {shipment.carrierLogo ? (
-            <Image className="w-5" src={shipment.carrierLogo} alt={shipment.carrierName} width={100} height={100} />
+          {shipment.rateInfo?.carrierLogo ? (
+            <Image
+              className="w-5"
+              src={shipment.rateInfo.carrierLogo}
+              alt={shipment.rateInfo.carrierName}
+              width={100}
+              height={100}
+            />
           ) : (
             <Icon icon="ph:truck" className="size-5 text-zinc-500" />
           )}
           <div>
             <div className="font-semibold text-sm">
-              {shipment.carrierName} {shipment.serviceName}
+              {shipment.rateInfo?.carrierName} {shipment.rateInfo?.serviceName}
             </div>
             <div className="text-sm">
-              <span>${shipment.amount}</span>
-              {shipment.estimatedDays !== null && (
+              <span>${shipment.rateInfo?.amount}</span>
+              {shipment.rateInfo.estimatedDays !== null && (
                 <>
                   {" "}
-                  • <span className="text-zinc-500">{shipment.estimatedDays} days</span>
+                  • <span className="text-zinc-500">{shipment.rateInfo.estimatedDays} days</span>
                 </>
               )}
             </div>
@@ -424,11 +439,11 @@ const ShipmentDetailsSheet = ({
             <h3 className="text-sm font-semibold mb-2">Rate</h3>
             <div className="bg-zinc-50 rounded-lg p-3 space-y-1">
               <div className="flex items-center gap-2">
-                {shipment.carrierLogo ? (
+                {shipment.rateInfo.carrierLogo ? (
                   <Image
                     className="w-5"
-                    src={shipment.carrierLogo}
-                    alt={shipment.carrierName}
+                    src={shipment.rateInfo.carrierLogo}
+                    alt={shipment.rateInfo.carrierName}
                     width={100}
                     height={100}
                   />
@@ -436,12 +451,12 @@ const ShipmentDetailsSheet = ({
                   <Icon icon="ph:truck" className="size-5 text-zinc-500" />
                 )}
                 <span className="font-medium">
-                  {shipment.carrierName} {shipment.serviceName}
+                  {shipment.rateInfo.carrierName} {shipment.rateInfo.serviceName}
                 </span>
               </div>
               <div className="text-sm text-zinc-600">
-                ${shipment.amount}
-                {shipment.estimatedDays !== null && ` • ${shipment.estimatedDays} days`}
+                ${shipment.rateInfo.amount}
+                {shipment.rateInfo.estimatedDays !== null && ` • ${shipment.rateInfo.estimatedDays} days`}
               </div>
             </div>
           </section>
@@ -539,7 +554,13 @@ const ShipmentDetailsSheet = ({
   );
 };
 
-export const ShippingAPI = ({ api, className }: { api: (typeof shipmentApi)["enumValues"][number]; className?: string }) => {
+export const ShippingAPI = ({
+  api,
+  className,
+}: {
+  api: (typeof shipmentApi)["enumValues"][number];
+  className?: string;
+}) => {
   const styles: Record<(typeof shipmentApi.enumValues)[number], string> = {
     SHIPPO: "text-green-700",
     EASYPOST: "text-blue-700",

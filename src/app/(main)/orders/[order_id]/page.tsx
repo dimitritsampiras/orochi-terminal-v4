@@ -87,6 +87,8 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
 
   const shipmentData = await retrieveShipmentDataFromOrder(databaseOrder.shipments);
 
+  console.log(shipmentData);
+
   return (
     <div>
       <div className="flex items-center justify-between">

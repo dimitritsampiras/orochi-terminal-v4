@@ -41,7 +41,7 @@ export function OrderLineItems({ orderId, shopifyLineItems, databaseLineItems }:
     const unfulfillableDiff = b.unfulfilledQuantity - a.unfulfilledQuantity;
     if (unfulfillableDiff !== 0) return unfulfillableDiff;
     return a.name.localeCompare(b.name);
-  });
+  }).filter((item) => item.requiresShipping);
 
   return (
     <Card>
