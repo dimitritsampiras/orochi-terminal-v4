@@ -93,6 +93,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreateBat
     // Generate picking list and assembly list documents in parallel
     // We await this to ensure documents are created before response (serverless functions may terminate after response)
     // Wrapped in try-catch so document generation errors don't fail batch creation
+    // TODO: add this back
     if (assemblyLineData && createdBatch) {
       try {
         // await generateBatchDocuments(assemblyLineData, createdBatch);

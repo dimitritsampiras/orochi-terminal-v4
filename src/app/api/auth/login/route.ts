@@ -21,7 +21,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<LoginResp
   let email = identifier;
 
   // Check if identifier is an email
-  const isEmail = z.string().email().safeParse(identifier).success;
+  const isEmail = z.email().safeParse(identifier).success;
 
   if (!isEmail) {
     // Assume it's a username and try to find the email
@@ -54,10 +54,10 @@ export async function POST(request: NextRequest): Promise<NextResponse<LoginResp
     return NextResponse.json({ data: null, error: "User not found" }, { status: 404 });
   }
 
-  if (!(["superadmin", "admin"] as (typeof userRole.enumValues)[number][]).includes(user.role)) {
-    await supabase.auth.signOut();
-    return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
-  }
+  // if (!(["superadmin", "admin", 'va', 'staff',] as (typeof userRole.enumValues)[number][]).includes(user.role)) {
+  //   await supabase.auth.signOut();
+  //   return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
+  // }
 
   return NextResponse.json({ data: "success", error: null }, { status: 200 });
 }
