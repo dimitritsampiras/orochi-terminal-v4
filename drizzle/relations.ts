@@ -21,6 +21,7 @@ export const relations = defineRelations(schema, (r) => ({
       to: r.blanks.id,
     }),
     products: r.many.products(),
+    inventoryTransactions: r.many.inventoryTransactions(),
   },
   blanks: {
     blankVariants: r.many.blankVariants(),
@@ -40,6 +41,7 @@ export const relations = defineRelations(schema, (r) => ({
     ordersViaOrderNotes: r.many.orders({
       alias: "orders_id_profiles_id_via_orderNotes",
     }),
+    inventoryTransactions: r.many.inventoryTransactions(),
   },
   lineItems: {
     order: r.one.orders({
@@ -58,6 +60,7 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.lineItems.id.through(r.printLogs.lineItemId),
       to: r.prints.id.through(r.printLogs.printId),
     }),
+    inventoryTransactions: r.many.inventoryTransactions(),
   },
   orders: {
     lineItems: r.many.lineItems(),
@@ -109,6 +112,7 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.productVariants.blankVariantId,
       to: r.blankVariants.id,
     }),
+    inventoryTransactions: r.many.inventoryTransactions(),
   },
   orderHolds: {
     order: r.one.orders({
@@ -131,5 +135,34 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.shipments.orderId,
       to: r.orders.id,
     }),
+  },
+  inventoryTransactions: {
+    blankVariant: r.one.blankVariants({
+      from: r.inventoryTransactions.blankVariantId,
+      to: r.blankVariants.id,
+    }),
+    lineItem: r.one.lineItems({
+      from: r.inventoryTransactions.lineItemId,
+      to: r.lineItems.id,
+    }),
+    log: r.one.logs({
+      from: r.inventoryTransactions.logId,
+      to: r.logs.id,
+    }),
+    productVariant: r.one.productVariants({
+      from: r.inventoryTransactions.productVariantId,
+      to: r.productVariants.id,
+    }),
+    profile: r.one.profiles({
+      from: r.inventoryTransactions.profileId,
+      to: r.profiles.id,
+    }),
+    batch: r.one.batches({
+      from: r.inventoryTransactions.batchId,
+      to: r.batches.id,
+    }),
+  },
+  logs: {
+    inventoryTransactions: r.many.inventoryTransactions(),
   },
 }));

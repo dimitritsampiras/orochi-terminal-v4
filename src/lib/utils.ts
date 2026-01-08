@@ -1,5 +1,6 @@
 import {
   blankVariants,
+  garmentSize,
   lineItemCompletionStatus,
   lineItems,
   printLocation,
@@ -141,4 +142,18 @@ export const getCarrierImage = (carrierName: string) => {
       return `${baseUrl}${carriers[carrier]}`;
     }
   }
+};
+
+export const normalizeSizeName = (size: (typeof garmentSize.enumValues)[number]) => {
+  switch (size) {
+    case "xs":
+      return "xsmall";
+    case "sm":
+      return "small";
+    case "md":
+      return "medium";
+    case "lg":
+      return "large";
+  }
+  return size.toLowerCase().replace(/ /g, "_");
 };

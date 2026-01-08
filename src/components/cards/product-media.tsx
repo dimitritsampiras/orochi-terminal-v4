@@ -105,7 +105,15 @@ export const AssemblyLineMediaGrid = ({ media, firstId }: { media: MediaImageTyp
         // Skip videos or nodes without a URL
         if (!url) return null;
 
-        return <MediaImage key={id} src={url} alt={alt || "Product media"} className="h-full w-full object-cover" />;
+        return (
+          <MediaImage
+            key={id}
+            src={url}
+            alt={alt || "Product media"}
+            className="h-full w-full object-cover"
+            style={{ aspectRatio: "3/4" }}
+          />
+        );
       })}
     </div>
   ) : (

@@ -15,14 +15,13 @@ import {
 } from "@/components/ui/dialog";
 import { Kbd } from "@/components/ui/kbd";
 import { Switch } from "@/components/ui/switch";
-import { useFetcher } from "@/lib/hooks/use-fetcher";
 import { useLocalServer } from "@/lib/hooks/use-local-server";
-import { UpdateBlankVariantSchema } from "@/lib/schemas/product-schema";
-import { LocalConfig } from "@/lib/types/misc";
+import { PrintProductSchema } from "@/lib/schemas/product-schema";
+import { PrintProductResponse } from "@/lib/types/api";
 import { cn, getProductDetailsForARXP, standardizePrintOrder } from "@/lib/utils";
 import { blanks, blankVariants, prints, products, productVariants } from "@drizzle/schema";
 import { Icon } from "@iconify/react";
-import { index } from "drizzle-orm/cockroach-core";
+import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ButtonProps } from "react-day-picker";
@@ -47,30 +46,89 @@ export const PrintProductVariantForm = ({
 }: PrintProductVariantFormProps) => {
   const { isConnected, config, checkFileExists, openFile } = useLocalServer();
   const [fileExists, setFileExists] = useState<boolean | null>(null);
-  const [selectedPrint, setSelecedPrint] = useState<Print | null>(null);
-  const [isPrinting, setIsPrinting] = useState<boolean>(false);
-  const { trigger } = useFetcher<UpdateBlankVariantSchema>({
-    path: `/api/blanks/${blank?.id}/blank-variants/${blankVariant?.id}`,
-    method: "PATCH",
-    successMessage: "Blank stock reduced by 1",
-  });
+  const [selectedPrint, setSelectedPrint] = useState<Print | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [reduceStock, setReduceStock] = useState(true);
 
-  const [isDialogOpen, setIsDialogOpen] = useState<boolean>(false);
-  const [reduceStock, setReduceStock] = useState<boolean>(true);
+  const mutation = useMutation({
+    mutationFn: async (input: PrintProductSchema) => {
+      const res = await fetch(`/api/products/print`, {
+        method: "POST",
+        body: JSON.stringify(input),
+      });
+      const data = (await res.json()) as PrintProductResponse;
+
+      if (!res.ok || data.error) {
+        throw new Error(data.error ?? "Failed to print product");
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Product printed. Stock reduced by 1.");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
 
   const standardizedPrints = standardizePrintOrder(prints);
 
   const arxpDetails = useMemo(() => {
     const printIndex = selectedPrint ? standardizedPrints.findIndex((print) => print.id === selectedPrint.id) : -1;
-    // const printIndex = selectedPrint ? prints.findIndex((print) => print.id === selectedPrint.id) : -1;
-    if (printIndex === -1) {
-      return null;
-    }
+    if (printIndex === -1) return null;
+    return product && productVariant ? getProductDetailsForARXP(product, productVariant, printIndex) : null;
+  }, [selectedPrint, product, productVariant, standardizedPrints]);
 
-    const details = product && productVariant ? getProductDetailsForARXP(product, productVariant, printIndex) : null;
+  // Consolidated print readiness state
+  const printState = useMemo(() => {
+    const isBlackLabel = product?.isBlackLabel ?? false;
+    const hasProductVariant = !!productVariant;
+    const hasBlankVariant = !!blankVariant;
+    const hasBlank = !!blank?.id;
+    const hasPrintSelected = !!selectedPrint;
+    const hasArxpDetails = !!arxpDetails?.path;
+    const hasArxpFolderPath = !!config.arxpFolderPath;
+    const fileFound = fileExists === true;
+    const hasStock = (blankVariant?.quantity ?? 0) > 0;
 
-    return details;
-  }, [selectedPrint, product, productVariant]);
+    const canPrint =
+      !isBlackLabel &&
+      hasProductVariant &&
+      hasBlankVariant &&
+      hasBlank &&
+      hasPrintSelected &&
+      hasArxpDetails &&
+      hasArxpFolderPath &&
+      isConnected &&
+      fileFound;
+
+    return {
+      isBlackLabel,
+      hasProductVariant,
+      hasBlankVariant,
+      hasBlank,
+      hasPrintSelected,
+      hasArxpDetails,
+      hasArxpFolderPath,
+      isConnected,
+      fileFound,
+      fileChecked: fileExists !== null,
+      hasStock,
+      canPrint,
+    };
+  }, [
+    product,
+    productVariant,
+    blankVariant,
+    blank,
+    selectedPrint,
+    arxpDetails,
+    config.arxpFolderPath,
+    isConnected,
+    fileExists,
+  ]);
 
   useEffect(() => {
     const verifyFile = async () => {
@@ -94,32 +152,75 @@ export const PrintProductVariantForm = ({
   }, [arxpDetails, config.arxpFolderPath, isConnected, checkFileExists]);
 
   const printFile = async () => {
-    if (!blankVariant?.quantity) return;
-    if (!blank?.id) return;
-    if (!arxpDetails?.path) return;
+    if (!printState.canPrint || !arxpDetails?.path || !productVariant?.id) return;
 
-    if (!config.arxpFolderPath || !isConnected) {
-      return;
-    }
-
-    const basePath = config.arxpFolderPath.replace(/\/$/, "");
+    const basePath = config.arxpFolderPath!.replace(/\/$/, "");
     const fullPath = `${basePath}/${arxpDetails.path}`;
 
     setIsPrinting(true);
     const openFileResult = await openFile(fullPath);
+
     if (openFileResult === "success") {
-      if (reduceStock) {
-        await trigger({ quantity: blankVariant?.quantity - 1 });
+      // Only reduce stock if there's inventory AND user wants to reduce
+      if (printState.hasStock && reduceStock) {
+        mutation.mutate({ product_variant_id: productVariant.id, reason: "manual_print" });
       } else {
         toast.success("File opened.");
       }
-      setIsPrinting(false);
       setIsDialogOpen(false);
     } else {
-      setIsPrinting(false);
-      setIsDialogOpen(false);
       toast.error("Failed to open file");
     }
+    setIsPrinting(false);
+  };
+
+  // Show "ready to print" or blocking reason
+  const renderPrintReadiness = () => {
+    const { hasBlankVariant, hasPrintSelected, hasArxpFolderPath, fileFound, fileChecked } = printState;
+
+    // Only show these when connected and has blank variant (main workflow)
+    if (!isConnected || !hasBlankVariant) return null;
+
+    if (!hasArxpFolderPath) {
+      return (
+        <Alert variant="destructive">
+          <Icon icon="ph:folder-notch-open" />
+          <AlertTitle>ARXP folder path not configured</AlertTitle>
+          <AlertDescription>
+            Please configure your ARXP folder path in{" "}
+            <Link href="/profile" className="underline font-medium">
+              settings
+            </Link>{" "}
+            to enable printing.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    if (!hasPrintSelected) {
+      return (
+        <Alert variant="default" className="border-amber-200 bg-amber-50 text-amber-800">
+          <Icon icon="ph:hand-pointing" />
+          <AlertTitle>Select a print location</AlertTitle>
+          <AlertDescription>Choose which print (Front, Back, etc.) you want to open above.</AlertDescription>
+        </Alert>
+      );
+    }
+
+    if (fileChecked && !fileFound) {
+      return (
+        <Alert variant="destructive">
+          <Icon icon="ph:file-x" />
+          <AlertTitle>File not found</AlertTitle>
+          <AlertDescription>
+            The ARXP file does not exist at the expected path. Verify the file exists or check your folder
+            configuration.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    return null;
   };
 
   return (
@@ -135,58 +236,54 @@ export const PrintProductVariantForm = ({
             Print {product?.title}: {productVariant?.title ?? "???"}
           </DialogTitle>
         </DialogHeader>
-        <div className="flex flex-col">
-          {product?.isBlackLabel ? (
+        <div className="flex flex-col gap-3">
+          {printState.isBlackLabel ? (
             <Alert variant="default" className="text-indigo-600">
               <Icon icon="ph:info" />
               <AlertTitle>Black label product</AlertTitle>
               <AlertDescription>
-                <p>
-                  This product is a premade, "black label" product. It is not synced to a blank. You cannot print this
-                  product
-                </p>
+                This product is a premade, "black label" product. It is not synced to a blank. You cannot print this
+                product.
               </AlertDescription>
             </Alert>
           ) : (
             <>
-              {!blankVariant && (
+              {!printState.hasBlankVariant && (
                 <Alert variant="destructive">
                   <Icon icon="ph:warning-circle" />
                   <AlertTitle>
                     No blank synced for {product?.title}: {productVariant?.title}.
                   </AlertTitle>
                   <AlertDescription>
-                    <p>
-                      You can not print products that do not specify a blank. Please sync the variant on the product
-                      page.
-                    </p>
+                    You cannot print products that do not specify a blank. Please sync the variant on the product page.
                   </AlertDescription>
                 </Alert>
               )}
 
-              {!productVariant && (
+              {!printState.hasProductVariant && (
                 <Alert variant="destructive">
                   <Icon icon="ph:warning-circle" />
                   <AlertTitle>Couldn't find variant in database. Contact dev.</AlertTitle>
-                  <AlertDescription>
-                    <p>Weird error 🫠</p>
-                  </AlertDescription>
+                  <AlertDescription>Weird error 🫠</AlertDescription>
                 </Alert>
               )}
 
-              {!isConnected && (
+              {!printState.isConnected && (
                 <Alert variant="destructive">
-                  <Icon icon="ph:warning-circle" />
-                  <AlertTitle>You are not connected the file opener.</AlertTitle>
+                  <Icon icon="ph:wifi-slash" />
+                  <AlertTitle>Not connected to file opener</AlertTitle>
                   <AlertDescription>
-                    <p>Either the file opener is not running, or the config is wrong</p>
-                    <Link href="/settings" />
+                    The local file server is not running or the config is incorrect.{" "}
+                    <Link href="/profile" className="underline font-medium">
+                      Check settings
+                    </Link>
                   </AlertDescription>
                 </Alert>
               )}
 
-              {isConnected && blankVariant && (
-                <div className="min-h-52 flex flex-col gap-4">
+              {printState.isConnected && printState.hasBlankVariant && (
+                <div className="flex flex-col gap-4">
+                  {/* Print location selector grid */}
                   <div
                     className={cn(
                       "grid grid-cols-2 gap-2",
@@ -213,57 +310,57 @@ export const PrintProductVariantForm = ({
                               print={{ ...print, printNumber: index + 1 }}
                               isSelected={selectedPrint?.id === print.id}
                               onClick={() => {
-                                if (selectedPrint?.id === print.id) {
-                                  setSelecedPrint(null);
-                                } else {
-                                  setSelecedPrint(print);
-                                }
+                                setSelectedPrint(selectedPrint?.id === print.id ? null : print);
                               }}
                             />
                           );
-                        } else {
-                          return (
-                            <div
-                              key={`empty-${index}`}
-                              className="w-full h-18 bg-zinc-200 rounded-md border border-zinc-300"
-                            />
-                          );
                         }
+                        return (
+                          <div
+                            key={`empty-${index}`}
+                            className="w-full h-18 bg-zinc-200 rounded-md border border-zinc-300"
+                          />
+                        );
                       });
                     })()}
                   </div>
+
+                  {/* File details panel */}
                   <div
                     className={cn(
-                      "bg-zinc-50 rounded-lg p-4 h-full text-sm flex",
-                      !arxpDetails && "items-center justify-center"
+                      "bg-zinc-50 rounded-lg p-4 text-sm flex",
+                      !arxpDetails && "items-center justify-center min-h-24"
                     )}
                   >
                     {arxpDetails ? (
-                      <div>
+                      <div className="space-y-1">
                         <div>
-                          <span className="font-semibold">Base Name:</span> {arxpDetails.baseName}{" "}
+                          <span className="font-semibold">Base Name:</span> {arxpDetails.baseName}
                         </div>
                         <div>
-                          <span className="font-semibold">Color:</span> {arxpDetails.color}{" "}
+                          <span className="font-semibold">Color:</span> {arxpDetails.color}
                         </div>
                         <div>
-                          <span className="font-semibold">Size:</span> {arxpDetails.size}{" "}
+                          <span className="font-semibold">Size:</span> {arxpDetails.size}
                         </div>
-                        <div className="flex flex-col gap-1">
-                          <div>
-                            <span className="font-semibold">File Path:</span>
-                          </div>
+                        <div className="flex flex-col gap-1 pt-1">
+                          <span className="font-semibold">File Path:</span>
                           <Kbd>{config.arxpFolderPath}</Kbd>
                           <div className="flex items-center gap-1">
                             <Kbd>{arxpDetails.path}</Kbd>
-                            {fileExists ? (
+                            {fileExists === null ? (
+                              <Badge variant="secondary" className="py-0.5">
+                                <div className="size-1 bg-zinc-400 rounded-full animate-pulse" />
+                                Checking...
+                              </Badge>
+                            ) : fileExists ? (
                               <Badge variant="secondary" className="py-0.5 bg-emerald-50 text-emerald-700">
-                                <div className="size-1 bg-emerald-600 rounded-full"></div>
+                                <div className="size-1 bg-emerald-600 rounded-full" />
                                 File exists
                               </Badge>
                             ) : (
-                              <Badge variant="secondary" className="py-0.5">
-                                <div className="size-1 bg-red-600 rounded-full"></div>
+                              <Badge variant="secondary" className="py-0.5 bg-red-50 text-red-700">
+                                <div className="size-1 bg-red-600 rounded-full" />
                                 Not found
                               </Badge>
                             )}
@@ -271,30 +368,57 @@ export const PrintProductVariantForm = ({
                         </div>
                       </div>
                     ) : (
-                      <div className="text-zinc-500">select a print</div>
+                      <div className="text-zinc-500">Select a print location above</div>
                     )}
                   </div>
-                  {fileExists && arxpDetails && blank && (
-                    <Alert variant="default">
-                      {/* <Icon icon="ph:info" /> */}
-                      <AlertTitle>
-                        <div className="flex items-center space-x-2">
-                          <Switch id="reduce-stock" checked={reduceStock} onCheckedChange={setReduceStock} />
-                          {reduceStock ? <div>Print and reduce stock</div> : <div>Print only</div>}
-                        </div>
-                      </AlertTitle>
-                      <AlertDescription className="min-h-12">
-                        {reduceStock ? (
-                          <p>
-                            The blank {blank.blankCompany} {blank?.blankName} - {blankVariant.color} -{" "}
-                            {blankVariant.size} will be reduced by 1 from its current inventory ({blankVariant.quantity}
-                            ).
-                          </p>
-                        ) : (
-                          <p>Printing will not reduce stock. Please ensure this is intentional.</p>
-                        )}
-                      </AlertDescription>
-                    </Alert>
+
+                  {/* Print readiness alerts */}
+                  {renderPrintReadiness()}
+
+                  {/* Stock reduction toggle - only show when ready to print */}
+                  {printState.canPrint && blank && (
+                    <>
+                      {!printState.hasStock && (
+                        <Alert variant="destructive">
+                          <Icon icon="ph:warning-circle" />
+                          <AlertTitle>Out of stock</AlertTitle>
+                          <AlertDescription>
+                            {blank.blankCompany} {blank.blankName} - {blankVariant?.color} - {blankVariant?.size} has 0
+                            inventory. You can still print, but stock reduction is disabled. Please ensure you know what
+                            you're printing on and inventory is accounted for.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      <Alert variant="default">
+                        <AlertTitle>
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              id="reduce-stock"
+                              checked={printState.hasStock && reduceStock}
+                              onCheckedChange={setReduceStock}
+                              disabled={!printState.hasStock}
+                            />
+                            <span className={cn(!printState.hasStock && "text-zinc-400")}>
+                              {printState.hasStock && reduceStock ? "Print and reduce stock" : "Print only"}
+                            </span>
+                          </div>
+                        </AlertTitle>
+                        <AlertDescription className="min-h-12">
+                          {printState.hasStock && reduceStock ? (
+                            <p>
+                              {blank.blankCompany} {blank.blankName} - {blankVariant?.color} - {blankVariant?.size} will
+                              be reduced by 1 (current: {blankVariant?.quantity}).
+                            </p>
+                          ) : printState.hasStock ? (
+                            <p className="text-amber-600">
+                              Printing will not reduce stock. Ensure this is intentional.
+                            </p>
+                          ) : (
+                            <p className="text-zinc-500">Stock reduction unavailable — no inventory to reduce.</p>
+                          )}
+                        </AlertDescription>
+                      </Alert>
+                    </>
                   )}
                 </div>
               )}
@@ -308,11 +432,7 @@ export const PrintProductVariantForm = ({
               <Button variant="outline">Cancel</Button>
             </DialogClose>
 
-            <Button
-              onClick={printFile}
-              disabled={!blankVariant || !productVariant || !isConnected || Boolean(fileExists) === false}
-              loading={isPrinting}
-            >
+            <Button onClick={printFile} disabled={!printState.canPrint} loading={isPrinting || mutation.isPending}>
               Open File & Print
             </Button>
           </div>
@@ -329,9 +449,7 @@ const PrintSelector = ({
   ...props
 }: {
   className?: string;
-  print: Print & {
-    printNumber: number;
-  };
+  print: Print & { printNumber: number };
   isSelected: boolean;
 } & ButtonProps) => {
   return (

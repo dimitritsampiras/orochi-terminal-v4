@@ -1,17 +1,17 @@
 import {
   pgEnum,
   pgTable,
+  bigserial,
   text,
+  uuid,
   bigint,
   integer,
   timestamp,
-  uuid,
-  bigserial,
   numeric,
-  boolean,
   doublePrecision,
-  json,
+  boolean,
   jsonb,
+  json,
   index,
   uniqueIndex,
   foreignKey,
@@ -73,6 +73,15 @@ export const orderHoldCause = pgEnum("order_hold_cause", [
   "other",
 ]);
 export const pretreat = pgEnum("pretreat", ["light", "dark"]);
+export const inventoryTransactionReason = pgEnum("inventory_transaction_reason", [
+  "manual_adjustment",
+  "assembly_usage",
+  "restock",
+  "return",
+  "stock_take",
+  "correction",
+  "manual_print",
+]);
 
 export const batchDocuments = pgTable(
   "batch_documents",
@@ -162,6 +171,23 @@ export const creatorPayout = pgTable("creator_payout", {
   id: uuid().defaultRandom().primaryKey(),
 });
 
+export const inventoryTransactions = pgTable.withRLS("inventory_transactions", {
+  id: bigint({ mode: "number" }).primaryKey().generatedByDefaultAsIdentity(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .default(sql`now()`)
+    .notNull(),
+  blankVariantId: uuid("blank_variant_id").references(() => blankVariants.id),
+  productVariantId: text("product_variant_id").references(() => productVariants.id),
+  profileId: uuid("profile_id").references(() => profiles.id),
+  changeAmount: bigint("change_amount", { mode: "number" }).notNull(),
+  previousQuantity: bigint("previous_quantity", { mode: "number" }).notNull(),
+  newQuantity: bigint("new_quantity", { mode: "number" }).notNull(),
+  reason: inventoryTransactionReason().notNull(),
+  lineItemId: text("line_item_id").references(() => lineItems.id),
+  logId: bigint("log_id", { mode: "number" }).references(() => logs.id),
+  batchId: integer("batch_id").references(() => batches.id),
+});
+
 export const lineItems = pgTable("line_items", {
   id: text().primaryKey(),
   createdAt: timestamp("created_at", { withTimezone: true }).default(sql`now()`),
@@ -177,7 +203,7 @@ export const lineItems = pgTable("line_items", {
   hasDeprecatedBlankStock: boolean("has_deprecated_blank_stock"),
   hasDeprecatedVariantStock: boolean("has_deprecated_variant_stock"),
   markedAsPackaged: boolean("marked_as_packaged").default(false).notNull(),
-  requiresShipping: boolean("requires_shipping").default(false).notNull(),
+  requiresShipping: boolean("requires_shipping").default(true).notNull(),
 });
 
 export const logs = pgTable("logs", {
@@ -285,7 +311,7 @@ export const prints = pgTable("prints", {
   heatTransferCode: text("heat_transfer_code"),
   isSmallPrint: boolean("is_small_print"),
   productId: text("product_id").references(() => products.id, { onDelete: "cascade" }),
-  pretreat: pretreat("pretreat"),
+  pretreat: pretreat(),
 });
 
 export const productVariants = pgTable.withRLS(

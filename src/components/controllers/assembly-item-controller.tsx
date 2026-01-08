@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { Button } from "../ui/button";
 import { Icon } from "@iconify/react";
-import { cn, getProductDetailsForARXP, parseGid, standardizePrintOrder } from "@/lib/utils";
+import { cn, getProductDetailsForARXP, normalizeSizeName, parseGid, standardizePrintOrder } from "@/lib/utils";
 import { ProductMediaGrid, AssemblyLineMediaGrid } from "../cards/product-media";
 import { Badge } from "../ui/badge";
 import { OrderQuery } from "@/lib/types/admin.generated";
@@ -206,8 +206,10 @@ export const AssemblyItemController = ({
           />
           <Prints item={item} />
         </div>
-        <div>
+        <div className="flex flex-col gap-4">
           <OrderDetails order={order} dbOrder={item.order} currentLineItemId={item.id} />
+          <BlankDetails blank={item.blank} blankVariant={item.blankVariant} />
+          <ProductDetails product={item.product} productVariant={item.productVariant} />
         </div>
       </div>
     </div>
@@ -516,6 +518,98 @@ export const OrderDetails = ({
               );
             })}
         </div>
+      </CardContent>
+    </Card>
+  );
+};
+const BlankDetails = ({
+  blank,
+  blankVariant,
+}: {
+  blank: AssemblyLineItemWithPrintLogs["blank"];
+  blankVariant: AssemblyLineItemWithPrintLogs["blankVariant"];
+}) => {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Blank Details</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {blank && blankVariant && (
+          <div>
+            {blankVariant.quantity === 0 && (
+              <Alert className="text-red-700 bg-red-50 mb-4 p-2">
+                <Icon icon="ph:warning-circle" className="size-4" />
+                <AlertTitle>No stock</AlertTitle>
+                <AlertDescription>
+                  <p>This blank is out of stock.</p>
+                </AlertDescription>
+              </Alert>
+            )}
+            <div className="flex justify-between">
+              <div>
+                <div className="text-zinc-500 text-xs">Current stock</div>
+                <div className="font-semibold text-4xl">{blankVariant.quantity}</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm capitalize">
+                  {blank.blankCompany} {blank.blankName}
+                </div>
+                <div className="flex items-center gap-2 justify-end">
+                  <Badge variant="outline" className="text-zinc-600 text-[10px]">
+                    {blank.garmentType}
+                  </Badge>
+                  <div className="text-sm">{normalizeSizeName(blankVariant.size)}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
+const ProductDetails = ({
+  product,
+  productVariant,
+}: {
+  product: AssemblyLineItemWithPrintLogs["product"];
+  productVariant: AssemblyLineItemWithPrintLogs["productVariant"];
+}) => {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Product Details</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {product && productVariant && (
+          <div>
+            {productVariant.warehouseInventory > 0 && !product.isBlackLabel && (
+              <Alert>
+                <Icon icon="ph:info" className="size-4" />
+                <AlertTitle>Product is stock</AlertTitle>
+                <AlertDescription>
+                  <p>This blank is in stock. Please use warehouse inventory.</p>
+                </AlertDescription>
+              </Alert>
+            )}
+            <div className="flex justify-between">
+              <div>
+                <div className="text-zinc-500 text-xs">Current stock</div>
+                <div className="font-semibold text-4xl">{productVariant.warehouseInventory}</div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm capitalize">{product.title}</div>
+                <div className="flex items-center gap-2 justify-end">
+                  <Badge variant="outline" className="text-zinc-600 text-[10px]">
+                    {productVariant.title}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

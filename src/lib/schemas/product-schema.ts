@@ -81,3 +81,42 @@ export const updatePrintSchema = z.object({
 });
 
 export type UpdatePrintSchema = z.infer<typeof updatePrintSchema>;
+
+// Create blank schema
+const garmentTypeEnum = z.enum([
+  "coat",
+  "jacket",
+  "hoodie",
+  "crewneck",
+  "longsleeve",
+  "tee",
+  "shorts",
+  "sweatpants",
+  "headwear",
+  "accessory",
+]);
+
+const garmentSizeEnum = z.enum(["xs", "sm", "md", "lg", "xl", "2xl", "3xl", "4xl", "5xl", "os"]);
+
+export const createBlankSchema = z.object({
+  blankName: z.string().min(1, "Blank name is required"),
+  blankCompany: z.string().min(1, "Blank company is required"),
+  garmentType: garmentTypeEnum,
+  customsPrice: z.number().min(0, "Price must be a positive number"),
+  firstColor: z.string().min(1, "First color is required"),
+  sizes: z.array(garmentSizeEnum).min(1, "At least one size is required"),
+});
+
+export type CreateBlankSchema = z.infer<typeof createBlankSchema>;
+
+export const GARMENT_TYPES = garmentTypeEnum.options;
+export const GARMENT_SIZES = garmentSizeEnum.options;
+
+export const printProductSchema = z.object({
+  product_variant_id: z.string(),
+  line_item_id: z.string().optional(),
+  batch_id: z.number().optional(),
+  reason: z.string().optional(),
+});
+
+export type PrintProductSchema = z.infer<typeof printProductSchema>;

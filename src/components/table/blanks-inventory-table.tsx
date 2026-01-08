@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UpdateBlankQuantityForm } from "@/components/forms/blank-forms/update-blank-quantity-form";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Icon } from "@iconify/react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { buttonVariants } from "../ui/button";
 
@@ -33,7 +34,18 @@ const GARMENT_TABS: (GarmentType | "other")[] = [
 const SIZES: GarmentSize[] = ["xs", "sm", "md", "lg", "xl", "2xl", "3xl", "4xl", "5xl"];
 
 export function BlanksInventoryTable({ blanks }: { blanks: Blank[] }) {
-  const [selectedTab, setSelectedTab] = useState<string>("hoodie");
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // Get garmentType from URL, default to "hoodie"
+  const selectedTab = searchParams.get("garmentType") || "hoodie";
+
+  // Update URL when tab changes
+  const handleTabChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("garmentType", value);
+    router.push(`?${params.toString()}`, { scroll: false });
+  };
 
   // Filter blanks by selected garment type
   const filteredBlanks = useMemo(() => {
@@ -44,7 +56,7 @@ export function BlanksInventoryTable({ blanks }: { blanks: Blank[] }) {
   }, [blanks, selectedTab]);
 
   return (
-    <Tabs value={selectedTab} onValueChange={setSelectedTab} className="mt-4">
+    <Tabs value={selectedTab} onValueChange={handleTabChange} className="mt-4">
       <div className="w-full overflow-y-scroll flex items-center px-2 rounded-full h-12 bg-zinc-100">
         <TabsList>
           {GARMENT_TABS.map((type) => (

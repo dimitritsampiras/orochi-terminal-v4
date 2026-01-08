@@ -71,7 +71,7 @@ export const ProductVariants = ({
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Synced Blank</TableHead>
-              <TableHead>Overstock</TableHead>
+              <TableHead>Product Stock</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -84,7 +84,7 @@ export const ProductVariants = ({
                     <ProductSyncStatusBadge status="black_label" isBlackLabel />
                   ) : variant.syncedBlank && variant.syncedBlankVariant ? (
                     <Link
-                      href={`/blanks?garmentType=${blank?.garmentType}`}
+                      href={`/inventory?garmentType=${blank?.garmentType}`}
                       className="flex flex-col hover:cursor-pointer hover:bg-zinc-200/50 rounded-md py-1 px-2 transition-all"
                     >
                       <span className="font-medium text-sm capitalize">
@@ -93,6 +93,7 @@ export const ProductVariants = ({
                       <span className="text-xs text-muted-foreground">
                         {variant.syncedBlank.blankCompany} {variant.syncedBlank.blankName}
                       </span>
+                      <span className="text-xs">Blank Stock: {variant.syncedBlankVariant.quantity}</span>
                     </Link>
                   ) : variant.isMismatch ? (
                     <TooltipProvider>

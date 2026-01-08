@@ -8,7 +8,7 @@ import { env } from "../env";
 type LogEntry = typeof logs.$inferInsert;
 type LogLevel = (typeof logType.enumValues)[number];
 class Logger {
-  private async insert(level: LogLevel, entry: LogEntry) {
+  private async insert(level: LogLevel, entry: LogEntry): Promise<number | undefined> {
     const { message, orderId, profileId, category, type, metadata } = entry;
 
     try {
@@ -17,14 +17,16 @@ class Logger {
       //   return;
       // }
 
-      await db.insert(logs).values({
+      const [log] = await db.insert(logs).values({
         category,
         type: level,
         message,
         orderId,
         profileId,
         metadata,
-      });
+      }).returning({ id: logs.id });
+
+      return log?.id;
     } catch (error) {
       // Fallback to console if DB fails, so you still see it in Vercel/server logs
       console.error("CRITICAL: Failed to save log to DB", error);
@@ -33,17 +35,17 @@ class Logger {
 
   async info(message: string, opts: Omit<LogEntry, "message"> = {}) {
     console.log(`🟢 [INFO] ${message}`); // Keep console for vercel runtime logs
-    await this.insert("INFO", { message, ...opts });
+    return await this.insert("INFO", { message, ...opts });
   }
 
   async warn(message: string, opts: Omit<LogEntry, "message"> = {}) {
     console.warn(`🟡 [WARN] ${message}`);
-    await this.insert("WARN", { message, ...opts });
+    return await this.insert("WARN", { message, ...opts });
   }
 
   async error(message: string, opts: Omit<LogEntry, "message"> = {}) {
     console.error(`🔴 [ERROR] ${message}`);
-    await this.insert("ERROR", { message, ...opts });
+    return await this.insert("ERROR", { message, ...opts });
   }
 }
 
