@@ -71,7 +71,7 @@ export async function DELETE(
   { params }: { params: Promise<{ blank_id: string; blank_variant_id: string }> }
 ): Promise<NextResponse<DeleteBlankVariantResponse>> {  
   try {
-    const user = await authorizeUser();
+    const user = await authorizeApiUser(["super_admin", "admin"]);
 
     if (!user) {
       return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });

@@ -12,7 +12,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ order_id: string; shipment_id: string }> }
 ): Promise<NextResponse<PurchaseShipmentResponse>> {
-  const user = await authorizeApiUser(["superadmin", "admin"]);
+  const user = await authorizeApiUser(["super_admin", "admin"]);
 
   if (!user) {
     return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });

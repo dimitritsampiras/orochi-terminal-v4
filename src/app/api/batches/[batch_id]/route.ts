@@ -72,7 +72,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ batch_id: string }> }
 ): Promise<NextResponse<DeleteBatchResponse>> {
-  const user = await authorizeUser(["superadmin", "admin"]);
+  const user = await authorizeApiUser(["super_admin", "admin"]);
 
   if (!user) {
     return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });

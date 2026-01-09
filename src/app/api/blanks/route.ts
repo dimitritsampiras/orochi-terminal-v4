@@ -24,7 +24,7 @@ export const GET = async (): Promise<NextResponse<GetBlanksResponse>> => {
 
 export const POST = async (req: NextRequest): Promise<NextResponse<CreateBlankResponse>> => {
   try {
-    const user = await authorizeUser(["superadmin", "admin"]);
+    const user = await authorizeApiUser(["super_admin", "admin"]);
 
     if (!user) {
       return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
@@ -34,10 +34,7 @@ export const POST = async (req: NextRequest): Promise<NextResponse<CreateBlankRe
     const parsed = createBlankSchema.safeParse(rawBody);
 
     if (!parsed.success) {
-      return NextResponse.json(
-        { data: null, error: parsed.error.errors[0]?.message || "Invalid input" },
-        { status: 400 }
-      );
+      return NextResponse.json({ data: null, error: "Invalid input" }, { status: 400 });
     }
 
     const { blankName, blankCompany, garmentType, customsPrice, firstColor, sizes } = parsed.data;
