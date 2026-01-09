@@ -20,7 +20,7 @@ import Image from "next/image";
 import { PurchaseShipmentForm } from "../forms/shipment-forms/purchase-shipment-form";
 import { DeleteShipmentForm } from "../forms/shipment-forms/delete-shipment-form";
 import { RefundShipmentForm } from "../forms/shipment-forms/refund-shipment-form";
-import { ShippoTrackingStatusBadge } from "../badges/shippo-tracking-status-badge";
+import { EasyPostTrackingStatusBadge, ShippoTrackingStatusBadge } from "../badges/tracking-status-badge";
 import { IdCopyBadge } from "../badges/id-copy-badge";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
@@ -56,6 +56,8 @@ interface NormalizedShipmentDisplay {
   lineItemIds: string[] | null;
   parcelSnapshot: unknown;
   messages: ShipmentMessage[];
+  gateScannedAt: Date | null;
+  gateScannerBy: string | null;
   // Tracking info (only present if purchased)
   tracking: {
     number: string;
@@ -90,6 +92,8 @@ function normalizeShipmentData(shipment: OrderShipmentData): NormalizedShipmentD
       createdAt: shipment.createdAt,
       isPurchased: shipment.isPurchased,
       isRefunded: shipment.isRefunded ?? false,
+      gateScannedAt: shipment.gateScannedAt,
+      gateScannerBy: shipment.gateScannerBy,
       rateInfo: {
         carrierLogo:
           rate?.providerImage200 ||
@@ -138,8 +142,11 @@ function normalizeShipmentData(shipment: OrderShipmentData): NormalizedShipmentD
       createdAt: shipment.createdAt,
       isPurchased: shipment.isPurchased,
       isRefunded: shipment.isRefunded ?? false,
+      gateScannedAt: shipment.gateScannedAt,
+      gateScannerBy: shipment.gateScannerBy,
       rateInfo: {
-        carrierLogo: getCarrierImage(shipment.easypostInfo.chosenRate?.carrier || shipment.chosenCarrierName || '') || null,
+        carrierLogo:
+          getCarrierImage(shipment.easypostInfo.chosenRate?.carrier || shipment.chosenCarrierName || "") || null,
         carrierName: shipment.easypostInfo.chosenRate?.carrier || shipment.chosenCarrierName || "???",
         serviceName: shipment.easypostInfo.chosenRate?.service || "???",
         amount: shipment.easypostInfo.chosenRate?.rate || shipment.cost || "???",
@@ -296,6 +303,30 @@ const ShipmentCard = ({ shipment, lineItems }: { shipment: NormalizedShipmentDis
                 <TrackingStatusBadge status={shipment.tracking.status} api={shipment.api} />
               </div>
             )}
+
+            <hr className="my-2 w-10" />
+            <div className="flex items-center gap-2">
+              <div className="font-semibold">Shipment Scanned: </div>
+              {shipment.gateScannedAt ? (
+                <Badge className="text-zinc-700 gap-2" variant="outline">
+                  <div className="min-w-1.5 min-h-1.5 rounded-full bg-red-600"></div>
+                  <div className="text-xs">
+                    <span className="text-zinc-700 font-semibold">Scanned: </span>
+                    <span className="text-zinc-500">
+                      {" "}
+                      {dayjs(shipment.gateScannedAt).format("MMM DD, YYYY hh:mm a")}
+                    </span>
+                  </div>
+                </Badge>
+              ) : (
+                <Badge className="text-zinc-700 gap-2" variant="outline">
+                  <div className="min-w-1.5 min-h-1.5 rounded-full bg-zinc-400"></div>
+                  <div className="text-xs">
+                    <span className="text-zinc-500">Not scanned</span>
+                  </div>
+                </Badge>
+              )}
+            </div>
           </div>
           {!shipment.isRefunded ? (
             <div className="mt-4 flex items-center justify-between">
@@ -381,6 +412,9 @@ const ShipmentCard = ({ shipment, lineItems }: { shipment: NormalizedShipmentDis
 const TrackingStatusBadge = ({ status, api }: { status: string; api: (typeof shipmentApi)["enumValues"][number] }) => {
   if (api === "SHIPPO") {
     return <ShippoTrackingStatusBadge status={status as Parameters<typeof ShippoTrackingStatusBadge>[0]["status"]} />;
+  }
+  if (api === "EASYPOST") {
+    return <EasyPostTrackingStatusBadge status={status as Parameters<typeof EasyPostTrackingStatusBadge>[0]["status"]} />;
   }
   return <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 text-zinc-700 font-medium">{status}</span>;
 };

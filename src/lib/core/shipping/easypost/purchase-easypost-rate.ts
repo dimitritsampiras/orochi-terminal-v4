@@ -90,6 +90,7 @@ export const purchaseEasypostRateAndUpdateDatabase = async (
       .update(shipments)
       .set({
         isPurchased: true,
+        trackingNumber: easypostShipment.tracking_code,
       })
       .where(eq(shipments.id, databaseShipmentUUID));
 

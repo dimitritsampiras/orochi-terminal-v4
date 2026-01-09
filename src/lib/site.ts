@@ -30,6 +30,11 @@ export const SITE = {
       icon: "ph:package",
     },
     {
+      path: "/gate-scan",
+      name: "Gate Scan",
+      icon: "ph:barcode",
+    },
+    {
       path: "/profile",
       name: "Profile",
       icon: "ph:user",

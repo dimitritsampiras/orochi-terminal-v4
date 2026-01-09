@@ -17,7 +17,7 @@ type BackButtonProps = {
  * Supported params:
  * - `from=orders` -> navigates to /orders
  * - `from=session&session_id=X` -> navigates to /sessions/X
- * - `from=batch&batch_id=X` -> navigates to /batches/X
+ * - `from=batch&batch_id=X` -> navigates to /sessions/X
  * - `from=assembly` -> navigates to /assembly
  * - `from=product&product_id=X` -> navigates to /products/X
  * - `from=create_session` -> navigates to /sessions/create
@@ -36,7 +36,7 @@ export const BackButton = ({ fallbackHref, className }: BackButtonProps) => {
       case "session":
         return sessionId ? `/sessions/${sessionId}` : fallbackHref;
       case "batch":
-        return batchId ? `/batches/${batchId}` : fallbackHref;
+        return batchId ? `/sessions/${batchId}` : fallbackHref;
       case "orders":
         return "/orders";
       case "assembly":

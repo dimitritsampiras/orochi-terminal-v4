@@ -55,3 +55,5 @@ export type GetAssemblyLineResponse = DataResponse<{
 export type CreateBatchResponse = DataResponse<typeof batches.$inferSelect | null>;
 
 export type PrintProductResponse = DataResponse<"success" | null>;
+
+export type ScanResponse = DataResponse<string | null>;

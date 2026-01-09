@@ -101,6 +101,7 @@ export const purchaseShippoRateAndUpdateDatabase = async (
         .set({
           isPurchased: true,
           shippoTransactionId: transaction.objectId,
+          trackingNumber: transaction.trackingNumber,
         })
         .where(eq(shipments.id, databaseShipmentUUID));
 

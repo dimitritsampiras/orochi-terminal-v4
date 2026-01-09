@@ -32,7 +32,7 @@ export function OrderLogs({ logs, className }: OrderLogsProps) {
                     log.type === "ERROR" && "border-red-200 bg-red-50 text-red-900 px-2 py-1"
                   )}
                 >
-                  <div className="flex flex-col gap-0.5">
+                  <div className="flex flex-col gap-0.5 min-w-0 flex-1">
                     <span className="text-xs text-muted-foreground opacity-70">
                       {log.createdAt
                         ? new Date(log.createdAt).toLocaleString("en-US", {
@@ -45,7 +45,7 @@ export function OrderLogs({ logs, className }: OrderLogsProps) {
                           })
                         : "Unknown Date"}
                     </span>
-                    <span>{log.message}</span>
+                    <span className="whitespace-pre-wrap break-all overflow-hidden">{log.message}</span>
                   </div>
                   <div className="shrink-0">
                     <span className="text-[10px] uppercase font-semibold opacity-50 tracking-wider">{log.type}</span>

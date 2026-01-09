@@ -64,3 +64,9 @@ export const createBatchSchema = z.object({
 });
 
 export type CreateBatchSchema = z.infer<typeof createBatchSchema>;
+
+export const scanSchema = z.object({
+  decodedText: z.string(),
+});
+
+export type ScanSchema = z.infer<typeof scanSchema>;

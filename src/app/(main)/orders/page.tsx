@@ -17,7 +17,11 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
     }
   }
 
-  const q = params.get("q");
+  let q = params.get("q");
+
+  if (q?.length && Number.isInteger(Number(q)) && q?.length <= 6) {
+    q = `#${q}`;
+  }
 
   const orders = await db.query.orders.findMany({
     limit: 50,

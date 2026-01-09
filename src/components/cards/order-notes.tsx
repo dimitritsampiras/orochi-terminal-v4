@@ -63,11 +63,11 @@ export const OrderNotesCard = ({ orderId, shopifyNote, databaseNotes, currentUse
       <CardContent className="text-sm">
         {shopifyNote ? (
           <div className="mb-2">
-            <div className="text-muted-foreground text-xs mb-1">Customer Note</div>
+            <div className="text-muted-foreground text-xs mb-1">Shopify Note</div>
             <div className="bg-muted/50 rounded-md p-3">{shopifyNote}</div>
           </div>
         ) : (
-          <div className="text-muted-foreground mb-4">No customer notes</div>
+          <div className="text-muted-foreground mb-4">No shopify notes</div>
         )}
       </CardContent>
 

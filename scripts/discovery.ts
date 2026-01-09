@@ -3,22 +3,18 @@ import { db } from "@/lib/clients/db";
 import dayjs from "dayjs";
 import { lineItems, orders } from "@drizzle/schema";
 import { eq, like } from "drizzle-orm";
+import { shippo } from "@/lib/clients/shippo";
+import { ordersGoneStale, ordersWithNoSessionHistory } from "@/lib/core/orders/get-unresolved-orders";
+import { bulkFulfillOrders } from "@/lib/core/orders/bulk-fulfill-orders";
 
 async function main() {
-  // There is no 'includes' or 'contains' function in drizzle-orm for Postgres;
-  // instead, use the 'like' operator with wildcards for substring search:
-  const tips = await db.select().from(lineItems).where(like(lineItems.name, "%Gift Card%"));
-  for (const tip of tips) {
-    console.log(tip.name);
-    if (tip.name.includes("Gift Card")) {
-      await db
-        .update(lineItems)
-        .set({
-          requiresShipping: false,
-        })
-        .where(eq(lineItems.id, tip.id));
-    }
-  }
+  // const orders = await ordersWithNoSessionHistory();
+  // const orders = await ordersGoneStale();
+
+  // for (const order of orders) {
+  //   console.log(order.name, dayjs(order.createdAt).format("MM/DD/YYYY"));
+  // }
+  await bulkFulfillOrders();
 }
 
 main()

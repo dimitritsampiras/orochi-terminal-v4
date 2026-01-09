@@ -172,7 +172,7 @@ export const storeShipmentAndRate = async (order: Order, rate: NormalizedShipmen
     return { data: shipment[0], error: null };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(`[store rate] Error storing rate: ${errorMessage}`, {
+    logger.error(`[store rate] Error storing rate: ${errorMessage.slice(0, 100)}`, {
       category: "SHIPPING",
       orderId: order.id,
     });

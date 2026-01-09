@@ -10,6 +10,7 @@ export const relations = defineRelations(schema, (r) => ({
   },
   batches: {
     batchDocuments: r.many.batchDocuments(),
+    inventoryTransactions: r.many.inventoryTransactions(),
     orders: r.many.orders({
       from: r.batches.id.through(r.ordersBatches.batchId),
       to: r.orders.id.through(r.ordersBatches.orderId),
@@ -41,6 +42,11 @@ export const relations = defineRelations(schema, (r) => ({
     ordersViaOrderNotes: r.many.orders({
       alias: "orders_id_profiles_id_via_orderNotes",
     }),
+    ordersViaShipments: r.many.orders({
+      from: r.profiles.id.through(r.shipments.gateScannerBy),
+      to: r.orders.id.through(r.shipments.orderId),
+      alias: "profiles_id_orders_id_via_shipments",
+    }),
     inventoryTransactions: r.many.inventoryTransactions(),
   },
   lineItems: {
@@ -64,6 +70,7 @@ export const relations = defineRelations(schema, (r) => ({
   },
   orders: {
     lineItems: r.many.lineItems(),
+    logs: r.many.logs(),
     profilesViaLogs: r.many.profiles({
       from: r.orders.id.through(r.logs.orderId),
       to: r.profiles.id.through(r.logs.profileId),
@@ -78,6 +85,9 @@ export const relations = defineRelations(schema, (r) => ({
     }),
     batches: r.many.batches(),
     shipments: r.many.shipments(),
+    profilesViaShipments: r.many.profiles({
+      alias: "profiles_id_orders_id_via_shipments",
+    }),
   },
   orderNotes: {
     order: r.one.orders({
@@ -163,6 +173,10 @@ export const relations = defineRelations(schema, (r) => ({
     }),
   },
   logs: {
+    order: r.one.orders({
+      from: r.logs.orderId,
+      to: r.orders.id,
+    }),
     inventoryTransactions: r.many.inventoryTransactions(),
   },
 }));

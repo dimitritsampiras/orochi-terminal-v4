@@ -111,7 +111,7 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
             {databaseOrder.batches.length > 1 ? "In sessions:" : "In session:"}
             {databaseOrder.batches.map((batch, index) => (
               <div key={batch.id}>
-                <Link key={batch.id} href={`/batches/${batch.id}`} className="font-semibold hover:opacity-80">
+                <Link key={batch.id} href={`/sessions/${batch.id}`} className="font-semibold hover:opacity-80">
                   {batch.id}
                 </Link>
                 {index < databaseOrder.batches.length - 1 && <span>,</span>}

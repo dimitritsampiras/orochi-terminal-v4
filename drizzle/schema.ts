@@ -2,16 +2,16 @@ import {
   pgEnum,
   pgTable,
   bigserial,
-  text,
-  uuid,
   bigint,
-  integer,
+  text,
   timestamp,
-  numeric,
+  uuid,
+  integer,
   doublePrecision,
+  numeric,
   boolean,
-  jsonb,
   json,
+  jsonb,
   index,
   uniqueIndex,
   foreignKey,
@@ -81,6 +81,7 @@ export const inventoryTransactionReason = pgEnum("inventory_transaction_reason",
   "stock_take",
   "correction",
   "manual_print",
+  "defected_item",
 ]);
 
 export const batchDocuments = pgTable(
@@ -398,6 +399,9 @@ export const shipments = pgTable.withRLS(
     isRefunded: boolean("is_refunded").default(false),
     chosenCarrierName: text("chosen_carrier_name"),
     cost: numeric(),
+    trackingNumber: text("tracking_number"),
+    gateScannedAt: timestamp("gate_scanned_at", { withTimezone: true }),
+    gateScannerBy: uuid("gate_scanner_by").references(() => profiles.id)
   },
   (table) => [
     pgPolicy("Enable insert for authenticated users only", {

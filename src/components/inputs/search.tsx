@@ -18,7 +18,7 @@ const Search = React.forwardRef<HTMLInputElement, SearchProps>(({ className, ...
 
   const handleChange = (value: string) => {
     const params = new URLSearchParams(searchParams);
-    params.set("q", value);
+    params.set("q", value.trim());
 
     startTransition(() => {
       router.replace(`${pathname}?${params.toString()}`, {
