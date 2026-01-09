@@ -1,5 +1,6 @@
 import { AssemblyItemController } from "@/components/controllers/assembly-item-controller";
 import shopify from "@/lib/clients/shopify";
+import { authorizePageUser } from "@/lib/core/auth/authorize-user";
 import { getAssemblyLine, getLineItemById } from "@/lib/core/session/create-assembly-line";
 import { orderQuery } from "@/lib/graphql/order.graphql";
 import { productMediaQuery } from "@/lib/graphql/product.graphql";
@@ -8,6 +9,7 @@ import { buildResourceGid } from "@/lib/utils";
 import { notFound } from "next/navigation";
 
 export default async function AssemblyItemPage({ params }: { params: Promise<{ item_id: string; batch_id: string }> }) {
+  await authorizePageUser("assembly");
   const { item_id } = await params;
 
   const lineItemId = buildResourceGid("LineItem", item_id);

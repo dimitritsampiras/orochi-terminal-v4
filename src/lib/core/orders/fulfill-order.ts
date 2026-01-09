@@ -43,7 +43,9 @@ export const fulfillOrder = async (
       if (data?.fulfillmentCreateV2?.fulfillment?.status === "SUCCESS") {
         return { data: "success", error: null };
       }
+      return { data: null, error: "Error creating fulfillment" };
     }
+    return { data: null, error: "No open fulfillment order found" };
   } catch (e) {
     console.error(e);
     return { data: null, error: "Error fulfilling order" };

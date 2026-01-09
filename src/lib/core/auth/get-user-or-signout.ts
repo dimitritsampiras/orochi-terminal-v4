@@ -25,11 +25,5 @@ export async function getUserOrSignout(): Promise<typeof profiles.$inferSelect> 
     return redirect("/auth/login");
   }
 
-  if (!(["superadmin", "admin"] as (typeof userRole.enumValues)[number][]).includes(dbUser.role)) {
-    console.log("[get-user-from-headers] user not authorized", dbUser.id);
-    await supabase.auth.signOut();
-    return redirect("/auth/login");
-  }
-
   return dbUser;
 }

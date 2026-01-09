@@ -17,8 +17,10 @@ import { buildResourceGid } from "@/lib/utils";
 import { Icon } from "@iconify/react";
 import dayjs from "dayjs";
 import { MediaImage } from "@/lib/types/misc";
+import { authorizePageUser } from "@/lib/core/auth/authorize-user";
 
 export default async function ProductPage({ params }: { params: Promise<{ product_id: string }> }) {
+  await authorizePageUser("products");
   const { product_id } = await params;
 
   const gid = buildResourceGid("Product", product_id);

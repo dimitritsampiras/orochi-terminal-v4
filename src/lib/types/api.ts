@@ -57,3 +57,8 @@ export type CreateBatchResponse = DataResponse<typeof batches.$inferSelect | nul
 export type PrintProductResponse = DataResponse<"success" | null>;
 
 export type ScanResponse = DataResponse<string | null>;
+
+// Staff management responses
+export type CreateStaffResponse = DataResponse<"success" | null>;
+export type EditStaffResponse = DataResponse<"success" | null>;
+export type DeleteStaffResponse = DataResponse<"success" | null>;

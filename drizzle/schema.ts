@@ -65,6 +65,7 @@ export const orderLogCategory = pgEnum("order_log_category", ["SHIPPING", "ASSEM
 export const shipmentApi = pgEnum("shipment_api", ["SHIPPO", "EASYPOST"]);
 export const taskStatus = pgEnum("task_status", ["running", "completed", "cancelled"]);
 export const userRole = pgEnum("user_role", ["admin", "superadmin", "staff", "creator", "va", "warehouse"]);
+export const userRoleV4 = pgEnum("user_role_v4", ["admin", "super_admin", "warehouse_staff", "customer_support"]);
 export const batchDocumentType = pgEnum("batch_document_type", ["assembly_list", "picking_list", "merged_label_slips"]);
 export const orderHoldCause = pgEnum("order_hold_cause", [
   "address_issue",
@@ -368,6 +369,8 @@ export const profiles = pgTable(
     email: text().notNull(),
     creatorVendorName: text("creator_vendor_name"),
     role: userRole().default("staff").notNull(),
+    roleV4: userRoleV4("role_v4").notNull(),
+    isActive: boolean("is_active").default(true).notNull(),
   },
   (table) => [
     unique("creator profiles_vendor_name_key").on(table.creatorVendorName),
@@ -401,7 +404,7 @@ export const shipments = pgTable.withRLS(
     cost: numeric(),
     trackingNumber: text("tracking_number"),
     gateScannedAt: timestamp("gate_scanned_at", { withTimezone: true }),
-    gateScannerBy: uuid("gate_scanner_by").references(() => profiles.id)
+    gateScannerBy: uuid("gate_scanner_by").references(() => profiles.id),
   },
   (table) => [
     pgPolicy("Enable insert for authenticated users only", {

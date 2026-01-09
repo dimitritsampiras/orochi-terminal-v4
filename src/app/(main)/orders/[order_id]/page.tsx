@@ -25,8 +25,10 @@ import dayjs from "dayjs";
 import Link from "next/link";
 import { BackButton } from "@/components/nav/back-button";
 import { OrderNavigation } from "@/components/nav/order-navigation";
+import { authorizePageUser } from "@/lib/core/auth/authorize-user";
 
 export default async function OrderPage({ params }: { params: Promise<{ order_id: string }> }) {
+  await authorizePageUser("orders");
   const { order_id } = await params;
 
   const gid = buildResourceGid("Order", order_id);
@@ -86,8 +88,6 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
   const order = shopifyOrder.data.node;
 
   const shipmentData = await retrieveShipmentDataFromOrder(databaseOrder.shipments);
-
-  console.log(shipmentData);
 
   return (
     <div>

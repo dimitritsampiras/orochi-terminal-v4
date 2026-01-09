@@ -1,10 +1,12 @@
 import { Button, buttonVariants } from "@/components/ui/button";
+import { authorizePageUser } from "@/lib/core/auth/authorize-user";
 import { Icon } from "@iconify/react";
 import { ArrowRightIcon, BookOpenIcon } from "lucide-react";
 import Link from "next/link";
 
 // blank server component
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  await authorizePageUser('dashboard');
   return (
     <div>
       <h1 className="page-title">Dashboard</h1>

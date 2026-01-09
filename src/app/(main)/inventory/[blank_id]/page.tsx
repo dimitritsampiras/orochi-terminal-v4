@@ -8,9 +8,9 @@ import dayjs from "dayjs";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { BackButton } from "@/components/nav/back-button";
-
+import { authorizePageUser } from "@/lib/core/auth/authorize-user";
 export default async function BlankInventoryPage({ params }: { params: Promise<{ blank_id: string }> }) {
-  await getUserOrSignout();
+  await authorizePageUser("inventory");
 
   const { blank_id } = await params;
 

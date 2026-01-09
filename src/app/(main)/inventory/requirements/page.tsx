@@ -1,10 +1,11 @@
 import { InventoryRequirementsController } from "@/components/controllers/inventory-requirements-controller";
 import { BackButton } from "@/components/nav/back-button";
 import { db } from "@/lib/clients/db";
+import { authorizePageUser } from "@/lib/core/auth/authorize-user";
 import { getUserOrSignout } from "@/lib/core/auth/get-user-or-signout";
 
 export default async function RequirementsPage() {
-  await getUserOrSignout();
+  await authorizePageUser("inventory");
 
   const blanks = await db.query.blanks.findMany({
     with: {

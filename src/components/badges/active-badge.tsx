@@ -1,9 +1,5 @@
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { Product } from "@/lib/types/admin.types";
-import { fulfillmentPriority } from "@drizzle/schema";
-
-;
 
 function ActiveBadge({ status, className }: { status: boolean; className?: string }) {
   const colorMap: Record<'active' | 'inactive', string> = {

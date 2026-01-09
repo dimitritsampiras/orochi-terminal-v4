@@ -4,12 +4,13 @@ import { BackButton } from "@/components/nav/back-button";
 import { SessionDocumentsTable } from "@/components/table/session-documents-table";
 import { SessionOrdersTable } from "@/components/table/session-orders-table";
 import { db } from "@/lib/clients/db";
+import { authorizePageUser } from "@/lib/core/auth/authorize-user";
 import { getUserOrSignout } from "@/lib/core/auth/get-user-or-signout";
 import { Icon } from "@iconify/react";
 import dayjs from "dayjs";
 
 export default async function SessionPage({ params }: { params: Promise<{ session_id: string }> }) {
-  const user = await getUserOrSignout();
+  const user = await authorizePageUser("sessions");
   const { session_id } = await params;
 
   const sessionIdAsNumber = parseInt(session_id);

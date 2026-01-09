@@ -1,21 +1,18 @@
 import { MultiSelectFilter } from "@/components/inputs/multi-select-filter";
 import { Search } from "@/components/inputs/search";
-// import { ProductsTable } from '@/components/table/products-table';
 import { env } from "@/lib/env";
 import { getUserOrSignout } from "@/lib/core/auth/get-user-or-signout";
 import { db } from "@/lib/clients/db";
 import { ProductsTable } from "@/components/table/products-table";
-// import type {
-//   GetCategoriesResponse,
-//   GetLocationsResponse,
-//   GetProductsResponse
-// } from '@/lib/types/api';
+import { authorizePageUser } from "@/lib/core/auth/authorize-user";
 
 export default async function ProductsPage({
   searchParams,
 }: {
   searchParams: Promise<{ page?: string; q?: string; status?: string[] }>;
 }) {
+  await authorizePageUser("products");
+
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(await searchParams)) {
     if (value && typeof value === "string") {

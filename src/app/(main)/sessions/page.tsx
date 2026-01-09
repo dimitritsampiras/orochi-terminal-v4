@@ -2,10 +2,12 @@ import { PaginationController } from "@/components/pagination-controller";
 import { SessionsTable } from "@/components/table/sessions-table";
 import { buttonVariants } from "@/components/ui/button";
 import { db } from "@/lib/clients/db";
+import { authorizePageUser } from "@/lib/core/auth/authorize-user";
 import { getUserOrSignout } from "@/lib/core/auth/get-user-or-signout";
 import { batches } from "@drizzle/schema";
 import { count } from "drizzle-orm";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 //
 
@@ -16,7 +18,8 @@ export default async function SessionsPage({
     page?: string;
   }>;
 }) {
-  await getUserOrSignout();
+  await authorizePageUser("sessions");
+
   const params = await searchParams;
   const page = Number(params.page ?? 1);
   const pageSize = 20;

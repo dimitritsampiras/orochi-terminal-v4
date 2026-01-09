@@ -1,14 +1,26 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { SITE } from '@/lib/site';
+import { SITE, getRolesForResource, type Resource } from '@/lib/site';
 import { cn } from '@/lib/utils';
 import { Icon } from '@iconify/react';
 import Link from 'next/link';
-import Image from 'next/image';
 
-export default function NavBar() {
+type Props = {
+  userRole?: string;
+};
+
+export default function NavBar({ userRole }: Props) {
   const pathname = usePathname();
+
+  const canAccessResource = (resource: Resource) => {
+    const allowedRoles = getRolesForResource(resource);
+    if (!allowedRoles) return true; // undefined = all authenticated users
+    return userRole && allowedRoles.includes(userRole as any);
+  };
+
+  const visibleRoutes = SITE.routes.filter(({ resource }) => canAccessResource(resource));
+  const visibleSubRoutes = SITE.subRoutes.filter(({ resource }) => canAccessResource(resource));
 
   return (
     <nav className="z-40 hidden h-screen min-h-[30rem] min-w-56 md:flex">
@@ -17,7 +29,7 @@ export default function NavBar() {
           
         </div>
         <ul className="flex flex-col gap-1.5 overflow-hidden mt-4">
-          {SITE.routes.map(({ path, name, icon }) => (
+          {visibleRoutes.map(({ path, name, icon }) => (
             <li key={path}>
               <Link
                 draggable="false"
@@ -34,8 +46,8 @@ export default function NavBar() {
               </Link>
             </li>
           ))}
-          <hr className="my-2" />
-          {SITE.subRoutes.map(({ path, name, icon }) => (
+          {visibleSubRoutes.length > 0 && <hr className="my-2" />}
+          {visibleSubRoutes.map(({ path, name, icon }) => (
             <li key={path}>
               <Link
                 draggable="false"

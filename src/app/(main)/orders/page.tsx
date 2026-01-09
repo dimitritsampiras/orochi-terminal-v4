@@ -6,9 +6,9 @@ import { OrdersTable } from "@/components/table/orders-table";
 
 import type { SearchParams } from "next/dist/server/request/search-params";
 import { db } from "@/lib/clients/db";
-
+import { authorizePageUser } from "@/lib/core/auth/authorize-user";
 export default async function OrdersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  await getUserOrSignout();
+  await authorizePageUser("orders");
 
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(await searchParams)) {

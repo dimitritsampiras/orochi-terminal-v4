@@ -1,11 +1,13 @@
 import { AssemblyTable } from "@/components/table/assembly-table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { db } from "@/lib/clients/db";
+import { authorizePageUser } from "@/lib/core/auth/authorize-user";
 import { getAssemblyLine } from "@/lib/core/session/create-assembly-line";
 
 import { Icon } from "@iconify/react";
 
 export default async function AssemblyPage() {
+  await authorizePageUser("assembly");
   const activeSession = await db.query.batches.findMany({
     where: {
       active: true,

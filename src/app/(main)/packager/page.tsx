@@ -9,8 +9,9 @@ import { orderQuery } from "@/lib/graphql/order.graphql";
 import { isOrderComplete } from "@/lib/utils";
 import { Icon } from "@iconify/react";
 import dayjs from "dayjs";
-
+import { authorizePageUser } from "@/lib/core/auth/authorize-user";
 export default async function PackagerPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  await authorizePageUser("packager");
   const params = await searchParams;
   const q = params.q;
 
@@ -97,14 +98,7 @@ export default async function PackagerPage({ searchParams }: { searchParams: Pro
                   return null;
                 }
 
-                return (
-                  <PackagerLineItemCard
-                    key={item.id}
-                    orderId={order.id}
-                    shopifyItem={item}
-                    dbItem={dbItem}
-                  />
-                );
+                return <PackagerLineItemCard key={item.id} orderId={order.id} shopifyItem={item} dbItem={dbItem} />;
               })}
           </div>
         </div>

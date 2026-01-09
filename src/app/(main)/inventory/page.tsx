@@ -4,9 +4,10 @@ import { BlanksInventoryTable } from "@/components/table/blanks-inventory-table"
 import { buttonVariants } from "@/components/ui/button";
 import { CreateBlankForm } from "@/components/forms/blank-forms/create-blank-form";
 import Link from "next/link";
+import { authorizePageUser } from "@/lib/core/auth/authorize-user";
 
 export default async function InventoryPage() {
-  await getUserOrSignout();
+  await authorizePageUser("inventory");
 
   const blanks = await db.query.blanks.findMany({
     with: {
