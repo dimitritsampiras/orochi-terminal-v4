@@ -1,5 +1,5 @@
 import { db } from "@/lib/clients/db";
-import { authorizeUser } from "@/lib/core/auth/authorize-user";
+import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
 import { logger } from "@/lib/core/logger";
 import { updateBlankVariantSchema } from "@/lib/schemas/product-schema";
 import { blankVariants } from "@drizzle/schema";
@@ -12,7 +12,7 @@ export async function PATCH(
   { params }: { params: Promise<{ blank_id: string; blank_variant_id: string }> }
 ) {
   try {
-    const user = await authorizeUser();
+    const user = await authorizeApiUser();
 
     if (!user) {
       return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });

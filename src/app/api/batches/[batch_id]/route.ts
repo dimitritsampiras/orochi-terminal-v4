@@ -1,5 +1,5 @@
 import { db } from "@/lib/clients/db";
-import { authorizeUser } from "@/lib/core/auth/authorize-user";
+import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
 import { DataResponse } from "@/lib/types/misc";
 import { batches, logs, orders, ordersBatches } from "@drizzle/schema";
 import { eq, inArray } from "drizzle-orm";
@@ -17,7 +17,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ batch_id: string }> }
 ): Promise<NextResponse<UpdateBatchResponse>> {
-  const user = await authorizeUser(["superadmin", "admin", "staff"]);
+  const user = await authorizeApiUser(["super_admin", "admin", "warehouse_staff"]);
 
   if (!user) {
     return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });

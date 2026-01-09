@@ -1,5 +1,5 @@
 import { db } from "@/lib/clients/db";
-import { authorizeUser } from "@/lib/core/auth/authorize-user";
+import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
 import { logger } from "@/lib/core/logger";
 import { DataResponse } from "@/lib/types/misc";
 import { buildResourceGid } from "@/lib/utils";
@@ -13,7 +13,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ order_id: string; shipment_id: string }> }
 ): Promise<NextResponse<DeleteShipmentResponse>> {
-  const user = await authorizeUser(["superadmin", "admin"]);
+  const user = await authorizeApiUser(["super_admin", "admin", "warehouse_staff"]);
 
   if (!user) {
     return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });

@@ -1,7 +1,7 @@
 import { db } from "@/lib/clients/db";
 import { easypost } from "@/lib/clients/easypost";
 import { shippo } from "@/lib/clients/shippo";
-import { authorizeUser } from "@/lib/core/auth/authorize-user";
+import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
 import { logger } from "@/lib/core/logger";
 import { DataResponse } from "@/lib/types/misc";
 import { buildResourceGid } from "@/lib/utils";
@@ -15,7 +15,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ order_id: string; shipment_id: string }> }
 ): Promise<NextResponse<RefundShipmentResponse>> {
-  const user = await authorizeUser(["superadmin", "admin"]);
+  const user = await authorizeApiUser(["superadmin", "admin"]);
 
   if (!user) {
     return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });

@@ -1,5 +1,5 @@
 import { db } from "@/lib/clients/db";
-import { authorizeUser } from "@/lib/core/auth/authorize-user";
+import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
 import { logger } from "@/lib/core/logger";
 import { prodouctVariantSizeToBlankSize } from "@/lib/core/products/prodouct-variant-size-to-blank-size";
 import { syncBlankSchema } from "@/lib/schemas/product-schema";
@@ -15,7 +15,7 @@ export async function POST(
   { params }: { params: Promise<{ product_id: string }> }
 ): Promise<NextResponse<SyncBlankResponse>> {
   try {
-    const user = await authorizeUser();
+    const user = await authorizeApiUser();
 
     if (!user) {
       return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
@@ -113,7 +113,7 @@ export async function DELETE(
   { params }: { params: Promise<{ product_id: string }> }
 ): Promise<NextResponse<SyncBlankResponse>> {
   try {
-    const user = await authorizeUser();
+    const user = await authorizeApiUser();
 
     if (!user) {
       return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });

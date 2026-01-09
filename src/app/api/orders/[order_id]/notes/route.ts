@@ -1,5 +1,5 @@
 import { db } from "@/lib/clients/db";
-import { authorizeUser } from "@/lib/core/auth/authorize-user";
+import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
 import { buildResourceGid } from "@/lib/utils";
 import { orderNotes } from "@drizzle/schema";
 import { NextRequest, NextResponse } from "next/server";
@@ -11,7 +11,7 @@ const addNoteSchema = z.object({
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ order_id: string }> }) {
   try {
-    const user = await authorizeUser(["superadmin", "admin", "warehouse", "va"]);
+    const user = await authorizeApiUser(["super_admin", "admin", "warehouse_staff"]);
 
     if (!user) {
       return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });

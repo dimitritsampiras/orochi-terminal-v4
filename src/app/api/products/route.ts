@@ -1,5 +1,5 @@
 import { db } from "@/lib/clients/db";
-import { authorizeUser } from "@/lib/core/auth/authorize-user";
+import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
 import { GetProductsResponse } from "@/lib/types/api";
 import { type NextRequest, NextResponse } from "next/server";
 
@@ -7,7 +7,7 @@ const PAGE_SIZE = 20;
 
 export async function GET(request: NextRequest): Promise<NextResponse<GetProductsResponse>> {
   try {
-    const user = await authorizeUser();
+    const user = await authorizeApiUser();
 
     if (!user) {
       return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });

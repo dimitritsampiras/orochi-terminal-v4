@@ -1,6 +1,6 @@
 import { db } from "@/lib/clients/db";
 import { admin } from "@/lib/clients/supabase-admin";
-import { authorizeUser } from "@/lib/core/auth/authorize-user";
+import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
 import { generateAssemblyList } from "@/lib/core/pdf/generate-assembly-list";
 import { generatePickingList } from "@/lib/core/pdf/generate-picking-list";
 import { getAssemblyLine } from "@/lib/core/session/create-assembly-line";
@@ -20,7 +20,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ batch_id: string }> }
 ): Promise<NextResponse<CreateDocumentResponse>> {
-  const user = await authorizeUser(["superadmin", "admin", "staff"]);
+  const user = await authorizeApiUser(["super_admin", "admin", "warehouse_staff"]);
 
   if (!user) {
     return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });

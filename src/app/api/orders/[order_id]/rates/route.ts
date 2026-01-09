@@ -1,5 +1,5 @@
 import shopify from "@/lib/clients/shopify";
-import { authorizeUser } from "@/lib/core/auth/authorize-user";
+import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
 import { logger } from "@/lib/core/logger";
 import { getRateForOrder } from "@/lib/core/shipping/get-rate-for-order";
 import { orderQuery } from "@/lib/graphql/order.graphql";
@@ -14,7 +14,7 @@ export async function POST(
   { params }: { params: Promise<{ order_id: string }> }
 ): Promise<NextResponse<GetRateResponse>> {
   try {
-    const user = await authorizeUser();
+    const user = await authorizeApiUser();
     if (!user) {
       return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
     }

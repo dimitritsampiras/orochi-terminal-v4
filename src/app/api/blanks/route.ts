@@ -1,5 +1,5 @@
 import { db } from "@/lib/clients/db";
-import { authorizeUser } from "@/lib/core/auth/authorize-user";
+import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
 import { logger } from "@/lib/core/logger";
 import { createBlankSchema } from "@/lib/schemas/product-schema";
 import { CreateBlankResponse, GetBlanksResponse } from "@/lib/types/api";
@@ -7,7 +7,7 @@ import { blanks, blankVariants } from "@drizzle/schema";
 import { type NextRequest, NextResponse } from "next/server";
 
 export const GET = async (): Promise<NextResponse<GetBlanksResponse>> => {
-  const user = await authorizeUser(["superadmin", "admin", "va", "warehouse"]);
+  const user = await authorizeApiUser(["super_admin", "admin", "warehouse_staff"]);
 
   if (!user) {
     return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });

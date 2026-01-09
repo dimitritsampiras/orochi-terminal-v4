@@ -1,5 +1,5 @@
 import { db } from "@/lib/clients/db";
-import { authorizeUser } from "@/lib/core/auth/authorize-user";
+import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
 import { logger } from "@/lib/core/logger";
 import { scanSchema } from "@/lib/schemas/order-schema";
 import { ScanResponse } from "@/lib/types/api";
@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const POST = async (req: NextRequest): Promise<NextResponse<ScanResponse>> => {
   try {
-    const user = await authorizeUser(["superadmin", "admin", "warehouse", "va", "staff"]);
+    const user = await authorizeApiUser(["super_admin", "admin", "warehouse_staff"]);
 
     if (!user) {
       return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });

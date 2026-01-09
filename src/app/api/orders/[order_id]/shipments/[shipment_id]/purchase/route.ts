@@ -1,5 +1,5 @@
 import { db } from "@/lib/clients/db";
-import { authorizeUser } from "@/lib/core/auth/authorize-user";
+import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
 import { createAndStoreShippingDocs } from "@/lib/core/shipping/create-and-store-shipping-docs";
 import { purchaseEasypostRateAndUpdateDatabase } from "@/lib/core/shipping/easypost/purchase-easypost-rate";
 import { purchaseShippoRateAndUpdateDatabase } from "@/lib/core/shipping/shippo/purchase-shippo-rate";
@@ -12,7 +12,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ order_id: string; shipment_id: string }> }
 ): Promise<NextResponse<PurchaseShipmentResponse>> {
-  const user = await authorizeUser(["superadmin", "admin"]);
+  const user = await authorizeApiUser(["superadmin", "admin"]);
 
   if (!user) {
     return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });

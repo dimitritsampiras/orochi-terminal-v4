@@ -1,11 +1,11 @@
-import { authorizeUser } from "@/lib/core/auth/authorize-user";
+import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
 import { getOrderQueue } from "@/lib/core/orders/get-order-queue";
 import { QueueResponse } from "@/lib/types/api";
 import { NextRequest, NextResponse } from "next/server";
 
 // this url takes in a withItemData boolean url param
 export const GET = async (request: NextRequest): Promise<NextResponse<QueueResponse>> => {
-  const user = await authorizeUser();
+  const user = await authorizeApiUser();
 
   if (!user) {
     return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });

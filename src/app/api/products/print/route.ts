@@ -1,5 +1,5 @@
 import { db } from "@/lib/clients/db";
-import { authorizeUser } from "@/lib/core/auth/authorize-user";
+import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
 import { adjustInventory } from "@/lib/core/inventory/adjust-inventory";
 import { logger } from "@/lib/core/logger";
 import { printProductSchema } from "@/lib/schemas/product-schema";
@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest): Promise<NextResponse<PrintProductResponse>> {
   // const { product_id, print_id } = await req.json();
-  const user = await authorizeUser(["admin", "superadmin", "staff", "warehouse"]);
+  const user = await authorizeApiUser(["admin", "super_admin", "warehouse_staff"]);
 
   if (!user) {
     return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
