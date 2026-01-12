@@ -19,9 +19,16 @@ export const fulfillOrder = async (
     }
 
     const fulfillmentOrders = data.node.fulfillmentOrders.nodes;
-    const [targetFulfillmentOrder] = fulfillmentOrders
+    const validFulfillmentOrders = fulfillmentOrders
       .filter((fo) => fo.status === "OPEN")
       .toSorted((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    if (validFulfillmentOrders.length !== 1) {
+      console.log(validFulfillmentOrders);
+      return { data: null, error: "Multiple or 0 open fulfillment orders found" };
+    }
+
+    const targetFulfillmentOrder = validFulfillmentOrders[0];
 
     if (targetFulfillmentOrder) {
       console.log("target:", targetFulfillmentOrder.status, "\nfrom forders:", fulfillmentOrders.length);
@@ -31,7 +38,8 @@ export const fulfillOrder = async (
           fulfillment: {
             trackingInfo,
             lineItemsByFulfillmentOrder: [{ fulfillmentOrderId: targetFulfillmentOrder.id }],
-            notifyCustomer: true,
+            notifyCustomer:
+              new Date().getTime() - new Date(targetFulfillmentOrder.createdAt).getTime() <= 30 * 24 * 60 * 60 * 1000,
           },
         },
       });

@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { OrderCompletionStatusBadge } from "@/components/badges/order-completion-status-badge";
 import { FulfillmentStatusBadge } from "@/components/badges/fulfillment-status-badge";
 import { CountryFlag } from "@/components/country-flag";
-import { cn, isOrderComplete } from "@/lib/utils";
+import { cn, getCarrierImage, isOrderComplete } from "@/lib/utils";
 import { parseGid } from "@/lib/utils";
 import { lineItems, orders, shipments } from "@drizzle/schema";
 import { Badge } from "../ui/badge";
@@ -44,28 +44,30 @@ export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProp
 
   const renderShipmentsCell = (order: Order) => {
     if (order.shipments.length === 0) {
-      return <div className="font-light text-zinc-400">No shipments</div>;
+      return <div className="font-light text-zinc-400 mx-4">No shipments</div>;
     }
 
     // Check if all shipments are refunded
     if (order.shipments.every((s) => s.isRefunded)) {
-      return <div className="text-red-500">Refunded</div>;
+      return <div className="text-red-500 mx-4">Refunded</div>;
     }
 
     // Check if all shipments have missing label slips
-    if (order.shipments.every((s) => s.labelSlipPath === null)) {
-      return <div className="text-amber-500">Label slip missing [regenerate]</div>;
+    if (order.shipments.every((s) => s.labelSlipPath === null && s.isPurchased)) {
+      return <div className="text-amber-500 mx-4">Label slip missing [regenerate]</div>;
     }
+
+    // Check if all shipments have missing label slips
 
     // Get the last non-refunded shipment for carrier info
     const activeShipments = order.shipments.filter((s) => !s.isRefunded);
     const lastActiveShipment = activeShipments[activeShipments.length - 1];
 
     return (
-      <div className="flex w-fit items-center gap-2">
+      <div className="flex w-fit mx-4 items-center gap-2">
         {lastActiveShipment?.chosenCarrierName && (
           <Image
-            src={`https://shippo-static.s3.amazonaws.com/${lastActiveShipment.chosenCarrierName.toLowerCase()}.png`}
+            src={getCarrierImage(lastActiveShipment.chosenCarrierName) || ""}
             alt={lastActiveShipment.chosenCarrierName}
             width={16}
             height={16}
@@ -76,7 +78,11 @@ export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProp
             }}
           />
         )}
-        {order.shipments.some((s) => s.isPurchased) && <Icon icon="ph:file-text" className="h-4 w-4" />}
+        {order.shipments.some((s) => s.isPurchased) ? (
+          <Icon icon="ph:file-text" className="min-h-4 min-w-4" />
+        ) : (
+          <Icon icon="ph:warning-circle" className="min-h-4 min-w-4 text-slate-500" />
+        )}
         <div className="font-medium">{order.shipments.length} shipment(s)</div>
       </div>
     );
@@ -118,7 +124,7 @@ export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProp
                 <TableCell>
                   <Badge
                     variant="outline"
-                    className={cn("flex items-center gap-1", order.isInShippingDoc ? "pl-1" : 'text-muted-foreground')}
+                    className={cn("flex items-center gap-1", order.isInShippingDoc ? "pl-1" : "text-muted-foreground")}
                   >
                     {order.isInShippingDoc && <div className="ml-1 h-2 w-2 rounded-full bg-indigo-500" />}
                     {order.isInShippingDoc ? "In Merged Doc" : "Not in Merged Doc "}

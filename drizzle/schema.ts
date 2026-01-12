@@ -97,6 +97,8 @@ export const batchDocuments = pgTable(
     documentNotes: text("document_notes").default("").notNull(),
     documentType: batchDocumentType("document_type").notNull(),
     mergedPdfOrderIds: text("merged_pdf_order_ids").array(),
+    /** Groups documents generated together (picking list + assembly list share same group number) */
+    documentGroup: integer("document_group").default(1).notNull(),
   },
   (table) => [unique("batch_documents_document_path_key").on(table.documentPath)]
 );
@@ -110,6 +112,8 @@ export const batches = pgTable.withRLS(
       .notNull(),
     active: boolean().default(false).notNull(),
     assemblyLineJson: text("assembly_line_json"),
+    pickingListJson: text("picking_list_json"),
+    settledAt: timestamp("settled_at", { withTimezone: true }),
   },
   (table) => [
     uniqueIndex("unique_active")
@@ -233,6 +237,8 @@ export const orderHolds = pgTable("order_holds", {
     .notNull()
     .references(() => orders.id),
   orderNumber: text("order_number").notNull(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  resolvedNotes: text("resolved_notes"),
 });
 
 export const orderNotes = pgTable("order_notes", {

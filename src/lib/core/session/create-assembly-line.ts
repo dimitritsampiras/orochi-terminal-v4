@@ -221,6 +221,7 @@ export const getLineItemsByBatchId = async (
           createdAt: batch.createdAt,
           active: batch.active,
           assemblyLineJson: batch.assemblyLineJson,
+          pickingListJson: null,
         },
       },
       error: null,

@@ -64,8 +64,11 @@ export const POST = async (req: NextRequest): Promise<NextResponse<ScanResponse>
 };
 
 function extractTrackingNumber(raw: string): string {
+  console.log("raw", raw);
+
   // 1. Remove GS1 Group Separator characters
   const clean = raw.replace(/\x1D/g, "");
+  console.log("clean", clean);
 
   // 2. USPS GS1-128 handling: if it contains "420" + zip code prefix, extract tracking
   // Pattern: 420 + 5-9 digit zip + tracking number (starts with 9)

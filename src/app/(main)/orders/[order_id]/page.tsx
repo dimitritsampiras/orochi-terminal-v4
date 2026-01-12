@@ -7,8 +7,10 @@ import { OrderLineItems } from "@/components/cards/order-line-items";
 import { OrderLogs } from "@/components/cards/order-logs";
 import { OrderNotesCard } from "@/components/cards/order-notes";
 import { ShippingInfo } from "@/components/cards/shipping-info";
+import { OrderHoldsCard } from "@/components/cards/order-holds-card";
 import { CountryFlag } from "@/components/country-flag";
 import { QueueOrderForm } from "@/components/forms/order-forms/queue-order-form";
+import { CreateHoldForm } from "@/components/forms/order-forms/create-hold-form";
 import { SetFulfillmentPriorityForm } from "@/components/forms/order-forms/set-fulfillment-priority-form";
 import { SetShippingPriorityForm } from "@/components/forms/order-forms/set-shipping-priority-form";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +40,7 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
     data: { user: authUser },
   } = await supabase.auth.getUser();
 
-  const [shopifyOrder, databaseOrder, logs, currentUserProfile] = await Promise.all([
+  const [shopifyOrder, databaseOrder, logs, orderHolds, currentUserProfile] = await Promise.all([
     shopify.request(orderQuery, {
       variables: {
         id: gid,
@@ -51,6 +53,7 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
         batches: {
           columns: {
             id: true,
+            createdAt: true,
           },
         },
         shipments: true,
@@ -73,6 +76,10 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
       where: { orderId: gid },
       orderBy: { createdAt: "desc" },
     }),
+    db.query.orderHolds.findMany({
+      where: { orderId: gid },
+      orderBy: { createdAt: "desc" },
+    }),
     authUser
       ? db.query.profiles.findFirst({
           where: { id: authUser.id },
@@ -88,6 +95,9 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
   const order = shopifyOrder.data.node;
 
   const shipmentData = await retrieveShipmentDataFromOrder(databaseOrder.shipments);
+
+  // Check if there are active (unresolved) holds
+  const hasActiveHolds = orderHolds.some((h) => !h.resolvedAt);
 
   return (
     <div>
@@ -112,7 +122,7 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
             {databaseOrder.batches.map((batch, index) => (
               <div key={batch.id}>
                 <Link key={batch.id} href={`/sessions/${batch.id}`} className="font-semibold hover:opacity-80">
-                  {batch.id}
+                  {batch.id} | {dayjs(batch.createdAt).format("MMM D")}
                 </Link>
                 {index < databaseOrder.batches.length - 1 && <span>,</span>}
               </div>
@@ -141,10 +151,14 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
             <Badge variant="destructive">cancelled at {dayjs(order.cancelledAt).format("MMM D, YYYY")}</Badge>
           )}
         </div>
-        <div>
+        <div className="flex items-center gap-2">
+          <CreateHoldForm orderId={order.id} />
           <QueueOrderForm orderId={order.id} currentQueueStatus={databaseOrder.queued} />
         </div>
       </div>
+
+      {/* Order Holds Section */}
+      <OrderHoldsCard holds={orderHolds} />
 
       <div className="mb-24 mt-2 grid-cols-[2fr_1fr] gap-4 md:grid">
         <div className="flex flex-col gap-4">

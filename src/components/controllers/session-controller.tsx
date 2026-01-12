@@ -16,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,15 @@ import { buttonVariants } from "../ui/button";
 import { useFetcher } from "@/lib/hooks/use-fetcher";
 import { useRouter } from "next/navigation";
 import { DataResponse } from "@/lib/types/misc";
+import { useBulkShipments } from "@/lib/hooks/use-bulk-shipments";
+import { revalidateSessionPages } from "@/lib/actions/revalidate";
+import { BulkShipmentDialog, type SelectedOrder, type OrderForBulkShipment } from "../dialog/bulk-shipment-dialog";
+import { Spinner } from "../ui/spinner";
+import { useMutation } from "@tanstack/react-query";
+import { GenerateSessionDocumentsResponse } from "@/lib/types/api";
+import { GenerateSessionDocumentsSchema } from "@/lib/schemas/batch-schema";
+import { toast } from "sonner";
+import Link from "next/link";
 
 type Order = typeof orders.$inferSelect & {
   shipments: (typeof shipments.$inferSelect)[];
@@ -47,6 +57,15 @@ export function SessionController({ orders, batchDocuments, session, userRole }:
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showBulkShipmentDialog, setShowBulkShipmentDialog] = useState(false);
+  const [showGenerateDocsDialog, setShowGenerateDocsDialog] = useState(false);
+
+  // Check if session already has documents (picking list or assembly list)
+  const hasExistingSessionDocs = batchDocuments.some(
+    (doc) => doc.documentType === "picking_list" || doc.documentType === "assembly_list"
+  );
+  const hasStoredAssemblyLine = !!session.assemblyLineJson;
+  const hasStoredPickingList = !!session.pickingListJson;
 
   const { trigger: toggleActive, isLoading: isTogglingActive } = useFetcher<
     { active: boolean },
@@ -70,33 +89,52 @@ export function SessionController({ orders, batchDocuments, session, userRole }:
     },
   });
 
-  const { trigger: generateAssemblyList, isLoading: isGeneratingAssemblyList } = useFetcher<
-    { documentType: "assembly_list" },
-    DataResponse<BatchDocument>
-  >({
-    path: `/api/batches/${session.id}/documents`,
-    method: "POST",
-    successMessage: "Assembly list generated",
-    errorMessage: "Failed to generate assembly list",
-    loadingMessage: "Generating assembly list...",
+  const generateDocsMutation = useMutation({
+    mutationFn: async (input: GenerateSessionDocumentsSchema) => {
+      const res = await fetch(`/api/batches/${session.id}/documents`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const data = (await res.json()) as GenerateSessionDocumentsResponse;
+
+      if (!res.ok || data.error) {
+        throw new Error(data.error ?? "Failed to generate session documents");
+      }
+
+      return data;
+    },
     onSuccess: () => {
+      toast.success("Session documents generated (Picking List + Assembly List)");
+      setShowGenerateDocsDialog(false);
+      router.refresh();
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
+
+  const { start: startBulkShipments } = useBulkShipments({
+    sessionId: session.id,
+    onComplete: async () => {
+      await revalidateSessionPages(session.id);
       router.refresh();
     },
   });
 
-  const { trigger: generatePickingList, isLoading: isGeneratingPickingList } = useFetcher<
-    { documentType: "picking_list" },
-    DataResponse<BatchDocument>
-  >({
-    path: `/api/batches/${session.id}/documents`,
-    method: "POST",
-    successMessage: "Picking list generated",
-    errorMessage: "Failed to generate picking list",
-    loadingMessage: "Generating picking list...",
-    onSuccess: () => {
-      router.refresh();
-    },
-  });
+  const handleBulkShipmentConfirm = (selectedOrders: SelectedOrder[]) => {
+    startBulkShipments(selectedOrders);
+  };
+
+  // Prepare orders for bulk shipment dialog
+  const ordersForBulkShipment: OrderForBulkShipment[] = orders.map((order) => ({
+    id: order.id,
+    name: order.name,
+    displayCustomerName: order.displayCustomerName,
+    displayDestinationCountryCode: order.displayDestinationCountryCode,
+    displayDestinationCountryName: order.displayDestinationCountryName,
+    shipments: order.shipments,
+  }));
 
   const handleToggleActive = () => {
     toggleActive({ active: !session.active });
@@ -107,12 +145,10 @@ export function SessionController({ orders, batchDocuments, session, userRole }:
     deleteSession();
   };
 
-  const handleGenerateAssemblyList = () => {
-    generateAssemblyList({ documentType: "assembly_list" });
-  };
-
-  const handleGeneratePickingList = () => {
-    generatePickingList({ documentType: "picking_list" });
+  const handleGenerateSessionDocuments = async () => {
+    const lt = toast.loading("Generating session documents...");
+    await generateDocsMutation.mutateAsync({});
+    toast.success("Session documents generated (Picking List + Assembly List)", { id: lt });
   };
 
   const filteredOrders = useMemo(() => {
@@ -131,11 +167,12 @@ export function SessionController({ orders, batchDocuments, session, userRole }:
     );
   }, [orders, searchTerm]);
 
-  const isLoading = isTogglingActive || isDeleting || isGeneratingAssemblyList || isGeneratingPickingList;
+  const isGeneratingDocs = generateDocsMutation.isPending;
+  const isLoading = isTogglingActive || isDeleting || isGeneratingDocs;
 
   return (
     <div>
-      <div className="flex justify-between mb-4">
+      <div className="flex sm:flex-row flex-col gap-2 justify-between mb-4">
         <Input
           placeholder="Search order, line items, customer, country"
           value={searchTerm}
@@ -148,30 +185,47 @@ export function SessionController({ orders, batchDocuments, session, userRole }:
               <Icon icon="ph:dots-three" className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => setShowBulkShipmentDialog(true)} disabled={isLoading}>
+                <Icon icon="ph:package" className="size-4" />
+                Bulk Purchase Shipments
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleToggleActive} disabled={isLoading}>
+                <div className="size-4 flex items-center justify-center">
+                  {session.active ? (
+                    <div className="min-w-1.5 min-h-1.5 rounded-full bg-zinc-300" />
+                  ) : (
+                    <div className="min-w-1.5 min-h-1.5 rounded-full bg-green-500" />
+                  )}
+                </div>
                 Set As {session.active ? "Inactive" : "Active"}
               </DropdownMenuItem>
               {(userRole === "superadmin" || userRole === "admin") && (
                 <DropdownMenuItem variant="destructive" onClick={() => setShowDeleteDialog(true)} disabled={isLoading}>
+                  <Icon icon="ph:trash" className="size-4" />
                   Delete Session
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
           <DropdownMenu>
-            <DropdownMenuTrigger className={buttonVariants({ variant: "default" })} disabled={isLoading}>
+            <DropdownMenuTrigger className={buttonVariants({ variant: "fill" })} disabled={isLoading}>
               Generate Documents
+              <Icon icon="ph:caret-up-down" className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem disabled={isLoading}>Merged Packing Slips</DropdownMenuItem>
-              <DropdownMenuItem onClick={handleGeneratePickingList} disabled={isLoading}>
-                {isGeneratingPickingList ? "Generating..." : "Picking List"}
+              <DropdownMenuItem disabled={isLoading}>
+                <Icon icon="ph:files" className="size-4" />
+                Merged Packing Slips
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleGenerateAssemblyList} disabled={isLoading}>
-                {isGeneratingAssemblyList ? "Generating..." : "Assembly List"}
+              <DropdownMenuItem onClick={() => setShowGenerateDocsDialog(true)} disabled={isLoading}>
+                <Icon icon="ph:clipboard-text" className="size-4" />
+                {isGeneratingDocs && <Spinner />} Picking + Assembly
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <Link href={`/sessions/${session.id}/settle`} className={buttonVariants({ variant: "default" })}>
+            Settle Session
+          </Link>
         </div>
       </div>
 
@@ -195,6 +249,55 @@ export function SessionController({ orders, batchDocuments, session, userRole }:
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteSession} className="bg-red-600 hover:bg-red-700">
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <BulkShipmentDialog
+        open={showBulkShipmentDialog}
+        onOpenChange={setShowBulkShipmentDialog}
+        orders={ordersForBulkShipment}
+        sessionId={session.id}
+        onConfirm={handleBulkShipmentConfirm}
+      />
+
+      {/* Generate Session Documents Dialog */}
+      <AlertDialog open={showGenerateDocsDialog} onOpenChange={setShowGenerateDocsDialog}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Generate Session Documents</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              This will generate both the Picking List and Assembly List PDFs together and lock in the current sort
+              order and picking requirements.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {(hasExistingSessionDocs || hasStoredAssemblyLine || hasStoredPickingList) && (
+            <Alert>
+              <Icon icon="ph:info" className="size-4" />
+              <AlertTitle>Existing Data Will Be Overwritten</AlertTitle>
+              <AlertDescription className="space-y-4">
+                {hasStoredAssemblyLine && (
+                  <p>
+                    The stored assembly line sort order will be regenerated. If you've already started physical
+                    assembly, the new order may differ if product or blank data has changed.
+                  </p>
+                )}
+                {hasStoredPickingList && (
+                  <p>The stored picking requirements will be regenerated based on current product/blank sync states.</p>
+                )}
+                {hasExistingSessionDocs && (
+                  <p>New PDF documents will be created. Previous documents will remain but may be outdated.</p>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleGenerateSessionDocuments} disabled={isGeneratingDocs}>
+              {isGeneratingDocs ? "Generating..." : "Generate Documents"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

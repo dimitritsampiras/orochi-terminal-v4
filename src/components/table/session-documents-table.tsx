@@ -22,24 +22,26 @@ export function SessionDocumentsTable({ documents, className }: { documents: Bat
           </TableRow>
         </TableHeader>
         <TableBody>
-          {documents.map((document) => (
-            <TableRow key={document.documentPath} className="text-sm">
-              <TableCell className="font-semibold">{document.name}</TableCell>
-              <TableCell className="text-muted-foreground">
-                {dayjs(document.createdAt).format("MMM D, YYYY h:mm A")}
-              </TableCell>
-              <TableCell>{document.documentPath}</TableCell>
-              <TableCell>
-                <Link
-                  href={`${STORAGE_BASE_URL}/${document.documentPath}`}
-                  target="_blank"
-                  className={buttonVariants({ size: "sm", variant: "fill" })}
-                >
-                  View
-                </Link>
-              </TableCell>
-            </TableRow>
-          ))}
+          {documents
+            .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+            .map((document) => (
+              <TableRow key={document.documentPath} className="text-sm">
+                <TableCell className="font-semibold">{document.name}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {dayjs(document.createdAt).format("MMM D, YYYY h:mm A")}
+                </TableCell>
+                <TableCell>{document.documentPath}</TableCell>
+                <TableCell>
+                  <Link
+                    href={`${STORAGE_BASE_URL}/${document.documentPath}`}
+                    target="_blank"
+                    className={buttonVariants({ size: "sm", variant: "fill" })}
+                  >
+                    View
+                  </Link>
+                </TableCell>
+              </TableRow>
+            ))}
         </TableBody>
       </Table>
     </div>

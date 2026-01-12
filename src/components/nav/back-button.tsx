@@ -15,7 +15,9 @@ type BackButtonProps = {
  * BackButton that reads navigation context from URL search params.
  *
  * Supported params:
+ * - `from=dashboard` -> navigates to /dashboard
  * - `from=orders` -> navigates to /orders
+ * - `from=holds` -> navigates to /orders/holds
  * - `from=session&session_id=X` -> navigates to /sessions/X
  * - `from=batch&batch_id=X` -> navigates to /sessions/X
  * - `from=assembly` -> navigates to /assembly
@@ -33,12 +35,16 @@ export const BackButton = ({ fallbackHref, className }: BackButtonProps) => {
 
   const getHref = (): string => {
     switch (from) {
+      case "dashboard":
+        return "/dashboard";
       case "session":
         return sessionId ? `/sessions/${sessionId}` : fallbackHref;
       case "batch":
         return batchId ? `/sessions/${batchId}` : fallbackHref;
       case "orders":
         return "/orders";
+      case "holds":
+        return "/orders/holds";
       case "assembly":
         return "/assembly";
       case "product":

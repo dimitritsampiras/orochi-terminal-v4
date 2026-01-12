@@ -1,9 +1,11 @@
 import { db } from "@/lib/clients/db";
+import { unstable_cache } from "next/cache";
 
 // 1) an order is not fulfilled, not queued, and is in zero batches/sessions
-export const ordersWithNoSessionHistory = async () => {
+const _ordersWithNoSessionHistory = async () => {
   const orders = await db.query.orders.findMany({
     where: {
+      createdAt: { gte: new Date("2025-06-01") },
       displayFulfillmentStatus: { ne: "FULFILLED" },
       queued: false,
       displayIsCancelled: false,
@@ -29,6 +31,12 @@ export const ordersWithNoSessionHistory = async () => {
   });
 };
 
+export const ordersWithNoSessionHistory = unstable_cache(
+  _ordersWithNoSessionHistory,
+  ["orders-with-no-session-history"],
+  { revalidate: 300, tags: ["dashboard-stats"] } // 5 minutes cache
+);
+
 /**
  * orders that are not:
  * - fulfilled
@@ -37,12 +45,13 @@ export const ordersWithNoSessionHistory = async () => {
  * - who's latest session was more than a week
  * - no "resolved" order holds
  */
-export const ordersGoneStale = async () => {
+const _ordersGoneStale = async () => {
   const oneWeekAgo = new Date();
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
   const orders = await db.query.orders.findMany({
     where: {
+      createdAt: { gte: new Date("2025-06-01") },
       displayFulfillmentStatus: { ne: "FULFILLED" },
       queued: false,
       displayIsCancelled: false,
@@ -85,4 +94,29 @@ export const ordersGoneStale = async () => {
   });
 };
 
-export type OrdersGoneStale = Awaited<ReturnType<typeof ordersGoneStale>>;
+export const ordersGoneStale = unstable_cache(
+  _ordersGoneStale,
+  ["orders-gone-stale"],
+  { revalidate: 300, tags: ["dashboard-stats"] } // 5 minutes cache
+);
+
+const _activeOrderHolds = async () => {
+  const activeHolds = await db.query.orderHolds.findMany({
+    where: {
+      resolvedAt: { isNull: true },
+    },
+  });
+  return activeHolds;
+};
+
+export const activeOrderHolds = unstable_cache(
+  _activeOrderHolds,
+  ["active-order-holds"],
+  { revalidate: 300, tags: ["dashboard-stats"] } // 5 minutes cache
+);
+
+/** @deprecated Use `activeOrderHolds` instead */
+export const activeOrdeHolds = activeOrderHolds;
+
+export type OrdersGoneStale = Awaited<ReturnType<typeof _ordersGoneStale>>;
+export type OrdersWithNoSessionHistory = Awaited<ReturnType<typeof _ordersWithNoSessionHistory>>;

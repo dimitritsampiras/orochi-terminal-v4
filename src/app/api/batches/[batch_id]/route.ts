@@ -37,6 +37,9 @@ export async function PATCH(
     return NextResponse.json({ data: null, error: parseError?.message ?? "Invalid input" }, { status: 400 });
   }
 
+  console.log('parsedData', parsedData);
+  
+
   try {
     // If setting this batch as active, deactivate all other batches first
     if (parsedData.active === true) {

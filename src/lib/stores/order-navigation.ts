@@ -10,7 +10,8 @@ export type OrderNavigationContext =
   | { type: "orders" }
   | { type: "session"; sessionId: number }
   | { type: "batch"; batchId: number }
-  | { type: "create_session" };
+  | { type: "create_session" }
+  | { type: "holds" };
 
 interface OrderNavigationStore {
   context: OrderNavigationContext | null;

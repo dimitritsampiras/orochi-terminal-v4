@@ -5,41 +5,72 @@ import { BackButton } from "../nav/back-button";
 import { NavButton } from "../nav/nav-button";
 import { useAssemblyNavigation } from "@/lib/stores";
 import { useEffect, useMemo, useState } from "react";
-import { GetAssemblyLineResponse } from "@/lib/types/api";
+import {
+  GetAssemblyLineResponse,
+  MarkPrintedResponse,
+  MarkStockedResponse,
+  MarkOosResponse,
+  ResetLineItemResponse,
+} from "@/lib/types/api";
 import { toast } from "sonner";
 import Link from "next/link";
 import { Button } from "../ui/button";
 import { Icon } from "@iconify/react";
-import { cn, getProductDetailsForARXP, normalizeSizeName, parseGid, standardizePrintOrder } from "@/lib/utils";
-import { ProductMediaGrid, AssemblyLineMediaGrid } from "../cards/product-media";
+import { cn, getProductDetailsForARXP, normalizeSizeName, parseGid, sleep, standardizePrintOrder } from "@/lib/utils";
+import { AssemblyLineMediaGrid } from "../cards/product-media";
 import { Badge } from "../ui/badge";
 import { OrderQuery } from "@/lib/types/admin.generated";
 import { MediaImage } from "@/lib/types/misc";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
 import { useLocalServer } from "@/lib/hooks/use-local-server";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui/tooltip";
 import { Kbd } from "../ui/kbd";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { InventoryTransactionsCard, InventoryTransactionsList } from "../cards/inventory-transactions";
 import { FulfillmentStatusBadge } from "../badges/fulfillment-status-badge";
 import { LineItemStatusBadge } from "../badges/line-item-status-badge";
-import { lineItemCompletionStatus } from "@drizzle/schema";
+import { inventoryTransactions as inventoryTransactionsTable, lineItemCompletionStatus } from "@drizzle/schema";
 import { IdCopyBadge } from "../badges/id-copy-badge";
+import { useMutation } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import {
+  MarkPrintedSchema,
+  MarkStockedSchema,
+  MarkOosSchema,
+  ResetLineItemSchema,
+} from "@/lib/schemas/assembly-schema";
 
 type Order = Extract<NonNullable<OrderQuery["node"]>, { __typename: "Order" }>;
+type InventoryTransaction = typeof inventoryTransactionsTable.$inferSelect;
 
 export const AssemblyItemController = ({
   item,
   media,
   order,
+  batchId: initialBatchId,
+  inventoryTransactions,
 }: {
   item: AssemblyLineItemWithPrintLogs;
   media: MediaImage[];
   order: Order | undefined;
+  batchId?: number;
+  inventoryTransactions: InventoryTransaction[];
 }) => {
-  const { getNavigation, setNavigation, items } = useAssemblyNavigation();
+  const { getNavigation, setNavigation, items, batchId: storedBatchId } = useAssemblyNavigation();
   const { prev, next, position } = getNavigation(item.id);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
+
+  // Use provided batchId or fall back to store (convert null to undefined)
+  const batchId = initialBatchId ?? storedBatchId ?? undefined;
 
   const shopifyLineItem = order?.lineItems.nodes.find((lineItem) => lineItem.id === item.id);
 
@@ -47,7 +78,7 @@ export const AssemblyItemController = ({
   const noSyncedBlank = !Boolean(item.product?.isBlackLabel) && !Boolean(item.blankVariant);
 
   useEffect(() => {
-    setHasMounted(true); // Add this
+    setHasMounted(true);
   }, []);
 
   const hasNavigation = hasMounted && position !== null;
@@ -100,7 +131,7 @@ export const AssemblyItemController = ({
       </div>
 
       <div className="my-4 flex flex-col gap-2">
-        {item.quantity > 1 && (
+        {item.quantity > 1 ? (
           <Alert className="text-amber-700 bg-amber-50">
             <Icon icon="ph:warning-circle" className="size-4" />
             <AlertTitle>Multiple line item quantity: {item.quantity}</AlertTitle>
@@ -118,7 +149,7 @@ export const AssemblyItemController = ({
               </p>
             </AlertDescription>
           </Alert>
-        )}
+        ) : null}
         {(order?.displayFulfillmentStatus === "FULFILLED" || item.order.displayFulfillmentStatus === "FULFILLED") && (
           <Alert className="text-amber-700 bg-amber-50">
             <Icon icon="ph:warning-circle" className="size-4" />
@@ -157,14 +188,26 @@ export const AssemblyItemController = ({
           </Alert>
         )}
 
-        {noSyncedBlank && (
+        {(order?.cancelledAt || item.order.displayIsCancelled) && (
           <Alert className="text-red-700 bg-red-50">
             <Icon icon="ph:warning-circle" className="size-4" />
-            <AlertTitle>No synced blank</AlertTitle>
+            <AlertTitle>Order cancelled</AlertTitle>
             <AlertDescription>
               <p>
-                This item has no synced blank. Inventory can not be tracked effectively. Please either declare a blank
-                in the product page or set it as a black label item.
+                This order is marked as cancelled. There should be no need to print this item unless specified otherwise
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {item.productVariant?.warehouseInventory != null && item.productVariant.warehouseInventory > 0 && (
+          <Alert className="text-blue-800 bg-blue-50">
+            <Icon icon="ph:warning-circle" className="size-4" />
+            <AlertTitle>Product is in stock</AlertTitle>
+            <AlertDescription>
+              <p>
+                This product is in stock. Please use warehouse inventory. If this item is not in stock, please adjust
+                the warehouse inventory.
               </p>
             </AlertDescription>
           </Alert>
@@ -204,20 +247,22 @@ export const AssemblyItemController = ({
                 : undefined
             }
           />
-          <Prints item={item} />
+          <Prints item={item} batchId={batchId} inventoryTransactions={inventoryTransactions} />
         </div>
         <div className="flex flex-col gap-4">
           <OrderDetails order={order} dbOrder={item.order} currentLineItemId={item.id} />
           <BlankDetails blank={item.blank} blankVariant={item.blankVariant} />
           <ProductDetails product={item.product} productVariant={item.productVariant} />
+          <InventoryTransactionsCard inventoryTransactions={inventoryTransactions} />
         </div>
       </div>
     </div>
   );
 };
 
-const Prints = ({ item }: { item: AssemblyLineItemWithPrintLogs }) => {
-  const { isConnected, config, checkFileExists } = useLocalServer();
+const Prints = ({ item, batchId, inventoryTransactions }: { item: AssemblyLineItemWithPrintLogs; batchId: number | undefined, inventoryTransactions: InventoryTransaction[] }) => {
+  const router = useRouter();
+  const { isConnected, config, checkFileExists, openFile } = useLocalServer();
   const printCount = item.prints.length;
   const prints = standardizePrintOrder(item.prints);
   const [fileExists, setFileExists] = useState<boolean | null>(null);
@@ -227,6 +272,20 @@ const Prints = ({ item }: { item: AssemblyLineItemWithPrintLogs }) => {
   const emptySlots = useGrid ? Math.max(0, 4 - printCount) : Math.max(0, 2 - printCount);
 
   const [selectedPrintId, setSelectedPrintId] = useState<string | null>(null);
+
+  // Dialog state for "already printed" scenario
+  const [showAlreadyPrintedDialog, setShowAlreadyPrintedDialog] = useState(false);
+  const [pendingPrintAction, setPendingPrintAction] = useState<"print" | "arxp" | null>(null);
+
+  // Stock validation
+  const blankStock = item.blankVariant?.quantity ?? 0;
+  const productStock = item.productVariant?.warehouseInventory ?? 0;
+  const hasBlankStock = blankStock > 0;
+  const hasProductStock = productStock > 0;
+
+  // Check if we should show the "already printed" dialog
+  // This happens when: hasDeprecatedBlankStock is true AND status is NOT partially_printed
+  const shouldPromptForInventoryChoice = item.hasDeprecatedBlankStock && item.completionStatus !== "partially_printed";
 
   const itemAlreadyMarkedAsStatus = (
     ["printed", "in_stock", "oos_blank"] as (typeof lineItemCompletionStatus.enumValues)[number][]
@@ -247,9 +306,161 @@ const Prints = ({ item }: { item: AssemblyLineItemWithPrintLogs }) => {
     setSelectedPrintId(printId);
   }
 
+  // === MUTATIONS ===
+  const markPrintedMutation = useMutation({
+    mutationFn: async (input: MarkPrintedSchema) => {
+      const res = await fetch(`/api/assembly/${parseGid(item.id)}/print`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const data = (await res.json()) as MarkPrintedResponse;
+      if (!res.ok || data.error) throw new Error(data.error ?? "Failed to mark as printed");
+      return data;
+    },
+    onSuccess: async (data) => {
+      router.refresh();
+      await sleep(1000);
+      toast.success(`Print marked as completed${data.data?.inventoryChanged ? " (inventory adjusted)" : ""}`);
+      setSelectedPrintId(null);
+      setShowAlreadyPrintedDialog(false);
+      setPendingPrintAction(null);
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const markStockedMutation = useMutation({
+    mutationFn: async (input: MarkStockedSchema) => {
+      const res = await fetch(`/api/assembly/${parseGid(item.id)}/stock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const data = (await res.json()) as MarkStockedResponse;
+      if (!res.ok || data.error) throw new Error(data.error ?? "Failed to mark as in stock");
+      return data;
+    },
+    onSuccess: async (data) => {
+      router.refresh();
+      await sleep(1000);
+      toast.success(`Item marked as in stock${data.data?.inventoryChanged ? " (inventory adjusted)" : ""}`);
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const markOosMutation = useMutation({
+    mutationFn: async (input: MarkOosSchema) => {
+      const res = await fetch(`/api/assembly/${parseGid(item.id)}/oos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const data = (await res.json()) as MarkOosResponse;
+      if (!res.ok || data.error) throw new Error(data.error ?? "Failed to mark as out of stock");
+      return data;
+    },
+    onSuccess: async (data) => {
+      router.refresh();
+      await sleep(1000);
+      toast.success(
+        `Item marked as out of stock. Other items in order marked as skipped.${
+          data.data?.inventoryChanged ? " (inventory adjusted)" : ""
+        }`
+      );
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const resetMutation = useMutation({
+    mutationFn: async (input: ResetLineItemSchema) => {
+      const res = await fetch(`/api/assembly/${parseGid(item.id)}/reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const data = (await res.json()) as ResetLineItemResponse;
+      if (!res.ok || data.error) throw new Error(data.error ?? "Failed to reset item");
+      return data;
+    },
+    onSuccess: async (data) => {
+      router.refresh();
+      await sleep(1000);
+      toast.success(`Item reset to not printed${data.data?.inventoryChanged ? " (inventory restored)" : ""}`);
+      setSelectedPrintId(null);
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const isAnyMutationPending =
+    markPrintedMutation.isPending ||
+    markStockedMutation.isPending ||
+    markOosMutation.isPending ||
+    resetMutation.isPending;
+
+  // === HANDLERS ===
+
+  // Intercept print action to check if we need to show dialog
+  const handleMarkAsPrintedWithCheck = () => {
+    if (!selectedPrintId || !batchId) return;
+
+    if (shouldPromptForInventoryChoice) {
+      setPendingPrintAction("print");
+      setShowAlreadyPrintedDialog(true);
+    } else {
+      markPrintedMutation.mutate({ printId: selectedPrintId, batchId });
+    }
+  };
+
+  // Called from dialog: user chose to decrement blank
+  const handlePrintAndDecrementBlank = () => {
+    if (!selectedPrintId || !batchId) return;
+    markPrintedMutation.mutate({ printId: selectedPrintId, batchId, skipInventoryAdjustment: false });
+  };
+
+  // Called from dialog: user chose NOT to decrement blank
+  const handlePrintWithoutDecrement = () => {
+    if (!selectedPrintId || !batchId) return;
+    markPrintedMutation.mutate({ printId: selectedPrintId, batchId, skipInventoryAdjustment: true });
+  };
+
+  const handleMarkAsStocked = () => {
+    if (!batchId) return;
+    markStockedMutation.mutate({ batchId });
+  };
+
+  const handleMarkAsOos = () => {
+    if (!batchId) return;
+    markOosMutation.mutate({ batchId });
+  };
+
+  const handleReset = () => {
+    if (!batchId) return;
+    resetMutation.mutate({ batchId });
+  };
+
+  const handleOpenArxpAndPrint = async () => {
+    if (!arxpDetails || !config.arxpFolderPath || !isConnected || !selectedPrintId || !batchId) return;
+
+    try {
+      const basePath = config.arxpFolderPath.replace(/\/$/, "");
+      const fullPath = `${basePath}/${arxpDetails.path}`;
+      await openFile(fullPath);
+
+      // After opening the file, check if we need dialog
+      if (shouldPromptForInventoryChoice) {
+        setPendingPrintAction("arxp");
+        setShowAlreadyPrintedDialog(true);
+      } else {
+        markPrintedMutation.mutate({ printId: selectedPrintId, batchId });
+      }
+    } catch (e) {
+      console.error("Failed to open file", e);
+      toast.error("Failed to open file");
+    }
+  };
+
   const arxpDetails = useMemo(() => {
     const printIndex = selectedPrintId ? prints.findIndex((print) => print.id === selectedPrintId) : -1;
-    // const printIndex = selectedPrint ? prints.findIndex((print) => print.id === selectedPrint.id) : -1;
     if (printIndex === -1) {
       return null;
     }
@@ -260,7 +471,7 @@ const Prints = ({ item }: { item: AssemblyLineItemWithPrintLogs }) => {
         : null;
 
     return details;
-  }, [selectedPrintId, item.product, item.productVariant]);
+  }, [selectedPrintId, item.product, item.productVariant, prints]);
 
   useEffect(() => {
     const verifyFile = async () => {
@@ -368,6 +579,16 @@ const Prints = ({ item }: { item: AssemblyLineItemWithPrintLogs }) => {
           </AlertDescription>
         </Alert>
       )}
+      {item.completionStatus === "skipped" && (
+        <Alert className="text-amber-700 bg-amber-50">
+          <Icon icon="ph:skip-forward" className="size-4" />
+          <AlertTitle>Item Skipped</AlertTitle>
+          <AlertDescription>
+            <p>Another item in this order was marked as out of stock. This item was automatically skipped.</p>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="mt-6">
         <TooltipProvider>
           <Tooltip>
@@ -375,49 +596,134 @@ const Prints = ({ item }: { item: AssemblyLineItemWithPrintLogs }) => {
               <span className="w-full block">
                 <Button
                   className="w-full"
-                  disabled={!isConnected || !selectedPrintId || fileExists === false}
-                  aria-disabled={!isConnected || !selectedPrintId || fileExists === false}
+                  disabled={
+                    !isConnected ||
+                    !selectedPrintId ||
+                    fileExists === false ||
+                    isAnyMutationPending ||
+                    !batchId ||
+                    (!hasBlankStock && !item.hasDeprecatedBlankStock)
+                  }
+                  aria-disabled={
+                    !isConnected ||
+                    !selectedPrintId ||
+                    fileExists === false ||
+                    isAnyMutationPending ||
+                    (!hasBlankStock && !item.hasDeprecatedBlankStock)
+                  }
+                  onClick={handleOpenArxpAndPrint}
                 >
-                  <Icon icon="ph:file-magnifying-glass" className="size-4" />
+                  {markPrintedMutation.isPending ? (
+                    <Icon icon="ph:spinner" className="size-4 animate-spin" />
+                  ) : (
+                    <Icon icon="ph:file-magnifying-glass" className="size-4" />
+                  )}
                   Open ARXP & Mark as Printed
                 </Button>
               </span>
             </TooltipTrigger>
-            {!isConnected && <TooltipContent side="top">You are not connected to the file opener</TooltipContent>}
-            {isConnected && fileExists === false && <TooltipContent side="top">ARXP file not found</TooltipContent>}
-            {isConnected && !selectedPrintId && <TooltipContent side="top">No print selected</TooltipContent>}
+            {!batchId && <TooltipContent side="top">No active session found</TooltipContent>}
+            {batchId && !hasBlankStock && !item.hasDeprecatedBlankStock && (
+              <TooltipContent side="top">Blank stock is empty - adjust inventory first</TooltipContent>
+            )}
+            {batchId && !isConnected && (
+              <TooltipContent side="top">You are not connected to the file opener</TooltipContent>
+            )}
+            {batchId && isConnected && fileExists === false && (
+              <TooltipContent side="top">ARXP file not found</TooltipContent>
+            )}
+            {batchId && isConnected && !selectedPrintId && (
+              <TooltipContent side="top">No print selected</TooltipContent>
+            )}
           </Tooltip>
         </TooltipProvider>
         <div className="mt-4 flex items-center gap-2 flex-wrap w-full">
-          <Button variant="outline" disabled={item.completionStatus === "not_printed"}>
-            <Icon icon="ph:arrow-counter-clockwise" className="size-4" />
+          <Button
+            variant="outline"
+            disabled={item.completionStatus === "not_printed" || isAnyMutationPending || !batchId}
+            onClick={handleReset}
+          >
+            {resetMutation.isPending ? (
+              <Icon icon="ph:spinner" className="size-4 animate-spin" />
+            ) : (
+              <Icon icon="ph:arrow-counter-clockwise" className="size-4" />
+            )}
             Reset
           </Button>
           <Button
             variant="fill"
             className="border-red-200! text-red-600!"
-            disabled={item.completionStatus === "in_stock" || item.completionStatus === "oos_blank"}
+            disabled={
+              item.completionStatus === "in_stock" ||
+              item.completionStatus === "oos_blank" ||
+              isAnyMutationPending ||
+              !batchId
+            }
+            onClick={handleMarkAsOos}
           >
-            <Icon icon="ph:x-circle" className="size-4" />
+            {markOosMutation.isPending ? (
+              <Icon icon="ph:spinner" className="size-4 animate-spin" />
+            ) : (
+              <Icon icon="ph:x-circle" className="size-4" />
+            )}
             Mark OOS
-          </Button>
-          <Button
-            variant="fill"
-            className="border-indigo-200! text-indigo-600!"
-            disabled={item.completionStatus === "in_stock" || item.completionStatus === "oos_blank"}
-          >
-            <Icon icon="ph:box-arrow-down" className="size-4" />
-            Mark As In stock
           </Button>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="fill" className="border-emerald-200! text-emerald-600!" disabled={!selectedPrintId}>
-                  <Icon icon="ph:check-circle" className="size-4" />
+                <Button
+                  variant="fill"
+                  className="border-indigo-200! text-indigo-600!"
+                  disabled={
+                    item.completionStatus === "in_stock" ||
+                    item.completionStatus === "oos_blank" ||
+                    isAnyMutationPending ||
+                    !batchId ||
+                    !hasProductStock
+                  }
+                  onClick={handleMarkAsStocked}
+                >
+                  {markStockedMutation.isPending ? (
+                    <Icon icon="ph:spinner" className="size-4 animate-spin" />
+                  ) : (
+                    <Icon icon="ph:box-arrow-down" className="size-4" />
+                  )}
+                  Mark As In stock
+                </Button>
+              </TooltipTrigger>
+              {!batchId && <TooltipContent side="top">No active session found</TooltipContent>}
+              {batchId && !hasProductStock && (
+                <TooltipContent side="top">Product stock is empty - cannot mark as in stock</TooltipContent>
+              )}
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="fill"
+                  className="border-emerald-200! text-emerald-600!"
+                  disabled={
+                    !selectedPrintId ||
+                    isAnyMutationPending ||
+                    !batchId ||
+                    (!hasBlankStock && !item.hasDeprecatedBlankStock)
+                  }
+                  onClick={handleMarkAsPrintedWithCheck}
+                >
+                  {markPrintedMutation.isPending ? (
+                    <Icon icon="ph:spinner" className="size-4 animate-spin" />
+                  ) : (
+                    <Icon icon="ph:check-circle" className="size-4" />
+                  )}
                   Mark As Printed
                 </Button>
               </TooltipTrigger>
-              {!selectedPrintId && <TooltipContent side="top">No print seslected</TooltipContent>}
+              {!batchId && <TooltipContent side="top">No active session found</TooltipContent>}
+              {batchId && !selectedPrintId && <TooltipContent side="top">No print selected</TooltipContent>}
+              {batchId && !hasBlankStock && !item.hasDeprecatedBlankStock && (
+                <TooltipContent side="top">Blank stock is empty - adjust inventory first</TooltipContent>
+              )}
             </Tooltip>
           </TooltipProvider>
         </div>
@@ -464,7 +770,69 @@ const Prints = ({ item }: { item: AssemblyLineItemWithPrintLogs }) => {
             )
           )}
         </div>
+
+        {/* Stock warnings */}
+        {!hasBlankStock && item.blankVariant && item.completionStatus === "not_printed" && (
+          <Alert className="text-red-700 bg-red-50 mt-4">
+            <Icon icon="ph:warning-circle" className="size-4" />
+            <AlertTitle>Blank stock is empty</AlertTitle>
+            <AlertDescription>
+              <p>
+                Cannot print - blank inventory is 0. Please adjust inventory levels before proceeding or mark as OOS.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
       </div>
+
+      {/* Already Printed Dialog - shown when hasDeprecatedBlankStock is true and user tries to print again */}
+      <AlertDialog open={showAlreadyPrintedDialog} onOpenChange={setShowAlreadyPrintedDialog}>
+        <AlertDialogContent className="sm:min-w-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Blank Already Used</AlertDialogTitle>
+            <AlertDialogDescription>
+              This item was previously printed and blank inventory was already reduced. If you're reprinting due to a
+              misprint or error, choose whether to reduce blank inventory again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="my-4 p-3 bg-zinc-50 rounded-lg text-sm">
+            <div className="flex justify-between">
+              <span className="text-zinc-500">Current blank stock:</span>
+              <span className="font-medium">{blankStock}</span>
+            </div>
+          </div>
+          <InventoryTransactionsList transactions={inventoryTransactions} />
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowAlreadyPrintedDialog(false);
+                setPendingPrintAction(null);
+              }}
+              disabled={markPrintedMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button variant="outline" onClick={handlePrintWithoutDecrement} disabled={markPrintedMutation.isPending}>
+              {markPrintedMutation.isPending && pendingPrintAction ? (
+                <Icon icon="ph:spinner" className="size-4 animate-spin" />
+              ) : null}
+              Only Mark as Printed
+            </Button>
+            <Button
+              className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+              variant="outline"
+              onClick={handlePrintAndDecrementBlank}
+              disabled={markPrintedMutation.isPending || !hasBlankStock}
+            >
+              {markPrintedMutation.isPending && pendingPrintAction ? (
+                <Icon icon="ph:spinner" className="size-4 animate-spin" />
+              ) : null}
+              Mark as Printed & Decrement Blank
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
@@ -586,9 +954,9 @@ const ProductDetails = ({
         {product && productVariant && (
           <div>
             {productVariant.warehouseInventory > 0 && !product.isBlackLabel && (
-              <Alert>
+              <Alert className="mb-4 bg-blue-50 text-blue-800">
                 <Icon icon="ph:info" className="size-4" />
-                <AlertTitle>Product is stock</AlertTitle>
+                <AlertTitle>Product is in stock</AlertTitle>
                 <AlertDescription>
                   <p>This blank is in stock. Please use warehouse inventory.</p>
                 </AlertDescription>

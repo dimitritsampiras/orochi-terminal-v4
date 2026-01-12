@@ -9,10 +9,12 @@ const queryClient = new QueryClient();
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
+    <LocalServerProvider>
     <QueryClientProvider client={queryClient}>
       <AppProgressProvider color="#000" options={{ showSpinner: false }}>
-        <LocalServerProvider>{children}</LocalServerProvider>
-      </AppProgressProvider>
-    </QueryClientProvider>
+          {children}
+        </AppProgressProvider>
+      </QueryClientProvider>
+    </LocalServerProvider>
   );
 }

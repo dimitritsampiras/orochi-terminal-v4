@@ -1,4 +1,13 @@
-import { batches, blanks, blankVariants, prints, products, productVariants, shipments } from "@drizzle/schema";
+import {
+  batches,
+  batchDocuments,
+  blanks,
+  blankVariants,
+  prints,
+  products,
+  productVariants,
+  shipments,
+} from "@drizzle/schema";
 import { getOrderQueue } from "../core/orders/get-order-queue";
 import { DataResponse } from "./misc";
 import { NormalizedShipmentRate } from "./shipping.types";
@@ -54,6 +63,14 @@ export type GetAssemblyLineResponse = DataResponse<{
 
 export type CreateBatchResponse = DataResponse<typeof batches.$inferSelect | null>;
 
+// Session document generation response
+
+export type GenerateSessionDocumentsResponse = DataResponse<{
+  pickingList: typeof batchDocuments.$inferSelect;
+  assemblyList: typeof batchDocuments.$inferSelect;
+  documentGroup: number;
+}>;
+
 export type PrintProductResponse = DataResponse<"success" | null>;
 
 export type ScanResponse = DataResponse<string | null>;
@@ -62,3 +79,19 @@ export type ScanResponse = DataResponse<string | null>;
 export type CreateStaffResponse = DataResponse<"success" | null>;
 export type EditStaffResponse = DataResponse<"success" | null>;
 export type DeleteStaffResponse = DataResponse<"success" | null>;
+
+// Assembly action responses
+export type AssemblyActionResult = {
+  status: string;
+  lineItemId: string;
+  inventoryChanged: boolean;
+};
+export type MarkPrintedResponse = DataResponse<AssemblyActionResult>;
+export type MarkStockedResponse = DataResponse<AssemblyActionResult>;
+export type MarkOosResponse = DataResponse<AssemblyActionResult>;
+export type ResetLineItemResponse = DataResponse<AssemblyActionResult>;
+
+// Settlement response types
+export type UpdateLineItemStatusResponse = DataResponse<{ success: boolean }>;
+export type AdjustSettlementInventoryResponse = DataResponse<{ success: boolean }>;
+export type SettleSessionResponse = DataResponse<{ success: boolean }>;

@@ -1,5 +1,5 @@
 import { AssemblyLineItem } from "@/lib/core/session/create-assembly-line";
-import { createPickingList } from "@/lib/core/picking/create-picking-list";
+import { createPickingRequirements } from "@/lib/core/session/create-picking-requirements";
 import { DataResponse } from "@/lib/types/misc";
 import { batches, garmentSize } from "@drizzle/schema";
 import dayjs from "dayjs";
@@ -12,7 +12,7 @@ export const generatePickingList = async (
   assemblyLine: AssemblyLineItem[],
   batch: Pick<Batch, "id" | "createdAt" | "active">
 ): Promise<DataResponse<Buffer>> => {
-  const { sortedPickingList: pickingList, unaccountedLineItems } = createPickingList(assemblyLine);
+  const { aggregatedBlankList, aggregatedStockList, unaccountedLineItems } = createPickingRequirements(assemblyLine);
 
   const marginX = 50;
   const marginY = 50;
@@ -129,29 +129,113 @@ export const generatePickingList = async (
   });
   currentY += lineHeight * 2; // moveDown equivalent
 
-  // Draw headers
-  drawHeaders();
+  // Section 1: Blanks to Pick (for printing)
+  if (aggregatedBlankList.length > 0) {
+    page.drawText("Blanks to Pick (for printing)", {
+      x: marginX,
+      y: toY(currentY + titleFontSize),
+      size: titleFontSize,
+      font: fontBold,
+    });
+    currentY += lineHeight * 1.5;
 
-  // Draw table rows
-  for (const pickingItem of pickingList) {
-    // Check if we need a new page (30 points buffer for bottom margin)
-    if (currentY > pageHeight - marginY - 30) {
+    // Draw headers for blanks table
+    drawHeaders();
+
+    // Draw blank rows
+    for (const blankItem of aggregatedBlankList) {
+      // Check if we need a new page (30 points buffer for bottom margin)
+      if (currentY > pageHeight - marginY - 30) {
+        addNewPage();
+      }
+
+      const rowData = [
+        blankItem.blankName,
+        blankItem.color,
+        dbSizeToDisplaySize(blankItem.size),
+        blankItem.garmentType,
+        blankItem.quantity.toString(),
+        "____",
+      ];
+
+      drawRow(rowData, false);
+    }
+  }
+
+  // Section 2: Stock to Pick (overstock + black label)
+  if (aggregatedStockList.length > 0) {
+    currentY += lineHeight * 3;
+
+    // Check if we need a new page for stock section
+    if (currentY > pageHeight - marginY - 100) {
       addNewPage();
     }
 
-    const rowData = [
-      pickingItem.blankName,
-      pickingItem.color,
-      dbSizeToDisplaySize(pickingItem.size),
-      pickingItem.garmentType,
-      pickingItem.quantity.toString(),
-      "____",
-    ];
+    page.drawText("Stock to Pick (pre-printed & black label)", {
+      x: marginX,
+      y: toY(currentY + titleFontSize),
+      size: titleFontSize,
+      font: fontBold,
+    });
+    currentY += lineHeight * 1.5;
 
-    drawRow(rowData, false);
+    // Stock table headers
+    const stockHeaders = ["Product", "Variant", "Type", "Qty", "Check"];
+    const stockColWidths = [180, 130, 80, 50, 50];
+
+    // Helper to draw stock row
+    const drawStockRow = (items: string[], isBold: boolean = false) => {
+      const currentFont = isBold ? fontBold : font;
+      let xOffset = marginX;
+
+      items.forEach((item, i) => {
+        let displayText = item;
+        const maxWidth = stockColWidths[i] - 4;
+        let textWidth = currentFont.widthOfTextAtSize(displayText, bodyFontSize);
+
+        while (textWidth > maxWidth && displayText.length > 0) {
+          displayText = displayText.slice(0, -1);
+          textWidth = currentFont.widthOfTextAtSize(displayText + "…", bodyFontSize);
+        }
+        if (displayText !== item && displayText.length > 0) {
+          displayText += "…";
+        }
+
+        page.drawText(displayText, {
+          x: xOffset,
+          y: toY(currentY + bodyFontSize),
+          size: bodyFontSize,
+          font: currentFont,
+        });
+        xOffset += stockColWidths[i];
+      });
+
+      currentY += lineHeight * 0.8;
+    };
+
+    // Draw stock headers
+    drawStockRow(stockHeaders, true);
+
+    // Draw stock rows
+    for (const stockItem of aggregatedStockList) {
+      if (currentY > pageHeight - marginY - 30) {
+        addNewPage();
+        drawStockRow(stockHeaders, true);
+      }
+
+      const rowData = [
+        stockItem.productName,
+        stockItem.variantTitle,
+        stockItem.isBlackLabel ? "Black Label" : "Overstock",
+        stockItem.quantity.toString(),
+        "____",
+      ];
+
+      drawStockRow(rowData, false);
+    }
   }
 
-  // Add unaccounted items section if any
+  // Section 3: Unaccounted items (if any)
   if (unaccountedLineItems.length > 0) {
     currentY += lineHeight * 3;
 
@@ -160,7 +244,7 @@ export const generatePickingList = async (
       addNewPage();
     }
 
-    page.drawText("Unaccounted Items", {
+    page.drawText("Unaccounted Items (manual check required)", {
       x: marginX,
       y: toY(currentY + titleFontSize),
       size: titleFontSize,

@@ -46,6 +46,7 @@ export const getRatesSchema = z.object({
 
 export type GetRatesSchema = z.infer<typeof getRatesSchema>;
 
+// In src/lib/schemas/order-schema.ts
 export const createShipmentSchema = z.object({
   // For custom shipment - pass rate + parcel directly
   customShipment: z
@@ -54,6 +55,10 @@ export const createShipmentSchema = z.object({
       parcel: generalParcelSchema,
     })
     .optional(),
+  // Auto-purchase the rate immediately after fetching
+  autoPurchase: z.boolean().optional(),
+  // Session ID for document association
+  sessionId: z.number().optional(),
 });
 
 export type CreateShipmentSchema = z.infer<typeof createShipmentSchema>;

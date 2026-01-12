@@ -1,4 +1,5 @@
 import { AssemblyItemController } from "@/components/controllers/assembly-item-controller";
+import { db } from "@/lib/clients/db";
 import shopify from "@/lib/clients/shopify";
 import { authorizePageUser } from "@/lib/core/auth/authorize-user";
 import { getAssemblyLine, getLineItemById } from "@/lib/core/session/create-assembly-line";
@@ -19,12 +20,15 @@ export default async function AssemblyItemPage({ params }: { params: Promise<{ i
     return notFound();
   }
 
-  const [mediaRes, orderRes] = await Promise.all([
+  const [mediaRes, orderRes, inventoryTransactions] = await Promise.all([
     shopify.request(productMediaQuery, {
       variables: { query: `product_id:'${item?.productId?.split("/").pop()}'` },
     }),
     shopify.request(orderQuery, {
       variables: { id: item.orderId },
+    }),
+    db.query.inventoryTransactions.findMany({
+      where: { lineItemId },
     }),
   ]);
   const { data: media } = mediaRes;
@@ -32,13 +36,12 @@ export default async function AssemblyItemPage({ params }: { params: Promise<{ i
 
   let order = orderData?.node?.__typename === "Order" ? orderData.node : undefined;
 
-  console.log(mediaRes);
-
   return (
     <AssemblyItemController
       item={item}
       media={media?.files.nodes.map((node) => node as MediaImage) || []}
       order={order}
+      inventoryTransactions={inventoryTransactions}
     />
   );
 }
