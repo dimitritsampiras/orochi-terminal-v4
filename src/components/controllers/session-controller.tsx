@@ -21,27 +21,32 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { SessionOrdersTable } from "@/components/table/session-orders-table";
-import { orders, lineItems, shipments, batchDocuments, batches, userRole } from "@drizzle/schema";
+import { orders, lineItems, shipments, batchDocuments, batches, userRole, orderHolds } from "@drizzle/schema";
 import { SessionDocumentsTable } from "../table/session-documents-table";
 import { Icon } from "@iconify/react";
-import { buttonVariants } from "../ui/button";
+import { Button, buttonVariants } from "../ui/button";
 import { useFetcher } from "@/lib/hooks/use-fetcher";
 import { useRouter } from "next/navigation";
 import { DataResponse } from "@/lib/types/misc";
 import { useBulkShipments } from "@/lib/hooks/use-bulk-shipments";
 import { revalidateSessionPages } from "@/lib/actions/revalidate";
 import { BulkShipmentDialog, type SelectedOrder, type OrderForBulkShipment } from "../dialog/bulk-shipment-dialog";
+import { ShippingIssuesDialog, type OrderWithShippingIssue } from "../dialog/shipping-issues-dialog";
+import { VerifyPremadeStockSheet } from "../dialog/verify-premade-stock-sheet";
+import { VerifyItemSyncDialog } from "../dialog/verify-item-sync";
 import { Spinner } from "../ui/spinner";
 import { useMutation } from "@tanstack/react-query";
 import { GenerateSessionDocumentsResponse } from "@/lib/types/api";
 import { GenerateSessionDocumentsSchema } from "@/lib/schemas/batch-schema";
 import { toast } from "sonner";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 type Order = typeof orders.$inferSelect & {
   shipments: (typeof shipments.$inferSelect)[];
   lineItems: (typeof lineItems.$inferSelect)[];
   isInShippingDoc: boolean;
+  orderHolds: (typeof orderHolds.$inferSelect)[];
 };
 
 type BatchDocument = typeof batchDocuments.$inferSelect;
@@ -58,7 +63,10 @@ export function SessionController({ orders, batchDocuments, session, userRole }:
   const [searchTerm, setSearchTerm] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showBulkShipmentDialog, setShowBulkShipmentDialog] = useState(false);
+  const [showShippingIssuesDialog, setShowShippingIssuesDialog] = useState(false);
   const [showGenerateDocsDialog, setShowGenerateDocsDialog] = useState(false);
+  const [showPremadeStockSheet, setShowPremadeStockSheet] = useState(false);
+  const [showItemSyncDialog, setShowItemSyncDialog] = useState(false);
 
   // Check if session already has documents (picking list or assembly list)
   const hasExistingSessionDocs = batchDocuments.some(
@@ -136,6 +144,25 @@ export function SessionController({ orders, batchDocuments, session, userRole }:
     shipments: order.shipments,
   }));
 
+  // Prepare orders for shipping issues dialog
+  const ordersForShippingIssues: OrderWithShippingIssue[] = orders.map((order) => ({
+    id: order.id,
+    name: order.name,
+    displayCustomerName: order.displayCustomerName,
+    shipments: order.shipments,
+    orderHolds: order.orderHolds,
+  }));
+
+  // Orders with active holds (for premade stock sheet)
+  const ordersWithHolds = useMemo(() => {
+    return orders
+      .filter((order) => order.orderHolds.some((hold) => !hold.isResolved))
+      .map((order) => ({
+        orderName: order.name,
+        holdCount: order.orderHolds.filter((hold) => !hold.isResolved).length,
+      }));
+  }, [orders]);
+
   const handleToggleActive = () => {
     toggleActive({ active: !session.active });
   };
@@ -185,9 +212,9 @@ export function SessionController({ orders, batchDocuments, session, userRole }:
               <Icon icon="ph:dots-three" className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setShowBulkShipmentDialog(true)} disabled={isLoading}>
-                <Icon icon="ph:package" className="size-4" />
-                Bulk Purchase Shipments
+              <DropdownMenuItem onClick={handleToggleActive} disabled={isLoading}>
+                <Icon icon="ph:scales" className="size-4" />
+                Post Session Settlement
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleToggleActive} disabled={isLoading}>
                 <div className="size-4 flex items-center justify-center">
@@ -208,24 +235,55 @@ export function SessionController({ orders, batchDocuments, session, userRole }:
             </DropdownMenuContent>
           </DropdownMenu>
           <DropdownMenu>
-            <DropdownMenuTrigger className={buttonVariants({ variant: "fill" })} disabled={isLoading}>
-              Generate Documents
+            <DropdownMenuTrigger className={buttonVariants({ variant: "outline" })} disabled={isLoading}>
+              Shipping Labels
               <Icon icon="ph:caret-up-down" className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => setShowBulkShipmentDialog(true)} disabled={isLoading}>
+                <Icon icon="ph:package" className="size-4" />
+                Bulk Purchase Shipments
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowShippingIssuesDialog(true)} disabled={isLoading}>
+                <Icon icon="ph:eye" className="size-4" />
+                View Shipping Issues
+              </DropdownMenuItem>
               <DropdownMenuItem disabled={isLoading}>
                 <Icon icon="ph:files" className="size-4" />
                 Merged Packing Slips
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowGenerateDocsDialog(true)} disabled={isLoading}>
-                <Icon icon="ph:clipboard-text" className="size-4" />
-                {isGeneratingDocs && <Spinner />} Picking + Assembly
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger className={buttonVariants({ variant: "fill" })} disabled={isLoading}>
+              Verify Items & Stock
+              <Icon icon="ph:caret-up-down" className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem
+                onClick={() => setShowItemSyncDialog(true)}
+                disabled={isLoading || Boolean(session.itemSyncVerifiedAt)}
+                className={cn(session.itemSyncVerifiedAt && "opacity-50 text-emerald-500! hover:text-emerald-500!")}
+              >
+                <Icon icon="ph:link" className={cn(session.itemSyncVerifiedAt && "text-emerald-500", "size-4")} />
+                Verify Item Sync
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setShowPremadeStockSheet(true)}
+                disabled={isLoading || !session.itemSyncVerifiedAt}
+                className={cn(session.premadeStockRequirementsJson && "text-emerald-500! hover:text-emerald-500!")}
+              >
+                <Icon icon="ph:t-shirt" className={cn(session.premadeStockRequirementsJson && "text-emerald-500", "size-4")} />
+                Verify Overstock Requirements
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={isLoading || !session.itemSyncVerifiedAt || !session.premadeStockRequirementsJson}>
+                <Icon icon="ph:package" className={cn(session.blankStockRequirementsJson && "text-emerald-500", "size-4")} />
+                Verify Blank Inventory Requirements
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Link href={`/sessions/${session.id}/settle`} className={buttonVariants({ variant: "default" })}>
-            Settle Session
-          </Link>
+          <Button variant="default">Start Assembly Line</Button>
         </div>
       </div>
 
@@ -260,6 +318,13 @@ export function SessionController({ orders, batchDocuments, session, userRole }:
         orders={ordersForBulkShipment}
         sessionId={session.id}
         onConfirm={handleBulkShipmentConfirm}
+      />
+
+      <ShippingIssuesDialog
+        open={showShippingIssuesDialog}
+        onOpenChange={setShowShippingIssuesDialog}
+        orders={ordersForShippingIssues}
+        sessionId={session.id}
       />
 
       {/* Generate Session Documents Dialog */}
@@ -302,6 +367,21 @@ export function SessionController({ orders, batchDocuments, session, userRole }:
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <VerifyPremadeStockSheet
+        open={showPremadeStockSheet}
+        onOpenChange={setShowPremadeStockSheet}
+        session={session}
+        ordersWithHolds={ordersWithHolds}
+      />
+
+      <VerifyItemSyncDialog
+        open={showItemSyncDialog}
+        onOpenChange={setShowItemSyncDialog}
+        sessionId={session.id}
+        isVerified={!!session.itemSyncVerifiedAt}
+        verifiedAt={session.itemSyncVerifiedAt}
+      />
     </div>
   );
 }

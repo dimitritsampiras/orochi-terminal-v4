@@ -15,6 +15,7 @@ export const relations = defineRelations(schema, (r) => ({
       from: r.batches.id.through(r.ordersBatches.batchId),
       to: r.orders.id.through(r.ordersBatches.orderId),
     }),
+    logs: r.many.logs(),
   },
   blankVariants: {
     blank: r.one.blanks({
@@ -176,6 +177,10 @@ export const relations = defineRelations(schema, (r) => ({
     order: r.one.orders({
       from: r.logs.orderId,
       to: r.orders.id,
+    }),
+    batch: r.one.batches({
+      from: r.logs.batchId,
+      to: r.batches.id,
     }),
     inventoryTransactions: r.many.inventoryTransactions(),
   },

@@ -7,12 +7,15 @@ import {
   products,
   productVariants,
   shipments,
+  inventoryTransactions,
 } from "@drizzle/schema";
 import { getOrderQueue } from "../core/orders/get-order-queue";
 import { DataResponse } from "./misc";
 import { NormalizedShipmentRate } from "./shipping.types";
 import { GeneralParcel } from "../core/shipping/parcel-schema";
 import { SortedAssemblyLineItem } from "../core/session/create-assembly-line";
+import { PremadeStockItem } from "../core/session/get-premade-stock-requirements";
+import { SessionLineItem } from "../core/session/get-session-line-items";
 
 export type LoginResponse = DataResponse<"success" | null>;
 
@@ -95,3 +98,27 @@ export type ResetLineItemResponse = DataResponse<AssemblyActionResult>;
 export type UpdateLineItemStatusResponse = DataResponse<{ success: boolean }>;
 export type AdjustSettlementInventoryResponse = DataResponse<{ success: boolean }>;
 export type SettleSessionResponse = DataResponse<{ success: boolean }>;
+
+// Premade stock verification types
+export type PremadeStockItemWithInventory = {
+  inventoryTransactions: (typeof inventoryTransactions.$inferSelect)[];
+  currentInventory: number;
+} & PremadeStockItem;
+
+export type GetPremadeStockRequirementsResponse = DataResponse<{
+  items: {
+    premade: PremadeStockItemWithInventory[];
+    held: { lineItemName: string; orderNumber: string }[];
+    unaccounted: { lineItemName: string; orderNumber: string; reason: string }[];
+  };
+  isVerified: boolean;
+  verifiedAt: Date | null;
+}>;
+
+export type VerifyPremadeStockResponse = DataResponse<"success">;
+
+export type GetSessionLineItemsResponse = DataResponse<{
+  lineItems: SessionLineItem[];
+}>;
+
+export type VerifyItemSyncResponse = DataResponse<"success">;

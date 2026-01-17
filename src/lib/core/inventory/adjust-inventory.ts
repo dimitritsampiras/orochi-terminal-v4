@@ -33,7 +33,8 @@ export async function adjustInventory(
       ? (item as typeof blankVariants.$inferSelect).quantity 
       : (item as typeof productVariants.$inferSelect).warehouseInventory;
     
-    const newQty = currentQty + delta;
+    // Prevent negative inventory
+    const newQty = Math.max(0, currentQty + delta);
 
     // 2. Update the Item
     if (target.type === "blank") {

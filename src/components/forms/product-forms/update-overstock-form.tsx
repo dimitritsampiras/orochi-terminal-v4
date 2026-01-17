@@ -1,9 +1,9 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import { useFetcher } from "@/lib/hooks/use-fetcher";
-import { UpdateVariantSchema } from "@/lib/schemas/product-schema";
+import { type UpdateVariantSchema } from "@/lib/schemas/product-schema";
 import { cn, parseGid } from "@/lib/utils";
+import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -12,22 +12,40 @@ export const UpdateOverstockForm = ({
   productId,
   currentWarehouseInventory,
   isBlackLabel = false,
+  batchId,
+  onSuccess,
 }: {
   variantId: string;
   productId: string;
   isBlackLabel: boolean;
   currentWarehouseInventory: number;
+  batchId?: number;
+  onSuccess?: () => void;
 }) => {
   const [value, setValue] = useState(currentWarehouseInventory);
   const [isDirty, setIsDirty] = useState(false);
   const isSubmittingRef = useRef(false);
 
-  const { isLoading, trigger } = useFetcher<UpdateVariantSchema>({
-    path: `/api/products/${parseGid(productId)}/variants/${parseGid(variantId)}`,
-    method: "PATCH",
-    successMessage: "Variant updated successfully",
+  const mutation = useMutation({
+    mutationFn: async (newInventory: number) => {
+      const res = await fetch(`/api/products/${parseGid(productId)}/variants/${parseGid(variantId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newInventory, batchId } satisfies UpdateVariantSchema),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error ?? "Failed to update inventory");
+      }
+      return data;
+    },
     onSuccess: () => {
       setIsDirty(false);
+      isSubmittingRef.current = false;
+      onSuccess?.();
+    },
+    onError: (error) => {
+      toast.error(error.message);
       isSubmittingRef.current = false;
     },
   });
@@ -48,21 +66,28 @@ export const UpdateOverstockForm = ({
     }
 
     if (e.key === "ArrowDown") {
-      newValue = value - 1;
+      newValue = Math.max(0, value - 1);
       setValue(newValue);
       setIsDirty(newValue !== currentWarehouseInventory);
       e.preventDefault();
     }
 
     if (e.key === "Enter") {
-      isSubmittingRef.current = true;
-      handleSubmit();
+      if (isDirty) {
+        isSubmittingRef.current = true;
+        toast.promise(mutation.mutateAsync(value), {
+          loading: "Updating inventory...",
+          success: "Inventory updated",
+          error: (err) => err.message,
+        });
+      }
       e.currentTarget.blur();
     }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value === "" ? 0 : Number(e.target.value);
+    if (isNaN(inputValue) || inputValue < 0) return;
     setValue(inputValue);
     setIsDirty(inputValue !== currentWarehouseInventory);
   };
@@ -72,17 +97,6 @@ export const UpdateOverstockForm = ({
     if (isDirty && !isSubmittingRef.current) {
       setValue(currentWarehouseInventory);
       setIsDirty(false);
-    }
-  };
-
-  const handleSubmit = async () => {
-    const toastId = toast.loading("Updating inventory...");
-    try {
-      await trigger({ warehouseInventory: Number(value) });
-      toast.dismiss(toastId);
-    } catch (error) {
-      toast.dismiss(toastId);
-      isSubmittingRef.current = false;
     }
   };
 
@@ -96,7 +110,7 @@ export const UpdateOverstockForm = ({
       onChange={handleChange}
       onKeyDown={handleKeyDown}
       onBlur={handleBlur}
-      disabled={isLoading || isBlackLabel}
+      disabled={mutation.isPending || isBlackLabel}
       readOnly={isBlackLabel}
     />
   );

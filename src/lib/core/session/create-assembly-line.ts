@@ -1,22 +1,19 @@
-import { db } from "@/lib/clients/db";
-import { eq } from "drizzle-orm";
-import {
-  lineItems,
-  orders,
-  ordersBatches,
-  batches,
-  products,
-  prints,
-  blanks,
-  productVariants,
-  blankVariants,
-  garmentSize,
-  garmentType,
-  printLogs,
-} from "../../../../drizzle/schema";
+import { batches, garmentSize, garmentType } from "@drizzle/schema";
 import { DataResponse } from "@/lib/types/misc";
 import z from "zod";
-import { logger } from "../logger";
+import {
+  SessionLineItem,
+  SessionLineItemWithPrintLogs,
+  OrderWithLineItems,
+  getLineItemsByBatchId,
+  getLineItemById,
+} from "./get-session-line-items";
+
+// Re-export types for backwards compatibility
+export type AssemblyLineItem = SessionLineItem;
+export type AssemblyLineItemWithPrintLogs = SessionLineItemWithPrintLogs;
+export type { OrderWithLineItems };
+export { getLineItemById };
 
 const storedAssemblyLineSchema = z.object({
   id: z.string(),
@@ -61,23 +58,6 @@ const LIGHT_COLORS_FALLBACK = [
   "seafoam",
 ];
 
-export type OrderWithLineItems = typeof orders.$inferSelect & {
-  lineItems: Pick<typeof lineItems.$inferSelect, "id" | "name" | "completionStatus">[];
-};
-
-export type AssemblyLineItem = typeof lineItems.$inferSelect & {
-  order: OrderWithLineItems;
-  product: typeof products.$inferSelect | null;
-  prints: (typeof prints.$inferSelect)[];
-  blank: typeof blanks.$inferSelect | null;
-  productVariant: typeof productVariants.$inferSelect | null;
-  blankVariant: typeof blankVariants.$inferSelect | null;
-};
-
-export type AssemblyLineItemWithPrintLogs = AssemblyLineItem & {
-  printLogs: (typeof printLogs.$inferSelect)[];
-};
-
 export type SortedAssemblyLineItem = AssemblyLineItem & {
   itemPosition: number;
 };
@@ -110,15 +90,9 @@ export const getAssemblyLine = async (
           .filter((item) => item.requiresShipping);
 
         return { data: { lineItems: sortedLineItems, batch }, error: null };
-      } else {
-        // logger.error(`Wrong format for assembly line JSON for batch ${batchId}`, {
-        //   category: "ASSEMBLY",
-        // });
       }
     } catch {
-      // logger.error(`Invalid assembly line JSON for batch ${batchId}`, {
-      //   category: "ASSEMBLY",
-      // });
+      // Invalid JSON, fall through to fresh generation
     }
   }
 
@@ -128,111 +102,6 @@ export const getAssemblyLine = async (
     return { data: null, error: sortError || "Failed to generate assembly line" };
   }
   return { data: { lineItems: sortedData, batch }, error: null };
-};
-
-/**
- * Get all line items for a batch with their related data
- * Uses a single query with JOINs: lineItems -> orders -> ordersBatches -> batches
- */
-export const getLineItemsByBatchId = async (
-  batchId: number
-): Promise<DataResponse<{ lineItems: AssemblyLineItem[]; batch: typeof batches.$inferSelect }>> => {
-  try {
-    const results = await db
-      .select({
-        lineItem: lineItems,
-        order: orders,
-        product: products,
-        print: prints,
-        blank: blanks,
-        productVariant: productVariants,
-        blankVariant: blankVariants,
-      })
-      .from(lineItems)
-      .innerJoin(orders, eq(lineItems.orderId, orders.id))
-      .innerJoin(ordersBatches, eq(orders.id, ordersBatches.orderId))
-      .where(eq(ordersBatches.batchId, batchId))
-      .leftJoin(products, eq(lineItems.productId, products.id))
-      .leftJoin(prints, eq(products.id, prints.productId))
-      .leftJoin(blanks, eq(products.blankId, blanks.id))
-      .leftJoin(productVariants, eq(lineItems.variantId, productVariants.id))
-      .leftJoin(blankVariants, eq(productVariants.blankVariantId, blankVariants.id));
-
-    // Get batch metadata
-    const [batch] = await db.select().from(batches).where(eq(batches.id, batchId)).limit(1);
-
-    if (!batch) {
-      throw new Error(`Batch with id ${batchId} not found`);
-    }
-
-    // Group results by line item and aggregate prints, also track line items per order
-    const lineItemMap = new Map<string, AssemblyLineItem>();
-    const orderLineItemsMap = new Map<
-      string,
-      Pick<typeof lineItems.$inferSelect, "id" | "name" | "completionStatus">[]
-    >();
-
-    // First pass: collect all line items per order
-    for (const row of results) {
-      const orderId = row.order.id;
-      if (!orderLineItemsMap.has(orderId)) {
-        orderLineItemsMap.set(orderId, []);
-      }
-      const orderLineItems = orderLineItemsMap.get(orderId)!;
-      if (!orderLineItems.some((li) => li.id === row.lineItem.id)) {
-        orderLineItems.push({
-          id: row.lineItem.id,
-          name: row.lineItem.name,
-          completionStatus: row.lineItem.completionStatus,
-        });
-      }
-    }
-
-    // Second pass: build line items with order including its line items
-    for (const row of results) {
-      const existing = lineItemMap.get(row.lineItem.id);
-
-      if (existing) {
-        // Add print to existing line item if it exists and isn't already added
-        if (row.print && !existing.prints.some((p) => p.id === row.print?.id)) {
-          existing.prints.push(row.print);
-        }
-      } else {
-        lineItemMap.set(row.lineItem.id, {
-          ...row.lineItem,
-          order: {
-            ...row.order,
-            lineItems: orderLineItemsMap.get(row.order.id) ?? [],
-          },
-          product: row.product,
-          prints: row.print ? [row.print] : [],
-          blank: row.blank,
-          productVariant: row.productVariant,
-          blankVariant: row.blankVariant,
-        });
-      }
-    }
-
-    return {
-      data: {
-        lineItems: Array.from(lineItemMap.values()),
-        batch: {
-          id: batch.id,
-          createdAt: batch.createdAt,
-          active: batch.active,
-          assemblyLineJson: batch.assemblyLineJson,
-          pickingListJson: null,
-          settledAt: null,
-        },
-      },
-      error: null,
-    };
-  } catch (error) {
-    return {
-      data: null,
-      error: error instanceof Error ? error.message : "An unknown error occurred",
-    };
-  }
 };
 
 export const createSortedAssemblyLine = async (
@@ -428,83 +297,4 @@ const getItemBlankColor = (item: AssemblyLineItem) => {
 
 const getOrderLineItemCount = (order: AssemblyLineItem["order"]) => {
   return order.lineItems.length;
-};
-
-// Add to src/lib/core/session/generate-assembly-list.ts
-
-/**
- * Get a single line item by ID with all related data
- * Returns the same structure as AssemblyLineItem
- */
-export const getLineItemById = async (lineItemId: string): Promise<DataResponse<AssemblyLineItemWithPrintLogs>> => {
-  try {
-    const results = await db
-      .select({
-        lineItem: lineItems,
-        order: orders,
-        product: products,
-        print: prints,
-        printLog: printLogs, // Add
-        blank: blanks,
-        productVariant: productVariants,
-        blankVariant: blankVariants,
-      })
-      .from(lineItems)
-      .innerJoin(orders, eq(lineItems.orderId, orders.id))
-      .leftJoin(products, eq(lineItems.productId, products.id))
-      .leftJoin(prints, eq(products.id, prints.productId))
-      .leftJoin(printLogs, eq(lineItems.id, printLogs.lineItemId)) // Add
-      .leftJoin(blanks, eq(products.blankId, blanks.id))
-      .leftJoin(productVariants, eq(lineItems.variantId, productVariants.id))
-      .leftJoin(blankVariants, eq(productVariants.blankVariantId, blankVariants.id))
-      .where(eq(lineItems.id, lineItemId));
-
-    if (results.length === 0) {
-      return { data: null, error: `Line item with id ${lineItemId} not found` };
-    }
-
-    // Get all line items for the order (for the order.lineItems count)
-    const orderLineItems = await db
-      .select({ id: lineItems.id, name: lineItems.name, completionStatus: lineItems.completionStatus })
-      .from(lineItems)
-      .where(eq(lineItems.orderId, results[0].order.id));
-
-    // Aggregate prints from multiple rows (due to prints LEFT JOIN)
-    const printsArray: (typeof prints.$inferSelect)[] = [];
-    for (const row of results) {
-      if (row.print && !printsArray.some((p) => p.id === row.print?.id)) {
-        printsArray.push(row.print);
-      }
-    }
-
-    // And aggregate:
-    const printLogsArray: (typeof printLogs.$inferSelect)[] = [];
-    for (const row of results) {
-      if (row.printLog && !printLogsArray.some((pl) => pl.id === row.printLog?.id)) {
-        printLogsArray.push(row.printLog);
-      }
-    }
-
-    const firstRow = results[0];
-    const assemblyLineItem: AssemblyLineItemWithPrintLogs = {
-      ...firstRow.lineItem,
-      order: {
-        ...firstRow.order,
-        lineItems: orderLineItems,
-      },
-      product: firstRow.product,
-      prints: printsArray,
-      printLogs: printLogsArray,
-      blank: firstRow.blank,
-      productVariant: firstRow.productVariant,
-      blankVariant: firstRow.blankVariant,
-    };
-
-    return { data: assemblyLineItem, error: null };
-  } catch (error) {
-    return {
-      data: null,
-      error: error instanceof Error ? error.message : "An unknown error occurred",
-    };
-  }
 };

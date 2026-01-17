@@ -1,5 +1,6 @@
 import { db } from "@/lib/clients/db";
 import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
+import { adjustInventory } from "@/lib/core/inventory/adjust-inventory";
 import { logger } from "@/lib/core/logger";
 import { updateVariantSchema } from "@/lib/schemas/product-schema";
 import { buildResourceGid } from "@/lib/utils";
@@ -22,26 +23,33 @@ export async function PATCH(
     const { variant_id } = await params;
     const variantGid = buildResourceGid("ProductVariant", variant_id);
 
+    const variant = await db.query.productVariants.findFirst({
+      where: { id: variantGid },
+    });
+
+    if (!variant) {
+      return NextResponse.json({ data: null, error: "Variant not found" }, { status: 404 });
+    }
+
     const rawBody = await req.json();
-    const { warehouseInventory } = updateVariantSchema.parse(rawBody);
+    const { batchId, newInventory } = updateVariantSchema.parse(rawBody);
 
     let updatePayload: Partial<typeof productVariants.$inferInsert> = {};
     let logMessage = "";
 
-    if (warehouseInventory !== undefined) {
-      updatePayload.warehouseInventory = warehouseInventory;
-      logMessage = `Product Variant ${variantGid} updated to ${warehouseInventory} by ${user.username}`;
+    if (newInventory !== undefined) {
+      await adjustInventory(
+        { type: "product", variantId: variantGid },
+        newInventory - variant.warehouseInventory,
+        "correction",
+        {
+          profileId: user.id,
+          batchId,
+          logMessage: `Product Variant ${variantGid} updated to ${newInventory} by ${user.username}`,
+        }
+      );
     }
 
-    await db.update(productVariants).set({ warehouseInventory }).where(eq(productVariants.id, variantGid));
-
-    // Smart Logging: If we determined a semantic action occurred, log it
-    if (logMessage) {
-      // Fire and forget logging (don't await if you want faster response, or await for safety)
-      await logger.info(logMessage, {
-        profileId: user.id,
-      });
-    }
     return NextResponse.json({ data: "success", error: null });
   } catch (error) {
     console.error("Error updating variant:", error);

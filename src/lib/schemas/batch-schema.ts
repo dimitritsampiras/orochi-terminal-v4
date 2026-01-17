@@ -48,3 +48,6 @@ export const settleSessionSchema = z.object({
 
 export type SettleSessionSchema = z.infer<typeof settleSessionSchema>;
 
+// ============================================================================
+// Premade Stock Verification Schemas
+// ============================================================================

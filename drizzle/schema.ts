@@ -114,6 +114,11 @@ export const batches = pgTable.withRLS(
     assemblyLineJson: text("assembly_line_json"),
     pickingListJson: text("picking_list_json"),
     settledAt: timestamp("settled_at", { withTimezone: true }),
+    premadeStockVerifiedAt: timestamp("premade_stock_verified_at", { withTimezone: true }),
+    premadeStockRequirementsJson: text("premade_stock_requirements_json"),
+    blankStockVerifiedAt: timestamp("blank_stock_verified_at", { withTimezone: true }),
+    blankStockRequirementsJson: text("blank_stock_requirements_json"),
+    itemSyncVerifiedAt: timestamp("item_sync_verified_at", { withTimezone: true }),
   },
   (table) => [
     uniqueIndex("unique_active")
@@ -223,6 +228,7 @@ export const logs = pgTable("logs", {
   orderId: text("order_id").references(() => orders.id, { onDelete: "cascade" }),
   profileId: uuid("profile_id").references(() => profiles.id, { onDelete: "set null" }),
   metadata: jsonb(),
+  batchId: integer("batch_id").references(() => batches.id, { onDelete: "set null" }),
 });
 
 export const orderHolds = pgTable("order_holds", {

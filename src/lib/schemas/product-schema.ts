@@ -1,7 +1,8 @@
 import z from "zod";
 
 export const updateVariantSchema = z.object({
-  warehouseInventory: z.number().int().min(0).optional(),
+  newInventory: z.number().int().min(0).optional(),
+  batchId: z.number().int().optional(),
 });
 
 export type UpdateVariantSchema = z.infer<typeof updateVariantSchema>;

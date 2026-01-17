@@ -54,7 +54,7 @@ export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProp
 
     // Check if all shipments have missing label slips
     if (order.shipments.every((s) => s.labelSlipPath === null && s.isPurchased)) {
-      return <div className="text-amber-500 mx-4">Label slip missing [regenerate]</div>;
+      return <div className="text-amber-500 mx-4">Label slip missing</div>;
     }
 
     // Check if all shipments have missing label slips
@@ -65,25 +65,30 @@ export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProp
 
     return (
       <div className="flex w-fit mx-4 items-center gap-2">
-        {lastActiveShipment?.chosenCarrierName && (
-          <Image
-            src={getCarrierImage(lastActiveShipment.chosenCarrierName) || ""}
-            alt={lastActiveShipment.chosenCarrierName}
-            width={16}
-            height={16}
-            className="h-4 w-4"
-            onError={(e) => {
-              // Hide image if it fails to load
-              e.currentTarget.style.display = "none";
-            }}
-          />
-        )}
         {order.shipments.some((s) => s.isPurchased) ? (
-          <Icon icon="ph:file-text" className="min-h-4 min-w-4" />
+          <div className="flex items-center gap-2">
+            {lastActiveShipment?.chosenCarrierName && (
+              <Image
+                src={getCarrierImage(lastActiveShipment.chosenCarrierName) || ""}
+                alt={lastActiveShipment.chosenCarrierName}
+                width={16}
+                height={16}
+                className="h-4 w-4"
+                onError={(e) => {
+                  // Hide image if it fails to load
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            )}
+            <Icon icon="ph:file-text" className="min-h-4 min-w-4" />
+            <div className="font-medium">{order.shipments.length} shipment(s)</div>
+          </div>
         ) : (
-          <Icon icon="ph:warning-circle" className="min-h-4 min-w-4 text-slate-500" />
+          <div className="flex items-center gap-2">
+            <Icon icon="ph:warning-circle" className="min-h-4 min-w-4 text-red-700" />
+            <div className="font-normal text-red-700">Rate Only</div>
+          </div>
         )}
-        <div className="font-medium">{order.shipments.length} shipment(s)</div>
       </div>
     );
   };
@@ -108,7 +113,11 @@ export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProp
             orders.map((order, index) => (
               <TableRow
                 key={order.id}
-                className={cn("hover:cursor-pointer hover:bg-gray-100", index % 2 === 0 && "bg-gray-50")}
+                className={cn(
+                  "hover:cursor-pointer hover:bg-gray-100",
+                  index % 2 === 0 && "bg-gray-50",
+                  order.displayIsCancelled && "opacity-60"
+                )}
                 onClick={() => handleRowClick(order.id)}
               >
                 <TableCell className="font-semibold">{order.name}</TableCell>
@@ -134,7 +143,11 @@ export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProp
                   <OrderCompletionStatusBadge status={isOrderComplete(order.lineItems)} />
                 </TableCell>
                 <TableCell>
-                  <FulfillmentStatusBadge status={order.displayFulfillmentStatus} />
+                  {order.displayIsCancelled ? (
+                    <Badge variant="destructive">Cancelled</Badge>
+                  ) : (
+                    <FulfillmentStatusBadge status={order.displayFulfillmentStatus} />
+                  )}
                 </TableCell>
               </TableRow>
             ))

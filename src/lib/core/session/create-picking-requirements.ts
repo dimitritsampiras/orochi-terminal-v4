@@ -1,6 +1,9 @@
-import { AssemblyLineItem } from "@/lib/core/session/create-assembly-line";
+import { SessionLineItem } from "@/lib/core/session/get-session-line-items";
 import { garmentSize, garmentType } from "@drizzle/schema";
 import z from "zod";
+
+// Re-export for backwards compatibility
+export type { SessionLineItem as AssemblyLineItem } from "@/lib/core/session/get-session-line-items";
 
 type GarmentSize = (typeof garmentSize.enumValues)[number];
 type GarmentType = (typeof garmentType.enumValues)[number];
@@ -72,18 +75,18 @@ export interface PickingRequirementsResult {
   /** Aggregated stock list for PDF generation (overstock + black label) */
   aggregatedStockList: AggregatedStockItem[];
   /** Items that couldn't be categorized (no blank sync and no stock) */
-  unaccountedLineItems: AssemblyLineItem[];
+  unaccountedLineItems: SessionLineItem[];
 }
 
 /**
- * Creates picking requirements from assembly line items
+ * Creates picking requirements from session line items
  * Returns both line-item level data (for settlement) and aggregated data (for PDF)
  */
-export const createPickingRequirements = (lineItems: AssemblyLineItem[]): PickingRequirementsResult => {
+export const createPickingRequirements = (lineItems: SessionLineItem[]): PickingRequirementsResult => {
   const requirements: PickingRequirement[] = [];
   const blankAggregatedMap = new Map<string, AggregatedBlankItem>();
   const stockAggregatedMap = new Map<string, AggregatedStockItem>();
-  const unaccountedLineItems: AssemblyLineItem[] = [];
+  const unaccountedLineItems: SessionLineItem[] = [];
 
   const filteredLineItems = lineItems.filter((item) => item.requiresShipping);
 
