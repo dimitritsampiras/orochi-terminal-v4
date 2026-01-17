@@ -21,7 +21,16 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { SessionOrdersTable } from "@/components/table/session-orders-table";
-import { orders, lineItems, shipments, batchDocuments, batches, userRole, orderHolds } from "@drizzle/schema";
+import {
+  orders,
+  lineItems,
+  shipments,
+  batchDocuments,
+  batches,
+  userRole,
+  orderHolds,
+  productVariants,
+} from "@drizzle/schema";
 import { SessionDocumentsTable } from "../table/session-documents-table";
 import { Icon } from "@iconify/react";
 import { Button, buttonVariants } from "../ui/button";
@@ -41,10 +50,13 @@ import { GenerateSessionDocumentsSchema } from "@/lib/schemas/batch-schema";
 import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { VerifyBlankStockSheet } from "../dialog/verify-blank-stock-sheet";
 
-type Order = typeof orders.$inferSelect & {
+export type SessionOrder = typeof orders.$inferSelect & {
   shipments: (typeof shipments.$inferSelect)[];
-  lineItems: (typeof lineItems.$inferSelect)[];
+  lineItems: (typeof lineItems.$inferSelect & {
+    productVariant?: typeof productVariants.$inferSelect | null;
+  })[];
   isInShippingDoc: boolean;
   orderHolds: (typeof orderHolds.$inferSelect)[];
 };
@@ -52,7 +64,7 @@ type Order = typeof orders.$inferSelect & {
 type BatchDocument = typeof batchDocuments.$inferSelect;
 
 interface SessionControllerProps {
-  orders: Order[];
+  orders: SessionOrder[];
   batchDocuments: BatchDocument[];
   session: typeof batches.$inferSelect;
   userRole: (typeof userRole.enumValues)[number];
@@ -66,6 +78,7 @@ export function SessionController({ orders, batchDocuments, session, userRole }:
   const [showShippingIssuesDialog, setShowShippingIssuesDialog] = useState(false);
   const [showGenerateDocsDialog, setShowGenerateDocsDialog] = useState(false);
   const [showPremadeStockSheet, setShowPremadeStockSheet] = useState(false);
+  const [showBlankStockSheet, setShowBlankStockSheet] = useState(false);
   const [showItemSyncDialog, setShowItemSyncDialog] = useState(false);
 
   // Check if session already has documents (picking list or assembly list)
@@ -274,11 +287,21 @@ export function SessionController({ orders, batchDocuments, session, userRole }:
                 disabled={isLoading || !session.itemSyncVerifiedAt}
                 className={cn(session.premadeStockRequirementsJson && "text-emerald-500! hover:text-emerald-500!")}
               >
-                <Icon icon="ph:t-shirt" className={cn(session.premadeStockRequirementsJson && "text-emerald-500", "size-4")} />
+                <Icon
+                  icon="ph:t-shirt"
+                  className={cn(session.premadeStockRequirementsJson && "text-emerald-500", "size-4")}
+                />
                 Verify Overstock Requirements
               </DropdownMenuItem>
-              <DropdownMenuItem disabled={isLoading || !session.itemSyncVerifiedAt || !session.premadeStockRequirementsJson}>
-                <Icon icon="ph:package" className={cn(session.blankStockRequirementsJson && "text-emerald-500", "size-4")} />
+              <DropdownMenuItem
+              className={cn(session.blankStockRequirementsJson && "text-emerald-500! hover:text-emerald-500!")}
+                disabled={isLoading || !session.itemSyncVerifiedAt || !session.premadeStockRequirementsJson}
+                onClick={() => setShowBlankStockSheet(true)}
+              >
+                <Icon
+                  icon="ph:package"
+                  className={cn(session.blankStockRequirementsJson && "text-emerald-500", "size-4")}
+                />
                 Verify Blank Inventory Requirements
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -373,6 +396,13 @@ export function SessionController({ orders, batchDocuments, session, userRole }:
         onOpenChange={setShowPremadeStockSheet}
         session={session}
         ordersWithHolds={ordersWithHolds}
+      />
+
+      <VerifyBlankStockSheet
+        open={showBlankStockSheet}
+        onOpenChange={setShowBlankStockSheet}
+        session={session}
+        sessionOrders={orders}
       />
 
       <VerifyItemSyncDialog

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+import { cn, sleep } from "@/lib/utils";
 import type {
   GetPremadeStockRequirementsResponse,
   PremadeStockItemWithInventory,
@@ -17,6 +17,7 @@ import type {
 import { UpdateOverstockForm } from "../forms/product-forms/update-overstock-form";
 import { InventoryTransactionItem } from "../cards/inventory-transactions";
 import { batches } from "@drizzle/schema";
+import { useRouter } from "next/navigation";
 
 interface VerifyPremadeStockSheetProps {
   open: boolean;
@@ -33,6 +34,7 @@ export function VerifyPremadeStockSheet({
 }: VerifyPremadeStockSheetProps) {
   const sessionId = session.id;
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   // Fetch premade stock requirements
   const {
@@ -66,9 +68,11 @@ export function VerifyPremadeStockSheet({
       }
       return data.data;
     },
-    onSuccess: () => {
-      toast.success("Premade stock verified");
+    onSuccess: async () => {
+      router.refresh();
       queryClient.invalidateQueries({ queryKey: ["premade-stock-requirements", sessionId] });
+      await sleep(1000);
+      toast.success("Premade stock verified");
       onOpenChange(false);
     },
     onError: (error) => {
@@ -106,14 +110,12 @@ export function VerifyPremadeStockSheet({
             <TableHead>Variant</TableHead>
             {!isBlackLabel && <TableHead className="text-right">On Hand</TableHead>}
             <TableHead className="text-right">Required</TableHead>
-            <TableHead className="text-right">After Session</TableHead>
+            <TableHead className="text-right">To Pick</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map((item, index) => {
-            const stockAfter = item.currentInventory - item.requiredQuantity;
-            const isNegative = stockAfter < 0;
-
+          {items.map(({ onHand, requiredQuantity, toPick, ...item }, index) => {
+            const isNegative = onHand - requiredQuantity < 0;
             return (
               <Fragment key={item.productVariantId}>
                 <TableRow
@@ -127,22 +129,24 @@ export function VerifyPremadeStockSheet({
                         productId={item.productId}
                         variantId={item.productVariantId}
                         isBlackLabel={item.isBlackLabel}
-                        currentWarehouseInventory={item.currentInventory}
+                        currentWarehouseInventory={onHand}
                         batchId={sessionId}
                         onSuccess={handleRefetch}
                       />
                     </TableCell>
                   )}
-                  <TableCell className="text-right">{item.requiredQuantity}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-2">
+                  <TableCell className="text-right">
+                    <div className="flex items-center gap-2 justify-end">
                       {isNegative && !isBlackLabel && (
                         <Badge variant="outline" className="text-[10px] bg-orange-50">
                           Shortage
                         </Badge>
                       )}
-                      <span className="text-right font-medium">{Math.max(0, stockAfter)}</span>
+                      <div className="min-w-[12px]">{requiredQuantity}</div>
                     </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <span className="text-right font-semibold">{toPick}</span>
                   </TableCell>
                 </TableRow>
                 {item.inventoryTransactions.length > 0 && (
@@ -222,7 +226,9 @@ export function VerifyPremadeStockSheet({
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <h3 className="font-semibold">Overstock Items</h3>
-                  <Badge variant="secondary">{overstockItems.length}</Badge>
+                  <Badge variant="secondary">
+                    {overstockItems.reduce((acc, curr) => acc + curr.requiredQuantity, 0)}
+                  </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground mb-3">
                   Pre-printed items. Edit inventory and press Enter to save.
@@ -237,7 +243,7 @@ export function VerifyPremadeStockSheet({
                 <div className="flex items-center gap-2 mb-2">
                   <h3 className="font-semibold">Black Label Items</h3>
                   <Badge variant="outline" className="bg-zinc-100">
-                    {blackLabelItems.length}
+                    {blackLabelItems.reduce((acc, curr) => acc + curr.requiredQuantity, 0)}
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground mb-3">Inventory is managed by Shopify.</p>

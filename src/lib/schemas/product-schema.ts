@@ -8,9 +8,10 @@ export const updateVariantSchema = z.object({
 export type UpdateVariantSchema = z.infer<typeof updateVariantSchema>;
 
 export const updateBlankVariantSchema = z.object({
-  quantity: z.number().int().min(0).optional(),
+  newQuantity: z.number().int().min(0).optional(),
   weight: z.number().min(0).optional(),
   volume: z.number().min(0).optional(),
+  batchId: z.number().int().optional(),
 });
 
 export type UpdateBlankVariantSchema = z.infer<typeof updateBlankVariantSchema>;

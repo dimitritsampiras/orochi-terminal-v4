@@ -15,6 +15,7 @@ import { NormalizedShipmentRate } from "./shipping.types";
 import { GeneralParcel } from "../core/shipping/parcel-schema";
 import { SortedAssemblyLineItem } from "../core/session/create-assembly-line";
 import { PremadeStockItem } from "../core/session/get-premade-stock-requirements";
+import { BlankStockItem } from "../core/session/get-blank-stock-requirements";
 import { SessionLineItem } from "../core/session/get-session-line-items";
 
 export type LoginResponse = DataResponse<"success" | null>;
@@ -116,6 +117,23 @@ export type GetPremadeStockRequirementsResponse = DataResponse<{
 }>;
 
 export type VerifyPremadeStockResponse = DataResponse<"success">;
+
+// Blank stock verification types
+export type BlankStockItemWithInventory = {
+  inventoryTransactions: (typeof inventoryTransactions.$inferSelect)[];
+} & BlankStockItem;
+
+export type GetBlankStockRequirementsResponse = DataResponse<{
+  items: {
+    blanks: BlankStockItemWithInventory[];
+    held: { lineItemName: string; orderNumber: string }[];
+    unaccounted: { lineItemName: string; orderNumber: string; reason: string }[];
+  };
+  isVerified: boolean;
+  verifiedAt: Date | null;
+}>;
+
+export type VerifyBlankStockResponse = DataResponse<"success">;
 
 export type GetSessionLineItemsResponse = DataResponse<{
   lineItems: SessionLineItem[];

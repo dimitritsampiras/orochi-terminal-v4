@@ -26,7 +26,11 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
     with: {
       orders: {
         with: {
-          lineItems: true,
+          lineItems: {
+            with: {
+              productVariant: true,
+            },
+          },
           shipments: true,
           orderHolds: true,
         },
@@ -53,10 +57,15 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
           <Icon icon="ph:calendar-blank" />
           Created at {dayjs(session?.createdAt).format("MMMM DD, YYYY")}
         </div>
+        <div className="text-zinc-300">|</div>
+        <div className="flex items-center gap-2 text-xs text-zinc-700">
+          {session.orders.flatMap((order) => order.lineItems).length} Line Items
+        </div>
       </div>
       <SessionController
         orders={
           session?.orders.map((order) => {
+            const hasActiveHold = order.orderHolds.some((hold) => !hold.isResolved);
             const isInLatestMergedPackingSlip = session?.batchDocuments.some(
               (document) =>
                 document.documentType === "merged_label_slips" &&

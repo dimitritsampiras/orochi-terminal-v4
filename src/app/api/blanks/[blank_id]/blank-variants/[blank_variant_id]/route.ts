@@ -1,6 +1,7 @@
 import { db } from "@/lib/clients/db";
 import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
 import { logger } from "@/lib/core/logger";
+import { adjustInventory } from "@/lib/core/inventory/adjust-inventory";
 import { updateBlankVariantSchema } from "@/lib/schemas/product-schema";
 import { blankVariants } from "@drizzle/schema";
 import { and, eq } from "drizzle-orm";
@@ -21,15 +22,33 @@ export async function PATCH(
     const { blank_variant_id, blank_id } = await params;
 
     const rawBody = await req.json();
-    const { quantity, weight, volume } = updateBlankVariantSchema.parse(rawBody);
+    const { newQuantity, weight, volume, batchId } = updateBlankVariantSchema.parse(rawBody);
 
+    // Handle quantity update via adjustInventory
+    if (newQuantity !== undefined) {
+      const currentVariant = await db.query.blankVariants.findFirst({
+        where: { id: blank_variant_id },
+        columns: { quantity: true, color: true, size: true },
+      });
+
+      if (!currentVariant) {
+        return NextResponse.json({ data: null, error: "Blank variant not found" }, { status: 404 });
+      }
+
+      const delta = newQuantity - currentVariant.quantity;
+
+      if (delta !== 0) {
+        await adjustInventory({ type: "blank", variantId: blank_variant_id }, delta, "correction", {
+          profileId: user.id,
+          batchId,
+          logMessage: `Blank inventory correction: ${currentVariant.color}/${currentVariant.size} changed from ${currentVariant.quantity} to ${newQuantity} by ${user.username}`,
+        });
+      }
+    }
+
+    // Handle other field updates
     let updatePayload: Partial<typeof blankVariants.$inferInsert> = {};
     const logMessages: string[] = [];
-
-    if (quantity !== undefined) {
-      updatePayload.quantity = quantity;
-      logMessages.push(`quantity to ${quantity}`);
-    }
 
     if (weight !== undefined) {
       updatePayload.weight = weight;
@@ -41,22 +60,17 @@ export async function PATCH(
       logMessages.push(`volume to ${volume}`);
     }
 
-    if (Object.keys(updatePayload).length === 0) {
-      return NextResponse.json({ data: null, error: "No fields to update" }, { status: 400 });
-    }
+    if (Object.keys(updatePayload).length > 0) {
+      await db
+        .update(blankVariants)
+        .set(updatePayload)
+        .where(and(eq(blankVariants.id, blank_variant_id), eq(blankVariants.blankId, blank_id)));
 
-    await db
-      .update(blankVariants)
-      .set(updatePayload)
-      .where(and(eq(blankVariants.id, blank_variant_id), eq(blankVariants.blankId, blank_id)));
-
-    if (logMessages.length > 0) {
-      await logger.info(
-        `Blank Variant ${blank_variant_id} updated: ${logMessages.join(", ")} by ${user.username}`,
-        {
+      if (logMessages.length > 0) {
+        await logger.info(`Blank Variant ${blank_variant_id} updated: ${logMessages.join(", ")} by ${user.username}`, {
           profileId: user.id,
-        }
-      );
+        });
+      }
     }
 
     return NextResponse.json({ data: "success", error: null });
@@ -69,7 +83,7 @@ export async function PATCH(
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ blank_id: string; blank_variant_id: string }> }
-): Promise<NextResponse<DeleteBlankVariantResponse>> {  
+): Promise<NextResponse<DeleteBlankVariantResponse>> {
   try {
     const user = await authorizeApiUser(["super_admin", "admin"]);
 

@@ -42,7 +42,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .returning();
 
     // Log the action
-    await logger.info(`Order hold created: ${cause} - ${reasonNotes}`, {
+    await logger.info(`Order hold created: ${cause} - ${reasonNotes} by ${user.username}`, {
       orderId,
       profileId: user.id,
       metadata: { holdId: hold.id, cause },

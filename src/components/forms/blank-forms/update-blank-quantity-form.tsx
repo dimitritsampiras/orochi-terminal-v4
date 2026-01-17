@@ -1,9 +1,9 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import { useFetcher } from "@/lib/hooks/use-fetcher";
-import { UpdateBlankVariantSchema } from "@/lib/schemas/product-schema";
+import { type UpdateBlankVariantSchema } from "@/lib/schemas/product-schema";
 import { cn } from "@/lib/utils";
+import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -12,22 +12,40 @@ export const UpdateBlankQuantityForm = ({
   blankVariantId,
   currentQuantity,
   className,
+  batchId,
+  onSuccess,
 }: {
   blankId: string;
   blankVariantId: string;
   currentQuantity: number;
   className?: string;
+  batchId?: number;
+  onSuccess?: () => void;
 }) => {
   const [value, setValue] = useState(currentQuantity);
   const [isDirty, setIsDirty] = useState(false);
   const isSubmittingRef = useRef(false);
 
-  const { isLoading, trigger } = useFetcher<UpdateBlankVariantSchema>({
-    path: `/api/blanks/${blankId}/blank-variants/${blankVariantId}`,
-    method: "PATCH",
-    successMessage: "Quantity updated",
+  const mutation = useMutation({
+    mutationFn: async (newQuantity: number) => {
+      const res = await fetch(`/api/blanks/${blankId}/blank-variants/${blankVariantId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newQuantity, batchId } satisfies UpdateBlankVariantSchema),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error ?? "Failed to update quantity");
+      }
+      return data;
+    },
     onSuccess: () => {
       setIsDirty(false);
+      isSubmittingRef.current = false;
+      onSuccess?.();
+    },
+    onError: (error) => {
+      toast.error(error.message);
       isSubmittingRef.current = false;
     },
   });
@@ -55,8 +73,14 @@ export const UpdateBlankQuantityForm = ({
     }
 
     if (e.key === "Enter") {
-      isSubmittingRef.current = true;
-      handleSubmit();
+      if (isDirty) {
+        isSubmittingRef.current = true;
+        toast.promise(mutation.mutateAsync(value), {
+          loading: "Updating quantity...",
+          success: "Quantity updated",
+          error: (err) => err.message,
+        });
+      }
       e.currentTarget.blur();
     }
   };
@@ -76,17 +100,6 @@ export const UpdateBlankQuantityForm = ({
     }
   };
 
-  const handleSubmit = async () => {
-    const toastId = toast.loading("Updating quantity...");
-    try {
-      await trigger({ quantity: Number(value) });
-      toast.dismiss(toastId);
-    } catch (error) {
-      toast.dismiss(toastId);
-      isSubmittingRef.current = false;
-    }
-  };
-
   return (
     <Input
       className={cn(
@@ -98,7 +111,7 @@ export const UpdateBlankQuantityForm = ({
       onChange={handleChange}
       onKeyDown={handleKeyDown}
       onBlur={handleBlur}
-      disabled={isLoading}
+      disabled={mutation.isPending}
       min={0}
     />
   );

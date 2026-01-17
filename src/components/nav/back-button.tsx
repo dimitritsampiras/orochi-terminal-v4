@@ -44,7 +44,7 @@ export const BackButton = ({ fallbackHref, className }: BackButtonProps) => {
       case "orders":
         return "/orders";
       case "holds":
-        return "/orders/holds";
+        return "/holds";
       case "assembly":
         return "/assembly";
       case "product":

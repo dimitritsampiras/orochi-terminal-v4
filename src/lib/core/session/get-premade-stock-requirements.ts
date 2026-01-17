@@ -9,6 +9,8 @@ export const premadeStockItemSchema = z.object({
   productVariantTitle: z.string(),
   isBlackLabel: z.boolean(),
   requiredQuantity: z.number(),
+  onHand: z.number(),
+  toPick: z.number(),
 });
 
 export type PremadeStockItem = z.infer<typeof premadeStockItemSchema>;
@@ -70,19 +72,27 @@ export const getPremadeStockRequirements = (sessionLineItems: SessionLineItem[])
 
     if (!hasStock && !isBlackLabel) continue;
 
-    // After the type guard, product and productVariant are guaranteed non-null
-    // Aggregate by productVariantId for inventory verification
+    // Aggregate by productVariantId
+    const onHand = lineItem.productVariant.warehouseInventory;
+
     const existing = stockMap.get(lineItem.productVariant.id);
+
     if (existing) {
       existing.requiredQuantity += lineItem.quantity;
+      // Black label: always pick requiredQuantity (Shopify tracks inventory)
+      // Overstock: pick min of what we have vs what we need
+      existing.toPick = isBlackLabel ? existing.requiredQuantity : Math.min(existing.onHand, existing.requiredQuantity);
     } else {
+      const requiredQuantity = lineItem.quantity;
       stockMap.set(lineItem.productVariant.id, {
         productVariantId: lineItem.productVariant.id,
         productId: lineItem.product.id,
         productName: lineItem.product.title,
         productVariantTitle: lineItem.productVariant.title,
-        isBlackLabel: lineItem.product.isBlackLabel,
-        requiredQuantity: lineItem.quantity,
+        isBlackLabel,
+        requiredQuantity,
+        onHand,
+        toPick: isBlackLabel ? requiredQuantity : Math.min(onHand, requiredQuantity),
       });
     }
   }

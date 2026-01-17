@@ -49,15 +49,16 @@ export const generatePremadePickingList = async (
   let currentY = marginY;
 
   // Stock table headers and column widths
-  const stockHeaders = ["Product", "Variant", "Type", "Qty", "Check"];
-  const stockColWidths = [180, 130, 80, 50, 50];
+  const stockHeaders = ["Product", "Type", "On Hand", "Req.", "To Pick", "Check"];
+  const stockColWidths = [230, 70, 55, 50, 45, 35];
+  const fadedColumns = [2, 3]; // On Hand and Required are faded
 
   // Helper to draw a stock row
-  const drawStockRow = (items: string[], isBold: boolean = false) => {
+  const drawStockRow = (rowItems: string[], isBold: boolean = false) => {
     const currentFont = isBold ? fontBold : font;
     let xOffset = marginX;
 
-    items.forEach((item, i) => {
+    rowItems.forEach((item, i) => {
       let displayText = item;
       const maxWidth = stockColWidths[i] - 4;
       let textWidth = currentFont.widthOfTextAtSize(displayText, bodyFontSize);
@@ -70,11 +71,15 @@ export const generatePremadePickingList = async (
         displayText += "…";
       }
 
+      // Fade On Hand and Required columns (not headers)
+      const isFaded = !isBold && fadedColumns.includes(i);
+
       page.drawText(displayText, {
         x: xOffset,
         y: toY(currentY + bodyFontSize),
         size: bodyFontSize,
         font: currentFont,
+        color: isFaded ? rgb(0.5, 0.5, 0.5) : rgb(0, 0, 0),
       });
       xOffset += stockColWidths[i];
     });
@@ -161,11 +166,12 @@ export const generatePremadePickingList = async (
       }
 
       const rowData = [
-        stockItem.productName,
-        stockItem.productVariantTitle,
+        `${stockItem.productName} - ${stockItem.productVariantTitle}`,
         stockItem.isBlackLabel ? "Black Label" : "Overstock",
+        stockItem.onHand.toString(),
         stockItem.requiredQuantity.toString(),
-        "____",
+        stockItem.toPick.toString(),
+        "___",
       ];
 
       drawStockRow(rowData, false);

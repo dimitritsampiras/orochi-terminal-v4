@@ -15,15 +15,10 @@ import { parseGid } from "@/lib/utils";
 import { lineItems, orders, shipments } from "@drizzle/schema";
 import { Badge } from "../ui/badge";
 import { useOrderNavigation } from "@/lib/stores/order-navigation";
-
-type Order = typeof orders.$inferSelect & {
-  shipments: (typeof shipments.$inferSelect)[];
-  lineItems: (typeof lineItems.$inferSelect)[];
-  isInShippingDoc: boolean;
-};
+import { SessionOrder } from "../controllers/session-controller";
 
 interface SessionOrdersTableProps {
-  orders: Order[];
+  orders: SessionOrder[];
   sessionId: number | string;
 }
 
@@ -42,7 +37,7 @@ export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProp
     router.push(`/orders/${parseGid(orderId)}?from=session&session_id=${sessionId}`);
   };
 
-  const renderShipmentsCell = (order: Order) => {
+  const renderShipmentsCell = (order: SessionOrder) => {
     if (order.shipments.length === 0) {
       return <div className="font-light text-zinc-400 mx-4">No shipments</div>;
     }
@@ -110,47 +105,58 @@ export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProp
         </TableHeader>
         <TableBody>
           {orders.length > 0 ? (
-            orders.map((order, index) => (
-              <TableRow
-                key={order.id}
-                className={cn(
-                  "hover:cursor-pointer hover:bg-gray-100",
-                  index % 2 === 0 && "bg-gray-50",
-                  order.displayIsCancelled && "opacity-60"
-                )}
-                onClick={() => handleRowClick(order.id)}
-              >
-                <TableCell className="font-semibold">{order.name}</TableCell>
-                <TableCell className="text-zinc-500">{dayjs(order.createdAt).format("MMM D, YYYY")}</TableCell>
-                <TableCell>{order.displayCustomerName}</TableCell>
-                <TableCell>
-                  <CountryFlag
-                    countryName={order.displayDestinationCountryName}
-                    countryCode={order.displayDestinationCountryCode || ""}
-                  />
-                </TableCell>
-                <TableCell className="flex w-fit items-center gap-2">{renderShipmentsCell(order)}</TableCell>
-                <TableCell>
-                  <Badge
-                    variant="outline"
-                    className={cn("flex items-center gap-1", order.isInShippingDoc ? "pl-1" : "text-muted-foreground")}
-                  >
-                    {order.isInShippingDoc && <div className="ml-1 h-2 w-2 rounded-full bg-indigo-500" />}
-                    {order.isInShippingDoc ? "In Merged Doc" : "Not in Merged Doc "}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <OrderCompletionStatusBadge status={isOrderComplete(order.lineItems)} />
-                </TableCell>
-                <TableCell>
-                  {order.displayIsCancelled ? (
-                    <Badge variant="destructive">Cancelled</Badge>
-                  ) : (
-                    <FulfillmentStatusBadge status={order.displayFulfillmentStatus} />
+            orders.map((order, index) => {
+              const hasActiveHold = order.orderHolds.some((hold) => !hold.isResolved);
+              return (
+                <TableRow
+                  
+                  key={order.id}
+                  className={cn(
+                    "hover:cursor-pointer hover:bg-gray-100",
+                    index % 2 === 0 && "bg-gray-50",
+                    order.displayIsCancelled && "opacity-60",
+                    hasActiveHold && "bg-blue-50"
                   )}
-                </TableCell>
-              </TableRow>
-            ))
+                  onClick={() => handleRowClick(order.id)}
+                >
+                  <TableCell className="font-semibold">{order.name}</TableCell>
+                  <TableCell className="text-zinc-500">{dayjs(order.createdAt).format("MMM D, YYYY")}</TableCell>
+                  <TableCell>{order.displayCustomerName}</TableCell>
+                  <TableCell>
+                    <CountryFlag
+                      countryName={order.displayDestinationCountryName}
+                      countryCode={order.displayDestinationCountryCode || ""}
+                    />
+                  </TableCell>
+                  <TableCell className="flex w-fit items-center gap-2">{renderShipmentsCell(order)}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "flex items-center gap-1",
+                        order.isInShippingDoc ? "pl-1" : "text-muted-foreground"
+                      )}
+                    >
+                      {order.isInShippingDoc && <div className="ml-1 h-2 w-2 rounded-full bg-indigo-500" />}
+                      {order.isInShippingDoc ? "In Merged Doc" : "Not in Merged Doc "}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <OrderCompletionStatusBadge status={isOrderComplete(order.lineItems)} />
+                  </TableCell>
+                  <TableCell>
+                    {order.displayIsCancelled ? (
+                      <Badge variant="destructive">Cancelled</Badge>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <FulfillmentStatusBadge status={order.displayFulfillmentStatus} />
+                        {hasActiveHold && <Badge variant="outline" className="text-blue-500">On Hold</Badge>}
+                      </div>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })
           ) : (
             <TableRow>
               <TableCell colSpan={7} className="text-center">
