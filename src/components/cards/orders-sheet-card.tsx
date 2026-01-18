@@ -24,6 +24,8 @@ interface Order {
   name: string;
   createdAt: Date | null;
   displayCustomerName: string | null;
+  displayDestinationCountryCode: string | null;
+  displayDestinationCountryName: string | null;
 }
 
 interface OrdersSheetCardProps {
@@ -111,9 +113,16 @@ export function OrdersSheetCard({ orders, title, description, icon, footerText }
                     >
                       <div className="flex flex-col gap-0.5">
                         <span className="font-medium text-sm group-hover:text-zinc-900">{order.name}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {order.displayCustomerName || "No customer name"}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <CountryFlag
+                            countryCode={order.displayDestinationCountryCode || ""}
+                            countryName={order.displayDestinationCountryName || ""}
+                            className="text-xs"
+                          />
+                          <span className="text-xs text-muted-foreground">
+                            {order.displayCustomerName || "No customer name"}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">

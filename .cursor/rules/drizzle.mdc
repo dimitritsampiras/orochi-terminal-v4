@@ -1,0 +1,188 @@
+---
+alwaysApply: true
+---
+
+Understood. Below is a **syntax-only cheat sheet** for **Drizzle relational queries**. No explanations. Copy-paste reference.
+
+---
+
+## Drizzle Relational Query Syntax (Correct)
+
+### Basic query
+
+```ts
+db.query.users.findMany();
+db.query.users.findFirst();
+```
+
+---
+
+### WHERE (simple object syntax)
+
+```ts
+where: {
+  id: productId,
+}
+```
+
+```ts
+where: {
+  id: { gt: 10 },
+}
+```
+
+```ts
+where: {
+  OR: [{ id: 1 }, { id: 2 }],
+}
+```
+
+```ts
+where: {
+  id: { in: [1,2,3] }
+}
+```
+
+❌ **Do not use**
+
+```ts
+where: eq(users.id, productId);
+```
+
+---
+
+### WHERE on relations
+
+```ts
+where: {
+  posts: true,
+}
+```
+
+```ts
+where: {
+  posts: {
+    content: { like: 'M%' },
+  },
+}
+```
+
+---
+
+### WITH (include relations)
+
+```ts
+with: {
+  posts: true,
+}
+```
+
+```ts
+with: {
+  posts: {
+    with: {
+      comments: true,
+    },
+  },
+}
+```
+
+---
+
+### COLUMNS (partial select)
+
+```ts
+columns: {
+  id: true,
+  name: true,
+}
+```
+
+```ts
+columns: {
+  content: false,
+}
+```
+
+---
+
+### COLUMNS on nested relations
+
+```ts
+with: {
+  comments: {
+    columns: {
+      authorId: false,
+    },
+  },
+}
+```
+
+---
+
+### LIMIT / OFFSET
+
+```ts
+limit: 5,
+offset: 10,
+```
+
+```ts
+with: {
+  comments: {
+    limit: 3,
+    offset: 1,
+  },
+}
+```
+
+---
+
+### ORDER BY
+
+```ts
+orderBy: {
+  id: "asc",
+}
+```
+
+```ts
+with: {
+  comments: {
+    orderBy: { id: "desc" },
+  },
+}
+```
+
+---
+
+### EXTRAS (computed fields)
+
+```ts
+extras: {
+  loweredName: (t, { sql }) => sql`lower(${t.name})`,
+}
+```
+
+---
+
+### PREPARED STATEMENTS
+
+```ts
+where: {
+  id: { eq: sql.placeholder("id") },
+}
+```
+
+```ts
+limit: sql.placeholder("limit"),
+offset: sql.placeholder("offset"),
+```
+
+---
+
+## Absolute rule
+
+**Relational queries use object-based filters.
+Core query builder uses `eq()`, `and()`, `or()` functions.
+Never mix them.**

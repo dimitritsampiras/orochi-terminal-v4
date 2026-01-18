@@ -1,0 +1,11 @@
+---
+alwaysApply: true
+---
+
+- for api calls on the client, use tanstack mutations (or query is its a GET)
+- define schemas in /schemas/\*.schema.ts, create new file if needed or put schema in file where it makes sense
+- define api types on api.ts in an organized way
+- use both schemas and api response types on server route and useMutation to get type saftey
+- for code implementations use very simple ui that can be built upon as opposed to coming up with your own styling (i.e. fancy colors / icons)
+- please use add loading state to loading field on buttons instead of this pattern you have a habit of doing {loading ? 'Loding...' : ;Action'}
+- I don’t want any enhancements made, overengineering or overcomplicating done. Your context window is limited and it is wasting my money. Do not generate useless, overengineered messy implementations. Find the simplest implementation ALWAYS
