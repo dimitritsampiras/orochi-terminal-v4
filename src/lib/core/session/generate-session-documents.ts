@@ -1,6 +1,6 @@
 import { GenerateSessionDocumentsResponse } from "@/lib/types/api";
 import { DataResponse } from "@/lib/types/misc";
-import { createSortedAssemblyLine, getLineItemsByBatchId } from "./create-assembly-line";
+import { createSortedAssemblyLine } from "./create-assembly-line";
 import { createPickingRequirements } from "./create-picking-requirements";
 import { generatePickingList } from "../pdf/generate-picking-list";
 import { generateAssemblyList } from "../pdf/generate-assembly-list";
@@ -8,6 +8,7 @@ import { eq, max } from "drizzle-orm";
 import { batchDocuments, batches } from "@drizzle/schema";
 import { db } from "@/lib/clients/db";
 import { admin } from "@/lib/clients/supabase-admin";
+import { getLineItemsByBatchId } from "./get-session-line-items";
 
 /**
  * Generate both picking list and assembly list together.
