@@ -17,7 +17,7 @@ type BackButtonProps = {
  * Supported params:
  * - `from=dashboard` -> navigates to /dashboard
  * - `from=orders` -> navigates to /orders
- * - `from=holds` -> navigates to /orders/holds
+ * - `from=holds` -> navigates to /holds
  * - `from=session&session_id=X` -> navigates to /sessions/X
  * - `from=batch&batch_id=X` -> navigates to /sessions/X
  * - `from=assembly` -> navigates to /assembly

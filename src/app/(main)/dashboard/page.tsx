@@ -42,7 +42,7 @@ export default async function DashboardPage() {
         <ArrowRightIcon className="size-4 text-zinc-400" />
       </Link>
       <div className="flex gap-4 mt-4 flex-wrap">
-        <Link href="/orders/holds?from=dashboard" className="block h-full">
+        <Link href="/holds?from=dashboard" className="block h-full">
           <Card className="sm:w-64 gap-2 h-full justify-between shadow-none bg-white hover:bg-zinc-50! transition-colors!">
             <CardHeader>
               <CardDescription className="flex items-center gap-1">

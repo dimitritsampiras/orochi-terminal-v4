@@ -8,6 +8,10 @@ import {
   productVariants,
   shipments,
   inventoryTransactions,
+  orders,
+  lineItems,
+  orderNotes,
+  orderHolds,
 } from "@drizzle/schema";
 import { getOrderQueue } from "../core/orders/get-order-queue";
 import { DataResponse } from "./misc";
@@ -17,6 +21,8 @@ import { SortedAssemblyLineItem } from "../core/session/create-assembly-line";
 import { PremadeStockItem } from "../core/session/get-premade-stock-requirements";
 import { BlankStockItem } from "../core/session/get-blank-stock-requirements";
 import { SessionLineItem } from "../core/session/get-session-line-items";
+import { OrderQuery } from "./admin.generated";
+import { OrderShipmentData } from "../core/shipping/retrieve-shipments-from-order";
 
 export type LoginResponse = DataResponse<"success" | null>;
 
@@ -140,3 +146,16 @@ export type GetSessionLineItemsResponse = DataResponse<{
 }>;
 
 export type VerifyItemSyncResponse = DataResponse<"success">;
+
+export type GetOrderResponse = DataResponse<
+  (typeof orders.$inferSelect & {
+    lineItems: (typeof lineItems.$inferSelect)[];
+    shipments: (typeof shipments.$inferSelect)[];
+    batches: (typeof batches.$inferSelect)[];
+    orderNotes: (typeof orderNotes.$inferSelect)[];
+    orderHolds: (typeof orderHolds.$inferSelect)[];
+  }) & {
+    shopifyOrder: Extract<NonNullable<OrderQuery["node"]>, { __typename: "Order" }>;
+    shipmentData: OrderShipmentData[];
+  }
+>;

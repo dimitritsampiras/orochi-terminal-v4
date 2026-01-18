@@ -61,7 +61,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
         <div className="flex items-center gap-2">
           <Search placeholder="Search orders" />
         </div>
-        <Link href="/orders/holds" className={buttonVariants({ variant: "fill" })}>
+        <Link href="/holds" className={buttonVariants({ variant: "fill" })}>
           <Icon icon="ph:call-bell" />
           View Order Holds
         </Link>

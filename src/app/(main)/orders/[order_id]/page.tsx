@@ -139,7 +139,7 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
         )}
       </div>
 
-      <div className="my-4 flex items-center justify-between gap-2">
+      <div className="my-4 flex md:items-center justify-between gap-2 md:flex-row flex-col">
         <div className="flex items-center gap-2">
           <OrderCompletionStatusBadge status={isOrderComplete(databaseOrder.lineItems)} />
           <FulfillmentStatusBadge status={order.displayFulfillmentStatus} />

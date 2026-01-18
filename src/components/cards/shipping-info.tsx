@@ -176,18 +176,21 @@ interface ShippingInfoProps {
   orderId: string;
   orderShipmentData: OrderShipmentData[];
   lineItems?: OrderLineItem[];
+  hideButtons?: boolean;
 }
 
-export function ShippingInfo({ orderId, orderShipmentData, lineItems = [] }: ShippingInfoProps) {
+export function ShippingInfo({ orderId, orderShipmentData, lineItems = [], hideButtons = false }: ShippingInfoProps) {
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Shipping Info</CardTitle>
-          <div className="flex items-center gap-2">
-            <AutoCreateShipmentForm orderId={orderId} />
-            <CreateCustomShipmentForm orderId={orderId} lineItems={lineItems} />
-          </div>
+          {!hideButtons && (
+            <div className="flex items-center gap-2">
+              <AutoCreateShipmentForm orderId={orderId} />
+              <CreateCustomShipmentForm orderId={orderId} lineItems={lineItems} />
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
@@ -196,7 +199,7 @@ export function ShippingInfo({ orderId, orderShipmentData, lineItems = [] }: Shi
           if (!shipment) return null;
           return (
             <div key={shipment.id}>
-              <ShipmentCard shipment={shipment} lineItems={lineItems} />
+              <ShipmentCard shipment={shipment} lineItems={lineItems} hideButtons={hideButtons} />
               {idx < orderShipmentData.length - 1 && <hr className="mt-8 mb-4" />}
             </div>
           );
@@ -215,7 +218,15 @@ export function ShippingInfo({ orderId, orderShipmentData, lineItems = [] }: Shi
 }
 
 // Shipment Card
-const ShipmentCard = ({ shipment, lineItems }: { shipment: NormalizedShipmentDisplay; lineItems: OrderLineItem[] }) => {
+const ShipmentCard = ({
+  shipment,
+  lineItems,
+  hideButtons = false,
+}: {
+  shipment: NormalizedShipmentDisplay;
+  lineItems: OrderLineItem[];
+  hideButtons?: boolean;
+}) => {
   return (
     <div>
       <div className="flex items-center gap-2 text-sm">
@@ -328,73 +339,76 @@ const ShipmentCard = ({ shipment, lineItems }: { shipment: NormalizedShipmentDis
               )}
             </div>
           </div>
+
           {!shipment.isRefunded ? (
-            <div className="mt-4 flex items-center justify-between">
-              <div className="flex items-center">
-                <RefundShipmentForm shipmentId={shipment.id} orderId={shipment.orderId} />
+            !hideButtons ? (
+              <div className="mt-4 flex items-center justify-between">
+                <div className="flex items-center">
+                  <RefundShipmentForm shipmentId={shipment.id} orderId={shipment.orderId} />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Tooltip open={shipment.plainSlipURL ? false : undefined}>
+                    <TooltipTrigger asChild>
+                      <Link
+                        href={shipment.plainSlipURL ?? "#"}
+                        target="_blank"
+                        className={buttonVariants({
+                          variant: "outline",
+                          size: "icon",
+                          className: !shipment.plainSlipURL ? "opacity-50 cursor-not-allowed" : "",
+                        })}
+                        onClick={(e) => {
+                          if (!shipment.plainSlipURL) {
+                            e.preventDefault();
+                          }
+                        }}
+                      >
+                        <Icon icon="ph:file" />
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent>Packing slip filed to generate</TooltipContent>
+                  </Tooltip>
+                  <Link
+                    aria-disabled={!shipment.tracking.labelURL}
+                    href={shipment.tracking.labelURL ?? "#"}
+                    target="_blank"
+                    className={buttonVariants({
+                      variant: "fill",
+                      size: "icon",
+                      className: !shipment.tracking.labelURL ? "opacity-50 cursor-not-allowed" : "",
+                    })}
+                    onClick={(e) => {
+                      if (!shipment.tracking?.labelURL) {
+                        e.preventDefault();
+                      }
+                    }}
+                  >
+                    <Icon icon="ph:receipt" />
+                  </Link>
+                  <Tooltip open={shipment.labelSlipURL ? false : undefined}>
+                    <TooltipTrigger asChild>
+                      <Link
+                        aria-disabled={!shipment.labelSlipURL}
+                        href={shipment.labelSlipURL ?? "#"}
+                        target="_blank"
+                        className={buttonVariants({
+                          className: !shipment.labelSlipURL ? "opacity-50 cursor-not-allowed" : "",
+                        })}
+                        onClick={(e) => {
+                          if (!shipment.labelSlipURL) {
+                            e.preventDefault();
+                          }
+                        }}
+                      >
+                        Print Packing Slip
+                        <Icon icon="ph:file-text" />
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent>Packing slip filed to generate</TooltipContent>
+                  </Tooltip>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Tooltip open={shipment.plainSlipURL ? false : undefined}>
-                  <TooltipTrigger asChild>
-                    <Link
-                      href={shipment.plainSlipURL ?? "#"}
-                      target="_blank"
-                      className={buttonVariants({
-                        variant: "outline",
-                        size: "icon",
-                        className: !shipment.plainSlipURL ? "opacity-50 cursor-not-allowed" : "",
-                      })}
-                      onClick={(e) => {
-                        if (!shipment.plainSlipURL) {
-                          e.preventDefault();
-                        }
-                      }}
-                    >
-                      <Icon icon="ph:file" />
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>Packing slip filed to generate</TooltipContent>
-                </Tooltip>
-                <Link
-                  aria-disabled={!shipment.tracking.labelURL}
-                  href={shipment.tracking.labelURL ?? "#"}
-                  target="_blank"
-                  className={buttonVariants({
-                    variant: "fill",
-                    size: "icon",
-                    className: !shipment.tracking.labelURL ? "opacity-50 cursor-not-allowed" : "",
-                  })}
-                  onClick={(e) => {
-                    if (!shipment.tracking?.labelURL) {
-                      e.preventDefault();
-                    }
-                  }}
-                >
-                  <Icon icon="ph:receipt" />
-                </Link>
-                <Tooltip open={shipment.labelSlipURL ? false : undefined}>
-                  <TooltipTrigger asChild>
-                    <Link
-                      aria-disabled={!shipment.labelSlipURL}
-                      href={shipment.labelSlipURL ?? "#"}
-                      target="_blank"
-                      className={buttonVariants({
-                        className: !shipment.labelSlipURL ? "opacity-50 cursor-not-allowed" : "",
-                      })}
-                      onClick={(e) => {
-                        if (!shipment.labelSlipURL) {
-                          e.preventDefault();
-                        }
-                      }}
-                    >
-                      Print Packing Slip
-                      <Icon icon="ph:file-text" />
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>Packing slip filed to generate</TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
+            ) : null
           ) : (
             <Alert variant="default" className="text-red-600 mt-4">
               <Icon icon="ph:info" />
@@ -414,7 +428,9 @@ const TrackingStatusBadge = ({ status, api }: { status: string; api: (typeof shi
     return <ShippoTrackingStatusBadge status={status as Parameters<typeof ShippoTrackingStatusBadge>[0]["status"]} />;
   }
   if (api === "EASYPOST") {
-    return <EasyPostTrackingStatusBadge status={status as Parameters<typeof EasyPostTrackingStatusBadge>[0]["status"]} />;
+    return (
+      <EasyPostTrackingStatusBadge status={status as Parameters<typeof EasyPostTrackingStatusBadge>[0]["status"]} />
+    );
   }
   return <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 text-zinc-700 font-medium">{status}</span>;
 };
