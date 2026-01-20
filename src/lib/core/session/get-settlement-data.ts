@@ -1,7 +1,7 @@
 import { db } from "@/lib/clients/db";
 import { DataResponse } from "@/lib/types/misc";
 
-import { PickingRequirement, pickingRequirementsSchema } from "./create-picking-requirements";
+import { PickingRequirement, pickingRequirementsResultSchema } from "./create-picking-requirements";
 import { inventoryTransactions, lineItemCompletionStatus } from "@drizzle/schema";
 
 export type SettlementItem = {
@@ -54,7 +54,7 @@ export const getSettlementData = async (batchId: number): Promise<DataResponse<S
     };
   }
 
-  const { data: parsedPickingRequirments } = pickingRequirementsSchema.safeParse(batch.pickingListJson);
+  const { data: parsedPickingRequirments } = pickingRequirementsResultSchema.safeParse(batch.pickingListJson);
 
   if (!parsedPickingRequirments) {
     return { data: null, error: "Failed to parse picking requirements" };
@@ -128,7 +128,7 @@ export const getSettlementData = async (batchId: number): Promise<DataResponse<S
       actualStockChange: null,
       issues: [],
     };
-    const pickingRequirementItem = parsedPickingRequirments.find(
+    const pickingRequirementItem = parsedPickingRequirments.requirements.find(
       (requirement) => requirement.lineItemId === lineItem.id
     );
     if (!pickingRequirementItem) {

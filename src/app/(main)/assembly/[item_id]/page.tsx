@@ -2,7 +2,8 @@ import { AssemblyItemController } from "@/components/controllers/assembly-item-c
 import { db } from "@/lib/clients/db";
 import shopify from "@/lib/clients/shopify";
 import { authorizePageUser } from "@/lib/core/auth/authorize-user";
-import { getAssemblyLine, getLineItemById } from "@/lib/core/session/create-assembly-line";
+import { getLineItemById } from "@/lib/core/session/get-session-line-items";
+
 import { orderQuery } from "@/lib/graphql/order.graphql";
 import { productMediaQuery } from "@/lib/graphql/product.graphql";
 import { MediaImage } from "@/lib/types/misc";
