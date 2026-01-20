@@ -1,229 +1,222 @@
-import { SessionLineItem } from "@/lib/core/session/get-session-line-items";
-import { garmentSize, garmentType } from "@drizzle/schema";
 import z from "zod";
+import { garmentSize, garmentType } from "@drizzle/schema";
+import type { SessionLineItem } from "./get-session-line-items";
+import type { PremadeStockItem } from "./get-premade-stock-requirements";
+import { isLineItemNotMalformed } from "./session.utils";
 
-// Re-export for backwards compatibility
-export type { SessionLineItem as AssemblyLineItem } from "@/lib/core/session/get-session-line-items";
+export type FulfillmentType = "stock" | "black_label" | "print";
 
-type GarmentSize = (typeof garmentSize.enumValues)[number];
-type GarmentType = (typeof garmentType.enumValues)[number];
-
-/**
- * Schema for a single picking requirement (line-item level)
- * Used for settlement comparison later
- */
 export const pickingRequirementSchema = z.object({
-  lineItemId: z.string(),
-  lineItemName: z.string(),
-  orderId: z.string(),
-  orderName: z.string(),
-  /** How this item is expected to be fulfilled */
-  expectedFulfillmentType: z.enum(["print", "stock", "black_label", "unaccounted"]),
-  /** Blank variant ID - populated when expectedFulfillmentType is "print" */
-  blankVariantId: z.string().nullable(),
-  /** Product variant ID - populated when expectedFulfillmentType is "stock" */
-  productVariantId: z.string().nullable(),
-  /** Quantity ordered */
-  quantity: z.number(),
-  /** Display name snapshot (in case blank changes later) */
-  blankDisplayName: z.string().nullable(),
-  /** Variant display snapshot: "Black / L" */
-  blankVariantDisplayName: z.string().nullable(),
-  /** Product title snapshot */
-  productDisplayName: z.string().nullable(),
-  /** Product variant title snapshot */
-  productVariantDisplayName: z.string().nullable(),
+	lineItemId: z.string(),
+	lineItemName: z.string(),
+	orderId: z.string(),
+	orderName: z.string(),
+	expectedFulfillmentType: z.enum(["print", "stock", "black_label"]),
+	blankVariantId: z.string().nullable(),
+	productVariantId: z.string().nullable(),
+	quantity: z.number(),
+	blankDisplayName: z.string().nullable(),
+	blankVariantSize: z.enum(garmentSize.enumValues).nullable(),
+	blankGarmentType: z.enum(garmentType.enumValues).nullable(),
+	blankGarmentColor: z.string().nullable(),
+	productDisplayName: z.string().nullable(),
+	productVariantDisplayName: z.string().nullable(),
 });
 
 export type PickingRequirement = z.infer<typeof pickingRequirementSchema>;
 
-export const pickingRequirementsSchema = z.array(pickingRequirementSchema);
+export const pickingRequirementsResultSchema = z.object({
+	requirements: z.array(pickingRequirementSchema),
+	fulfillmentMap: z.record(
+		z.string(),
+		z.enum(["stock", "black_label", "print"]),
+	),
+});
 
-export type PickingRequirements = z.infer<typeof pickingRequirementsSchema>;
+export type PickingRequirementsResult = z.infer<
+	typeof pickingRequirementsResultSchema
+>;
+
+// Ordering constants (same as assembly line)
+const GARMENT_TYPE_ORDER: (typeof garmentType.enumValues)[number][] = [
+	"hoodie",
+	"crewneck",
+	"longsleeve",
+	"tee",
+	"shorts",
+	"sweatpants",
+	"headwear",
+	"accessory",
+	"jacket",
+	"coat",
+];
+
+const LIGHT_COLORS = [
+	"white",
+	"natural",
+	"bone",
+	"cream",
+	"ivory",
+	"light yellow",
+	"banana",
+	"yellow",
+	"seafoam",
+];
+
+const getItemPretreat = (item: SessionLineItem): "light" | "dark" => {
+	const explicitPretreat = item.prints.find(
+		(p) => p.pretreat !== null,
+	)?.pretreat;
+	if (explicitPretreat) return explicitPretreat;
+	const color = item.blankVariant?.color.toLowerCase() ?? "";
+	return LIGHT_COLORS.includes(color) ? "light" : "dark";
+};
+
+const itemHasSmallHeatTransferPrint = (item: SessionLineItem) =>
+	item.prints.some(
+		(p) => Boolean(p.isSmallPrint) && Boolean(p.heatTransferCode),
+	);
+
+const itemHasLargeHeatTransferPrint = (item: SessionLineItem) =>
+	item.prints.some(
+		(p) => Boolean(p.heatTransferCode) && !Boolean(p.isSmallPrint),
+	);
+
+const getItemGarmentTypeIndex = (item: SessionLineItem) => {
+	const type = item.blank?.garmentType;
+	if (!type) return GARMENT_TYPE_ORDER.length;
+	const index = GARMENT_TYPE_ORDER.indexOf(type);
+	return index === -1 ? GARMENT_TYPE_ORDER.length : index;
+};
+
+const orderHasAllDarkPretreat = (
+	order: SessionLineItem["order"],
+	allLineItems: SessionLineItem[],
+): boolean => {
+	const orderLineItems = allLineItems.filter(
+		(item) => item.order.id === order.id,
+	);
+	if (orderLineItems.length === 0) return false;
+	return orderLineItems.every((item) => getItemPretreat(item) === "dark");
+};
 
 /**
- * Aggregated blank picking item (for PDF display)
- * Groups by blank variant and sums quantities
+ * Pre-sorts line items by "completability" priority.
+ * This determines which line items get stock first (small orders win).
+ * Same criteria as assembly line, but WITHOUT fulfillment type consideration.
  */
-export interface AggregatedBlankItem {
-  blankVariantId: string;
-  blankName: string;
-  color: string;
-  garmentType: GarmentType;
-  size: GarmentSize;
-  quantity: number;
-}
+const presortByAllocationPriority = (
+	lineItems: SessionLineItem[],
+): SessionLineItem[] => {
+	return [...lineItems].sort((a, b) => {
+		// 1. Valid items first
+		const aValid = isLineItemNotMalformed(a);
+		const bValid = isLineItemNotMalformed(b);
+		if (aValid && !bValid) return -1;
+		if (!aValid && bValid) return 1;
+
+		// 2. Orders where all items are dark pretreat (can complete together)
+		const aAllDark = orderHasAllDarkPretreat(a.order, lineItems);
+		const bAllDark = orderHasAllDarkPretreat(b.order, lineItems);
+		if (aAllDark && !bAllDark) return -1;
+		if (!aAllDark && bAllDark) return 1;
+
+		// 3. Small heat transfer prints go to bottom
+		const aSmallHT = itemHasSmallHeatTransferPrint(a);
+		const bSmallHT = itemHasSmallHeatTransferPrint(b);
+		if (aSmallHT && !bSmallHT) return 1;
+		if (!aSmallHT && bSmallHT) return -1;
+
+		// 4. Dark pretreat first
+		const aPretreat = getItemPretreat(a);
+		const bPretreat = getItemPretreat(b);
+		if (aPretreat === "dark" && bPretreat === "light") return -1;
+		if (aPretreat === "light" && bPretreat === "dark") return 1;
+
+		// 5. Large heat transfer prints first
+		const aLargeHT = itemHasLargeHeatTransferPrint(a);
+		const bLargeHT = itemHasLargeHeatTransferPrint(b);
+		if (aLargeHT && !bLargeHT) return -1;
+		if (!aLargeHT && bLargeHT) return 1;
+
+		// 6. Small orders first (KEY: these get stock first = complete faster)
+		const aOrderSize = a.order.lineItems.length;
+		const bOrderSize = b.order.lineItems.length;
+		if (aOrderSize < bOrderSize) return -1;
+		if (aOrderSize > bOrderSize) return 1;
+
+		// 7. Fewer prints first
+		const aPrintCount = a.prints.length;
+		const bPrintCount = b.prints.length;
+		if (aPrintCount < bPrintCount) return -1;
+		if (aPrintCount > bPrintCount) return 1;
+
+		// 8. Garment type order
+		const garmentDiff = getItemGarmentTypeIndex(a) - getItemGarmentTypeIndex(b);
+		if (garmentDiff !== 0) return garmentDiff;
+
+		// 9. Alphabetical fallback
+		return a.name.localeCompare(b.name);
+	});
+};
 
 /**
- * Aggregated stock picking item (for PDF display)
- * Groups by product variant and sums quantities
- * Includes both overstock (pre-printed) and black label items
+ * Creates picking requirements by intelligently assigning stock to line items.
+ * Line items from smaller orders get stock priority (they complete faster).
  */
-export interface AggregatedStockItem {
-  productVariantId: string;
-  productName: string;
-  variantTitle: string;
-  isBlackLabel: boolean;
-  quantity: number;
-}
+export const createPickingRequirements = (
+	lineItems: SessionLineItem[],
+	premadeStockItems: PremadeStockItem[],
+): PickingRequirementsResult => {
+	// Build available stock map (productVariantId → remaining toPick quantity)
+	const availableStock = new Map<string, number>();
+	for (const item of premadeStockItems) {
+		availableStock.set(item.productVariantId, item.toPick);
+	}
 
-export interface PickingRequirementsResult {
-  /** Line-item level requirements for settlement */
-  requirements: PickingRequirement[];
-  /** Aggregated blank list for PDF generation (items to print) */
-  aggregatedBlankList: AggregatedBlankItem[];
-  /** Aggregated stock list for PDF generation (overstock + black label) */
-  aggregatedStockList: AggregatedStockItem[];
-  /** Items that couldn't be categorized (no blank sync and no stock) */
-  unaccountedLineItems: SessionLineItem[];
-}
+	// Pre-sort to determine allocation priority
+	const sortedItems = presortByAllocationPriority(lineItems);
 
-/**
- * Creates picking requirements from session line items
- * Returns both line-item level data (for settlement) and aggregated data (for PDF)
- */
-export const createPickingRequirements = (lineItems: SessionLineItem[]): PickingRequirementsResult => {
-  const requirements: PickingRequirement[] = [];
-  const blankAggregatedMap = new Map<string, AggregatedBlankItem>();
-  const stockAggregatedMap = new Map<string, AggregatedStockItem>();
-  const unaccountedLineItems: SessionLineItem[] = [];
+	// Allocate stock by walking sorted list
+	const fulfillmentMap: Record<string, FulfillmentType> = {};
+	const requirements: PickingRequirement[] = [];
 
-  const filteredLineItems = lineItems.filter((item) => item.requiresShipping);
+	for (const item of sortedItems) {
+		const variantId = item.productVariant?.id;
+		let fulfillmentType: FulfillmentType = "print";
 
-  for (const item of filteredLineItems) {
-    const product = item.product;
-    const productVariant = item.productVariant;
-    const blank = item.blank;
-    const blankVariant = item.blankVariant;
+		if (item.product?.isBlackLabel) {
+			fulfillmentType = "black_label";
+		} else if (variantId) {
+			const remaining = availableStock.get(variantId) ?? 0;
+			if (remaining >= item.quantity) {
+				fulfillmentType = "stock";
+				availableStock.set(variantId, remaining - item.quantity);
+			}
+		}
 
-    // Determine fulfillment type
-    let expectedFulfillmentType: PickingRequirement["expectedFulfillmentType"];
+		fulfillmentMap[item.id] = fulfillmentType;
 
-    if (product?.isBlackLabel) {
-      // Black label items are always picked from stock (pre-made by vendor)
-      expectedFulfillmentType = "black_label";
-    } else if (blank && blankVariant) {
-      // Check if we have pre-printed stock (warehouse inventory on product variant)
-      const hasStock = (productVariant?.warehouseInventory ?? 0) > 0;
-      if (hasStock) {
-        // We have overstock - pick from stock instead of printing
-        expectedFulfillmentType = "stock";
-      } else {
-        // No stock - need to print, so pick a blank
-        expectedFulfillmentType = "print";
-      }
-    } else {
-      // No blank sync and not black label - unaccounted
-      expectedFulfillmentType = "unaccounted";
-      unaccountedLineItems.push(item);
-    }
+		// Build requirement record
+		requirements.push({
+			lineItemId: item.id,
+			lineItemName: item.name,
+			orderId: item.orderId,
+			orderName: item.order.name,
+			expectedFulfillmentType: fulfillmentType,
+			blankVariantId: item.blankVariant?.id ?? null,
+			productVariantId: item.productVariant?.id ?? null,
+			quantity: item.quantity,
+			blankDisplayName: item.blank
+				? `${item.blank.blankCompany} ${item.blank.blankName}`
+				: null,
+			blankVariantSize: item.blankVariant?.size ?? null,
+			blankGarmentType: item.blank?.garmentType ?? null,
+			blankGarmentColor: item.blankVariant?.color ?? null,
+			productDisplayName: item.product?.title ?? null,
+			productVariantDisplayName: item.productVariant?.title ?? null,
+		});
+	}
 
-    // Create line-item level requirement
-    const requirement: PickingRequirement = {
-      lineItemId: item.id,
-      lineItemName: item.name,
-      orderId: item.orderId,
-      orderName: item.order.name,
-      expectedFulfillmentType,
-      blankVariantId: blankVariant?.id ?? null,
-      productVariantId: productVariant?.id ?? null,
-      quantity: item.quantity,
-      blankDisplayName: blank ? `${blank.blankCompany} ${blank.blankName}` : null,
-      blankVariantDisplayName: blankVariant ? `${blankVariant.color} / ${blankVariant.size.toUpperCase()}` : null,
-      productDisplayName: product?.title ?? null,
-      productVariantDisplayName: productVariant?.title ?? null,
-    };
-
-    requirements.push(requirement);
-
-    // Aggregate for PDF based on fulfillment type
-    if (expectedFulfillmentType === "print" && blankVariant && blank) {
-      // Aggregate blanks to pick
-      const key = blankVariant.id;
-      const existing = blankAggregatedMap.get(key);
-
-      if (existing) {
-        existing.quantity += item.quantity;
-      } else {
-        blankAggregatedMap.set(key, {
-          blankVariantId: blankVariant.id,
-          blankName: `${abbreviateBlankName(blank.blankCompany)} ${blank.blankName}`,
-          color: blankVariant.color,
-          garmentType: blank.garmentType,
-          size: blankVariant.size,
-          quantity: item.quantity,
-        });
-      }
-    } else if ((expectedFulfillmentType === "stock" || expectedFulfillmentType === "black_label") && productVariant) {
-      // Aggregate stock items to pick (overstock + black label)
-      const key = productVariant.id;
-      const existing = stockAggregatedMap.get(key);
-
-      if (existing) {
-        existing.quantity += item.quantity;
-      } else {
-        stockAggregatedMap.set(key, {
-          productVariantId: productVariant.id,
-          productName: product?.title ?? item.name,
-          variantTitle: productVariant.title ?? "Default",
-          isBlackLabel: expectedFulfillmentType === "black_label",
-          quantity: item.quantity,
-        });
-      }
-    }
-  }
-
-  // Sort aggregated blank list by color > garment > size
-  const aggregatedBlankList = Array.from(blankAggregatedMap.values()).sort((a, b) => {
-    const colorComparison = compareColor(a.color, b.color);
-    if (colorComparison !== 0) return colorComparison;
-
-    const garmentComparison = compareGarment(a.garmentType, b.garmentType);
-    if (garmentComparison !== 0) return garmentComparison;
-
-    return compareSize(a.size, b.size);
-  });
-
-  // Sort aggregated stock list: black label first, then alphabetically by product name
-  const aggregatedStockList = Array.from(stockAggregatedMap.values()).sort((a, b) => {
-    // Black label items first
-    if (a.isBlackLabel !== b.isBlackLabel) {
-      return a.isBlackLabel ? -1 : 1;
-    }
-    // Then alphabetically by product name
-    return a.productName.localeCompare(b.productName);
-  });
-
-  return { requirements, aggregatedBlankList, aggregatedStockList, unaccountedLineItems };
-};
-
-const compareColor = (a?: string, b?: string): number => {
-  const colorOrder = ["black", "white"];
-  const aIndex = a ? colorOrder.indexOf(a.toLowerCase()) : -1;
-  const bIndex = b ? colorOrder.indexOf(b.toLowerCase()) : -1;
-
-  if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-  if (aIndex !== -1) return -1;
-  if (bIndex !== -1) return 1;
-
-  return (a || "").localeCompare(b || "");
-};
-
-const compareGarment = (a?: GarmentType, b?: GarmentType): number => {
-  const garmentOrder: GarmentType[] = ["hoodie", "crewneck", "longsleeve", "tee"];
-  const aIdx = a ? garmentOrder.indexOf(a) : -1;
-  const bIdx = b ? garmentOrder.indexOf(b) : -1;
-  return (aIdx === -1 ? garmentOrder.length : aIdx) - (bIdx === -1 ? garmentOrder.length : bIdx);
-};
-
-const compareSize = (a?: GarmentSize, b?: GarmentSize): number => {
-  const sizeOrder: GarmentSize[] = ["xs", "sm", "md", "lg", "xl", "2xl", "3xl", "4xl", "5xl", "os"];
-  const aIdx = a ? sizeOrder.indexOf(a) : -1;
-  const bIdx = b ? sizeOrder.indexOf(b) : -1;
-  return (aIdx === -1 ? sizeOrder.length : aIdx) - (bIdx === -1 ? sizeOrder.length : bIdx);
-};
-
-const abbreviateBlankName = (name: string) => {
-  if (name === "independant") return "ind";
-  return name;
+	return { requirements, fulfillmentMap };
 };

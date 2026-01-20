@@ -3,7 +3,8 @@ import shopify from "@/lib/clients/shopify";
 import { logger } from "@/lib/core/logger";
 import { orderQuery } from "@/lib/graphql/order.graphql";
 import { OrderQuery } from "@/lib/types/admin.generated";
-import { fulfillmentPriority, lineItems, orders, shippingPriority } from "@drizzle/schema";
+import { buildResourceGid } from "@/lib/utils";
+import { lineItems, orders } from "@drizzle/schema";
 import { eq, sql } from "drizzle-orm";
 import z from "zod";
 
@@ -35,23 +36,23 @@ export async function POST(request: Request) {
   }
 
   // Extract admin_graphql_api_id from either payload type
-  let admin_graphql_api_id: string;
+  let adminGraphqlApiId: string;
 
   if ("order_edit" in parsedBody.data) {
     // Convert numeric order_id to GraphQL ID format
-    admin_graphql_api_id = `gid://shopify/Order/${parsedBody.data.order_edit.order_id}`;
+    adminGraphqlApiId = buildResourceGid("Order", parsedBody.data.order_edit.order_id);
   } else {
-    admin_graphql_api_id = parsedBody.data.admin_graphql_api_id;
+    adminGraphqlApiId = parsedBody.data.admin_graphql_api_id;
   }
 
   const existingOrder = await db.query.orders.findFirst({
     where: {
-      id: admin_graphql_api_id,
+      id: adminGraphqlApiId,
     },
   });
 
   if (!existingOrder) {
-    logger.warn(`[order update webhook] Order ${admin_graphql_api_id} doesn't exist`, {
+    logger.warn(`[order update webhook] Order ${adminGraphqlApiId} doesn't exist`, {
       category: "AUTOMATED",
       metadata: JSON.stringify(existingOrder).slice(0, 5000),
     });
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
   }
 
   const { data, errors } = await shopify.request(orderQuery, {
-    variables: { id: admin_graphql_api_id },
+    variables: { id: adminGraphqlApiId },
   });
 
   if (errors || !data?.node || data.node?.__typename !== "Order") {
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
         displayDestinationCountryName: order.shippingAddress?.country,
         displayIsCancelled: order.cancelledAt !== null,
       })
-      .where(eq(orders.id, admin_graphql_api_id));
+      .where(eq(orders.id, adminGraphqlApiId));
 
     // Upsert line items: insert new ones or update existing ones
     // We don't delete removed line items as per requirements
@@ -108,6 +109,8 @@ export async function POST(request: Request) {
             variantId: item.variant?.id,
             productId: item.product?.id,
             quantity: item.quantity ?? 1,
+            unfulfilledQuantity: item.unfulfilledQuantity,
+            requiresShipping: item.requiresShipping,
           })
           .onConflictDoUpdate({
             target: lineItems.id,
@@ -117,6 +120,8 @@ export async function POST(request: Request) {
               variantId: item.variant?.id,
               productId: item.product?.id,
               quantity: item.quantity ?? 1,
+              unfulfilledQuantity: item.unfulfilledQuantity,
+              requiresShipping: item.requiresShipping,
               updatedAt: sql`now()`,
             },
           });

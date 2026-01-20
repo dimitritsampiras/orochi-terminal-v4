@@ -35,7 +35,7 @@ export function parseGid(gid: string) {
   return gid.split("/").pop();
 }
 
-export function buildResourceGid(resource: "Order" | "Product" | "LineItem" | "ProductVariant", id: string) {
+export function buildResourceGid(resource: "Order" | "Product" | "LineItem" | "ProductVariant", id: string | number) {
   return `gid://shopify/${resource}/${id}`;
 }
 

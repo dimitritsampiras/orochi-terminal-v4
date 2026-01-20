@@ -4,6 +4,8 @@ import { DataResponse } from "@/lib/types/misc";
 import { batches, garmentSize } from "@drizzle/schema";
 import dayjs from "dayjs";
 import { PDFDocument, StandardFonts } from "pdf-lib";
+import { getBlankStockRequirements } from "../session/get-blank-stock-requirements";
+import { getPremadeStockRequirements } from "../session/get-premade-stock-requirements";
 
 type Batch = typeof batches.$inferSelect;
 type GarmentSize = (typeof garmentSize.enumValues)[number];
@@ -12,7 +14,9 @@ export const generatePickingList = async (
   assemblyLine: AssemblyLineItem[],
   batch: Pick<Batch, "id" | "createdAt" | "active">
 ): Promise<DataResponse<Buffer>> => {
-  const { aggregatedBlankList, aggregatedStockList, unaccountedLineItems } = createPickingRequirements(assemblyLine);
+  
+  const { items: premadeStockItems, malformedItems: premadeMalformedItems } = getPremadeStockRequirements(assemblyLine);
+  const { items: blankStockItems, malformedItems: blankMalformedItems } = getBlankStockRequirements(assemblyLine, premadeStockItems);
 
   const marginX = 50;
   const marginY = 50;
@@ -130,7 +134,7 @@ export const generatePickingList = async (
   currentY += lineHeight * 2; // moveDown equivalent
 
   // Section 1: Blanks to Pick (for printing)
-  if (aggregatedBlankList.length > 0) {
+  if (blankStockItems.length > 0) {
     page.drawText("Blanks to Pick (for printing)", {
       x: marginX,
       y: toY(currentY + titleFontSize),
@@ -143,7 +147,7 @@ export const generatePickingList = async (
     drawHeaders();
 
     // Draw blank rows
-    for (const blankItem of aggregatedBlankList) {
+    for (const blankItem of blankStockItems) {
       // Check if we need a new page (30 points buffer for bottom margin)
       if (currentY > pageHeight - marginY - 30) {
         addNewPage();
@@ -154,7 +158,7 @@ export const generatePickingList = async (
         blankItem.color,
         dbSizeToDisplaySize(blankItem.size),
         blankItem.garmentType,
-        blankItem.quantity.toString(),
+        blankItem.toPick.toString(),
         "____",
       ];
 
@@ -163,7 +167,7 @@ export const generatePickingList = async (
   }
 
   // Section 2: Stock to Pick (overstock + black label)
-  if (aggregatedStockList.length > 0) {
+  if (premadeStockItems.length > 0) {
     currentY += lineHeight * 3;
 
     // Check if we need a new page for stock section
@@ -217,7 +221,7 @@ export const generatePickingList = async (
     drawStockRow(stockHeaders, true);
 
     // Draw stock rows
-    for (const stockItem of aggregatedStockList) {
+    for (const stockItem of premadeStockItems) {
       if (currentY > pageHeight - marginY - 30) {
         addNewPage();
         drawStockRow(stockHeaders, true);
@@ -225,45 +229,13 @@ export const generatePickingList = async (
 
       const rowData = [
         stockItem.productName,
-        stockItem.variantTitle,
+        stockItem.productVariantTitle,
         stockItem.isBlackLabel ? "Black Label" : "Overstock",
-        stockItem.quantity.toString(),
+        stockItem.toPick.toString(),
         "____",
       ];
 
       drawStockRow(rowData, false);
-    }
-  }
-
-  // Section 3: Unaccounted items (if any)
-  if (unaccountedLineItems.length > 0) {
-    currentY += lineHeight * 3;
-
-    // Check if we need a new page for unaccounted section
-    if (currentY > pageHeight - marginY - 100) {
-      addNewPage();
-    }
-
-    page.drawText("Unaccounted Items (manual check required)", {
-      x: marginX,
-      y: toY(currentY + titleFontSize),
-      size: titleFontSize,
-      font: fontBold,
-    });
-    currentY += lineHeight * 1.5;
-
-    for (const item of unaccountedLineItems) {
-      if (currentY > pageHeight - marginY - 30) {
-        addNewPage();
-      }
-
-      page.drawText(item.name, {
-        x: marginX,
-        y: toY(currentY + bodyFontSize),
-        size: bodyFontSize,
-        font,
-      });
-      currentY += lineHeight;
     }
   }
 

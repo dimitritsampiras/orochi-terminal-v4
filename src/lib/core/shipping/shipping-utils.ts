@@ -1,7 +1,7 @@
-import { OrderQuery } from "@/lib/types/admin.generated";
-import { IAddressCreateParameters } from "@easypost/api";
+import { type OrderQuery } from "@/lib/types/admin.generated";
+import { shipments } from "@drizzle/schema";
+import { type IAddressCreateParameters } from "@easypost/api";
 import type { Address as ShippoAddress } from "shippo";
-import { logger } from "../logger";
 
 /**
  * Simple lookup map: shopify product type -> HS code
@@ -70,7 +70,7 @@ export const SHIPPO_FROM_ADDRESS = {
 type Order = Extract<NonNullable<OrderQuery["node"]>, { __typename: "Order" }>;
 
 /**
- * 
+ *
  * find out if the order requires a customs declaration
  */
 export const requiresCustomsDeclaration = (order: Order): boolean => {
@@ -79,10 +79,6 @@ export const requiresCustomsDeclaration = (order: Order): boolean => {
   const MILITARY_CODES = ["AA", "AE", "AP", "APO", "FPO", "DPO"];
 
   if (!order.shippingAddress) {
-    logger.error("[requires customs declaration] Order has no shipping address - this shouldn't even run", {
-      category: "SHIPPING",
-      orderId: order.id,
-    });
     return false;
   }
 
@@ -101,3 +97,33 @@ export const requiresCustomsDeclaration = (order: Order): boolean => {
   // Perform checks
   return isInternationalShipment || isUSTerritory || isMilitaryAddress;
 };
+
+export type ShipmentIssueType = "none" | "unpurchased" | "refunded" | "missing_label";
+
+export function getShipmentIssue(
+  shipmentsList: (typeof shipments.$inferSelect)[]
+): { type: ShipmentIssueType; label: string } | null {
+  if (shipmentsList.length === 0) {
+    return { type: "none", label: "No shipment" };
+  }
+
+  // Check if all shipments are refunded
+  if (shipmentsList.every((s) => s.isRefunded)) {
+    return { type: "refunded", label: "Refunded" };
+  }
+
+  // Check if any shipment is not purchased
+  const hasUnpurchased = shipmentsList.some((s) => !s.isPurchased && !s.isRefunded);
+  if (hasUnpurchased) {
+    return { type: "unpurchased", label: "Unpurchased" };
+  }
+
+  // Check for missing label slips on purchased shipments
+  const hasMissingLabel = shipmentsList.some((s) => s.isPurchased && !s.isRefunded && !s.labelSlipPath);
+  if (hasMissingLabel) {
+    return { type: "missing_label", label: "Missing label" };
+  }
+
+  // No issues - fully purchased with labels
+  return null;
+}

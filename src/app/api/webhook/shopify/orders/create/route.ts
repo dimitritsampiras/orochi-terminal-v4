@@ -84,6 +84,7 @@ export async function POST(request: Request) {
         variantId: item.variant?.id,
         productId: item.product?.id,
         quantity: item.quantity ?? 1,
+        unfulfilledQuantity: item.unfulfilledQuantity,
       }))
     );
   });

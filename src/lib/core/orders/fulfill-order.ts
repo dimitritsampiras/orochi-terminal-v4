@@ -2,6 +2,7 @@ import shopify from "@/lib/clients/shopify";
 import { createFulfillmentMutation, fulfillmentOrdersQuery } from "@/lib/graphql/fulfillment.graphql";
 import { FulfillmentTrackingInfo } from "@/lib/types/admin.types";
 import { DataResponse } from "@/lib/types/misc";
+import dayjs from "dayjs";
 
 export const fulfillOrder = async (
   orderId: string,
@@ -33,13 +34,13 @@ export const fulfillOrder = async (
     if (targetFulfillmentOrder) {
       console.log("target:", targetFulfillmentOrder.status, "\nfrom forders:", fulfillmentOrders.length);
 
+      const shouldNotifyCustomer = dayjs().diff(dayjs(targetFulfillmentOrder.createdAt), "day") <= 40;
       const { data, errors } = await shopify.request(createFulfillmentMutation, {
         variables: {
           fulfillment: {
             trackingInfo,
             lineItemsByFulfillmentOrder: [{ fulfillmentOrderId: targetFulfillmentOrder.id }],
-            notifyCustomer:
-              new Date().getTime() - new Date(targetFulfillmentOrder.createdAt).getTime() <= 30 * 24 * 60 * 60 * 1000,
+            notifyCustomer: shouldNotifyCustomer,
           },
         },
       });
