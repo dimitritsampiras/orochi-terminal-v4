@@ -10,6 +10,7 @@ export type CreateOrderHoldSchema = z.infer<typeof createOrderHoldSchema>;
 
 export const resolveOrderHoldSchema = z.object({
   resolvedNotes: z.string().optional(),
+  requeue: z.boolean().default(true),
 });
 
 export type ResolveOrderHoldSchema = z.infer<typeof resolveOrderHoldSchema>;

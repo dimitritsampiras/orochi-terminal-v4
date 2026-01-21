@@ -154,6 +154,8 @@ export const normalizeSizeName = (size: (typeof garmentSize.enumValues)[number])
       return "medium";
     case "lg":
       return "large";
+    case "xl":
+      return "xlarge";
   }
   return size.toLowerCase().replace(/ /g, "_");
 };

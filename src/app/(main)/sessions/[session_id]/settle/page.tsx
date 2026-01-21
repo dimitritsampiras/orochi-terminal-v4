@@ -1,5 +1,3 @@
-import { db } from "@/lib/clients/db";
-// import { calculateSettlement } from "@/lib/core/session/calculate-settlement";
 import { SettleSessionController } from "@/components/controllers/settle-session-controller";
 import { BackButton } from "@/components/nav/back-button";
 import { notFound } from "next/navigation";
@@ -13,19 +11,9 @@ export default async function SettleSessionPage({ params }: { params: Promise<{ 
     notFound();
   }
 
-  // Get batch info
-  const batch = await db.query.batches.findFirst({
-    where: { id: batchId },
-  });
+  const { data, error } = await getSettlementData(batchId);
 
-  if (!batch) {
-    notFound();
-  }
-
-  // Calculate initial settlement data
-  const {data: settlementData, error} = await getSettlementData(batchId);
-
-  if (error || !settlementData) {
+  if (error || !data) {
     notFound();
   }
 
@@ -34,14 +22,16 @@ export default async function SettleSessionPage({ params }: { params: Promise<{ 
       <div className="flex items-center gap-3 mb-6">
         <BackButton fallbackHref={`/sessions/${batchId}`} />
         <div>
-          <h1 className="page-title">Settle Session {batchId}</h1>
-          <p className="text-sm text-muted-foreground">
-            Created: {batch.createdAt.toLocaleDateString()}
-          </p>
+          <h1 className="page-title">Session {batchId} Overview</h1>
+          {data.batch.startedAt && (
+            <p className="text-sm text-muted-foreground">
+              Started: {data.batch.startedAt.toLocaleDateString()}
+            </p>
+          )}
         </div>
       </div>
 
-      <SettleSessionController initialData={settlementData} batchId={batchId} />
+      <SettleSessionController initialData={data.items} batchId={batchId} />
     </div>
   );
 }

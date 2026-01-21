@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 
 export async function POST(
 	_req: Request,
-	{ params }: { params: { batch_id: string } },
+	{ params }: { params: Promise<{ batch_id: string }> },
 ) {
 	try {
 		const user = authorizeApiUser(["super_admin", "admin"]);

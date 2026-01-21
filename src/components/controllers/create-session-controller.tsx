@@ -8,7 +8,7 @@ import { Button } from "../ui/button";
 import { CreateSessionDialog } from "../dialog/create-session-dialog";
 import dayjs from "dayjs";
 import { blanks, blankVariants } from "@drizzle/schema";
-import { FilterProductsFromQueueDialog } from "../dialog/filter-products-from-queue";
+import { FilterProductsFromQueueSheet } from "../dialog/filter-products-from-queue";
 import { Badge } from "../ui/badge";
 import { Icon } from "@iconify/react";
 
@@ -25,6 +25,12 @@ export const CreateSessionController = ({ queue, blankVariants }: CreateSessionC
 
   const [orderQuantity, setOrderQuantity] = useState(50);
   const [filteredVariantIds, setFilteredVariantIds] = useState<Set<string>>(new Set());
+
+  const totalQueuedOrders = queue.length;
+  const lowPriorityOrders = queue.filter((order) => order.fulfillmentPriority === "low").length;
+  const urgentOrders = queue.filter((order) => order.fulfillmentPriority === "urgent").length;
+  const criticalOrders = queue.filter((order) => order.fulfillmentPriority === "critical").length;
+  const normalOrders = queue.filter((order) => order.fulfillmentPriority === "normal").length;
 
   const handleOrderQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number.parseInt(e.target.value, 10);
@@ -49,6 +55,10 @@ export const CreateSessionController = ({ queue, blankVariants }: CreateSessionC
 
     if (filteredVariantIds.size > 0) {
       filteredQueue = queue.filter((order) => {
+        // Do not filter out orders that are "critical" or "urgent"
+        if (order.fulfillmentPriority === "critical" || order.fulfillmentPriority === "urgent") {
+          return true;
+        }
         return order.lineItems.every((item) => item.productVariant && filteredVariantIds.has(item.productVariant.id));
       });
     }
@@ -83,6 +93,8 @@ export const CreateSessionController = ({ queue, blankVariants }: CreateSessionC
     });
   }, [slicedOrders]);
 
+
+
   const ordersWithOutOfStockItems = useMemo(() => {
     return slicedOrders.filter((order) => {
       return order.lineItems.some((item) => {
@@ -98,6 +110,13 @@ export const CreateSessionController = ({ queue, blankVariants }: CreateSessionC
 
   return (
     <div>
+      <div className="mt-2 flex items-center gap-2">
+        <Badge variant="secondary" className="bg-lime-100 text-lime-900">Queued: {totalQueuedOrders}</Badge>
+        <Badge variant="secondary" className="bg-red-100 text-red-900">Critical: {criticalOrders}</Badge>
+        <Badge variant="secondary" className="bg-purple-100 text-purple-900">Urgent: {urgentOrders}</Badge>
+        <Badge variant="secondary" className="bg-zinc-100 text-zinc-900">Normal: {normalOrders}</Badge>
+        <Badge variant="secondary" className="bg-slate-200 text-slate-800">Low Priority: {lowPriorityOrders}</Badge>
+      </div>
       <div className="flex sm:flex-row flex-col items-center justify-between my-4">
         <div className="flex sm:w-auto w-full items-center gap-4 sm:mb-0 mb-4">
           <div className="relative">
@@ -112,15 +131,15 @@ export const CreateSessionController = ({ queue, blankVariants }: CreateSessionC
             </div>
           </div>
           {filteredVariantIds.size > 0 && (
-            <div className="h-9 flex items-center justify-center text-sm font-medium">
+            <div className="h-9 flex items-center justify-center text-zinc-800 text-sm font-medium">
               {slicedOrders.length} filtered orders
             </div>
           )}
           <div className="h-9 flex items-center justify-center text-sm font-medium">{lineItemCount} line items</div>
         </div>
         <div className="flex items-center justify-center gap-4">
-          <FilterProductsFromQueueDialog
-            initialSelection={filteredVariantIds} // Pass the state here
+          <FilterProductsFromQueueSheet
+            initialSelection={filteredVariantIds}
             onApply={(ids) => setFilteredVariantIds(new Set(ids))}
           />
           <CreateSessionDialog

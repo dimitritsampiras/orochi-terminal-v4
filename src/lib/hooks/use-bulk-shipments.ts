@@ -4,6 +4,7 @@ import { useTaskQueue, type TaskItem } from "@/lib/stores/task-queue";
 import { sleep, parseGid } from "@/lib/utils";
 import { toast } from "sonner";
 import type { SelectedOrder, ShipmentStatus } from "@/components/dialog/bulk-shipment-dialog";
+import { useRouter } from "next/navigation";
 
 interface UseBulkShipmentsOptions {
   sessionId: number;
@@ -13,6 +14,7 @@ interface UseBulkShipmentsOptions {
 
 export function useBulkShipments({ sessionId, onComplete, delayMs = 2000 }: UseBulkShipmentsOptions) {
   const abortRef = useRef(false);
+  const router = useRouter()
   const { addTask, updateTask, updateTaskItem, setActiveTask } = useTaskQueue();
 
   const start = useCallback(
@@ -70,6 +72,7 @@ export function useBulkShipments({ sessionId, onComplete, delayMs = 2000 }: UseB
         const progress = Math.round(((completed + failed) / selectedOrders.length) * 100);
         updateTask(taskId, { progress });
 
+
         // Add delay between requests to avoid rate limiting
         if (!abortRef.current && completed + failed < selectedOrders.length) {
           await sleep(delayMs);
@@ -84,6 +87,7 @@ export function useBulkShipments({ sessionId, onComplete, delayMs = 2000 }: UseB
 
         toast.success(`Bulk shipments complete: ${completed} succeeded, ${failed} failed`);
         onComplete?.();
+        router.refresh()
       }
     },
     [sessionId, addTask, updateTask, updateTaskItem, setActiveTask, onComplete, delayMs]
@@ -91,6 +95,7 @@ export function useBulkShipments({ sessionId, onComplete, delayMs = 2000 }: UseB
 
   const cancel = useCallback(() => {
     abortRef.current = true;
+    router.refresh()
   }, []);
 
   return { start, cancel };

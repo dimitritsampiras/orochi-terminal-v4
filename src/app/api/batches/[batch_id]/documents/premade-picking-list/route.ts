@@ -11,7 +11,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ batch_id: string }> }
 ) {
-  const user = await authorizeApiUser();
+  const user = await authorizeApiUser(['super_admin', 'admin']);
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

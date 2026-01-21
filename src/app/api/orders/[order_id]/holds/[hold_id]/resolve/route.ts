@@ -3,7 +3,7 @@ import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
 import { logger } from "@/lib/core/logger";
 import { resolveOrderHoldSchema } from "@/lib/schemas/order-hold-schema";
 import { buildResourceGid } from "@/lib/utils";
-import { orderHolds } from "@drizzle/schema";
+import { orderHolds, orders } from "@drizzle/schema";
 import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -43,7 +43,7 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { resolvedNotes } = resolveOrderHoldSchema.parse(body);
+    const { resolvedNotes, requeue } = resolveOrderHoldSchema.parse(body);
 
     const [updatedHold] = await db
       .update(orderHolds)
@@ -55,14 +55,22 @@ export async function PATCH(
       .where(and(eq(orderHolds.id, holdId), eq(orderHolds.orderId, orderId)))
       .returning();
 
-    // Log the action
-    await logger.info(`Order hold resolved: ${existingHold.cause}${resolvedNotes ? ` - ${resolvedNotes}` : ""}`, {
-      orderId,
-      profileId: user.id,
-      metadata: { holdId, cause: existingHold.cause },
-    });
+    if (requeue) {
+      await db.update(orders).set({ queued: true }).where(eq(orders.id, orderId));
+    }
 
-    return NextResponse.json({ data: updatedHold, error: null });
+    // Log the action
+    const requeueNote = requeue ? " (requeued)" : " (not requeued)";
+    await logger.info(
+      `Order hold resolved: ${existingHold.cause}${requeueNote}${resolvedNotes ? ` - ${resolvedNotes}` : ""}`,
+      {
+        orderId,
+        profileId: user.id,
+        metadata: { holdId, cause: existingHold.cause, requeue },
+      }
+    );
+
+    return NextResponse.json({ data: { ...updatedHold, requeue }, error: null });
   } catch (error) {
     console.error("Error resolving order hold:", error);
     return NextResponse.json({ data: null, error: "Failed to resolve order hold" }, { status: 500 });

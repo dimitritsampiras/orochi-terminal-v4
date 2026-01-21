@@ -1,18 +1,16 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
-import { Search, Plus } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -21,80 +19,45 @@ import { ProductStatusBadge } from "@/components/badges/product-status-badge";
 import { cn } from "@/lib/utils";
 import { GetProductsResponse } from "@/lib/types/api";
 import { Badge } from "../ui/badge";
+import { Icon } from "@iconify/react";
 
-interface FilterProductsFromQueueDialogProps {
+interface FilterProductsFromQueueSheetProps {
   className?: string;
   onApply?: (selectedVariantIds: string[]) => void;
-  initialSelection?: Set<string>; // Add this prop
+  initialSelection?: Set<string>;
 }
 
 type Product = NonNullable<GetProductsResponse["data"]>[number];
 
-export function FilterProductsFromQueueDialog({
+export function FilterProductsFromQueueSheet({
   className,
   onApply,
-  initialSelection, // Destructure it
-}: FilterProductsFromQueueDialogProps) {
+  initialSelection,
+}: FilterProductsFromQueueSheetProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
-  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
   const [selectedVariantIds, setSelectedVariantIds] = useState<Set<string>>(new Set());
 
-  // Sync local state with prop when dialog opens
+  // Sync local state with prop when sheet opens
   useEffect(() => {
     if (open && initialSelection) {
       setSelectedVariantIds(new Set(initialSelection));
     }
   }, [open, initialSelection]);
 
-  // Debounce search query
-  const [debouncedQuery, setDebouncedQuery] = useState(query);
+  // Fetch all products once when sheet opens
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedQuery(query);
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [query]);
-
-  // Reset when dialog opens or query changes
-  useEffect(() => {
-    if (open) {
-      setPage(1);
-      setProducts([]);
-      setHasMore(true);
-    }
-  }, [open, debouncedQuery]);
-
-  // Fetch products
-  useEffect(() => {
-    if (!open || !hasMore) return;
+    if (!open) return;
 
     const fetchProducts = async () => {
       setLoading(true);
       try {
-        const params = new URLSearchParams();
-        params.set("page", page.toString());
-        if (debouncedQuery) params.set("q", debouncedQuery);
-
-        const res = await fetch(`/api/products?${params.toString()}`);
+        const res = await fetch("/api/products");
         const json = (await res.json()) as GetProductsResponse;
-
         if (json.data) {
-          setProducts((prev) => {
-            if (page === 1) return json.data;
-            // Append new products, avoiding duplicates just in case
-            const existingIds = new Set(prev.map((p) => p.id));
-            const newProducts = json.data.filter((p: Product) => !existingIds.has(p.id));
-            return [...prev, ...newProducts];
-          });
-          if (json.data.length === 0) {
-            setHasMore(false);
-          }
-        } else {
-          setHasMore(false);
+          setProducts(json.data);
         }
       } catch (error) {
         console.error("Failed to fetch products", error);
@@ -104,26 +67,86 @@ export function FilterProductsFromQueueDialog({
     };
 
     fetchProducts();
-  }, [open, page, debouncedQuery]);
+  }, [open]);
 
-  // Infinite scroll observer
-  const observerTarget = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading) {
-          setPage((prev) => prev + 1);
-        }
-      },
-      { threshold: 0.1 }
-    );
+  // Client-side filtering
+  const filteredProducts = useMemo(() => {
+    if (!query.trim()) return products;
+    const q = query.toLowerCase();
+    return products.filter((p) => p.title.toLowerCase().includes(q));
+  }, [products, query]);
 
-    if (observerTarget.current) {
-      observer.observe(observerTarget.current);
+  // Stocked variants (warehouseInventory > 0)
+  const stockedVariantIds = useMemo(() => {
+    const ids = new Set<string>();
+    products.forEach((p) => {
+      p.productVariants.forEach((v) => {
+        if (v.warehouseInventory > 0) ids.add(v.id);
+      });
+    });
+    return ids;
+  }, [products]);
+
+  // Tri-state for stocked products button
+  const stockedSelectionState = useMemo(() => {
+    if (stockedVariantIds.size === 0) return "none";
+    const selectedStockedCount = [...stockedVariantIds].filter((id) => selectedVariantIds.has(id)).length;
+    if (selectedStockedCount === 0) return "none";
+    if (selectedStockedCount === stockedVariantIds.size) return "all";
+    return "partial";
+  }, [stockedVariantIds, selectedVariantIds]);
+
+  const handleSelectStocked = () => {
+    if (stockedSelectionState === "all") {
+      // Deselect all stocked
+      const next = new Set(selectedVariantIds);
+      stockedVariantIds.forEach((id) => next.delete(id));
+      setSelectedVariantIds(next);
+    } else {
+      // Select all stocked
+      const next = new Set(selectedVariantIds);
+      stockedVariantIds.forEach((id) => next.add(id));
+      setSelectedVariantIds(next);
     }
+  };
 
-    return () => observer.disconnect();
-  }, [hasMore, loading]);
+  // All variant ids
+  const allVariantIds = useMemo(() => {
+    const ids = new Set<string>();
+    products.forEach((p) => {
+      p.productVariants.forEach((v) => ids.add(v.id));
+    });
+    return ids;
+  }, [products]);
+
+  // Tri-state for select all button
+  const allSelectionState = useMemo(() => {
+    if (allVariantIds.size === 0) return "none";
+    if (selectedVariantIds.size === 0) return "none";
+    if (selectedVariantIds.size === allVariantIds.size) return "all";
+    return "partial";
+  }, [allVariantIds, selectedVariantIds]);
+
+  const handleSelectAll = () => {
+    if (allSelectionState === "all") {
+      setSelectedVariantIds(new Set());
+    } else {
+      setSelectedVariantIds(new Set(allVariantIds));
+    }
+  };
+
+  // Selected variants with product info for the right panel
+  const selectedVariantsWithProduct = useMemo(() => {
+    const result: { variant: Product["productVariants"][number]; product: Product }[] = [];
+    products.forEach((product) => {
+      product.productVariants.forEach((variant) => {
+        if (selectedVariantIds.has(variant.id)) {
+          result.push({ variant, product });
+        }
+      });
+    });
+    return result;
+  }, [products, selectedVariantIds]);
 
   const toggleVariant = (variantId: string) => {
     const next = new Set(selectedVariantIds);
@@ -136,15 +159,13 @@ export function FilterProductsFromQueueDialog({
   };
 
   const toggleProduct = (product: Product) => {
-    const allVariantIds = product.variants.map((v) => v.id);
+    const allVariantIds = product.productVariants.map((v) => v.id);
     const allSelected = allVariantIds.every((id) => selectedVariantIds.has(id));
 
     const next = new Set(selectedVariantIds);
     if (allSelected) {
-      // Deselect all
       for (const id of allVariantIds) next.delete(id);
     } else {
-      // Select all
       for (const id of allVariantIds) next.add(id);
     }
     setSelectedVariantIds(next);
@@ -155,128 +176,186 @@ export function FilterProductsFromQueueDialog({
     setOpen(false);
   };
 
+  const handleClear = () => {
+    setSelectedVariantIds(new Set());
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
         <Button className={className} variant="outline">
-          Filter Products
+          Filter By Product
         </Button>
-      </DialogTrigger>
-      <DialogContent className=" overflow-clip sm:max-w-[600px] flex flex-col gap-0 p-0 h-[80vh] max-h-[80vh]">
-        <DialogHeader className="p-6 pb-2 shrink-0">
-          <DialogTitle>Select products</DialogTitle>
-          <DialogDescription className="sr-only">
-            Select products and variants to filter from the queue.
-          </DialogDescription>
-        </DialogHeader>
+      </SheetTrigger>
+      <SheetContent
+        side="right"
+        className={cn(
+          "w-full transition-all duration-300 flex flex-col overflow-hidden p-0",
+          selectedVariantIds.size > 0 ? "sm:max-w-4xl" : "sm:max-w-xl"
+        )}
+      >
+        <SheetHeader className="p-6 pb-2 shrink-0">
+          <SheetTitle>Select products</SheetTitle>
+          <SheetDescription>Select products and variants to filter from the queue.</SheetDescription>
+        </SheetHeader>
 
-        <div className="px-6 py-2 space-y-4 border-b shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search products"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="pl-9"
-              />
+        <div className="flex flex-1 h-full flex-row-reverse overflow-hidden">
+          {/* Left panel: Product list */}
+          <div className="flex-1 flex flex-col min-w-0 border-r">
+            <div className="px-4 py-3 h-18 space-y-3 border-b shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search products"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <Button
+                  onClick={handleSelectAll}
+                  variant={allSelectionState === "all" ? "default" : "outline"}
+                  className="shrink-0"
+                  disabled={allVariantIds.size === 0}
+                >
+                  {allSelectionState === "partial" && <Icon icon="ph:minus-bold" className="size-3 mr-1" />}
+                  {allSelectionState === "all" && <Icon icon="ph:check-bold" className="size-3 mr-1" />}
+                  Select All
+                </Button>
+                <Button
+                  onClick={handleSelectStocked}
+                  variant={stockedSelectionState === "all" ? "default" : "outline"}
+                  className="shrink-0"
+                  disabled={stockedVariantIds.size === 0}
+                >
+                  {stockedSelectionState === "partial" && (
+                    <Icon icon="ph:minus-bold" className="size-3 mr-1" />
+                  )}
+                  {stockedSelectionState === "all" && <Icon icon="ph:check-bold" className="size-3 mr-1" />}
+                  Stocked
+                  {stockedVariantIds.size > 0 && (
+                    <span className="ml-1 text-xs opacity-70">({stockedVariantIds.size})</span>
+                  )}
+                </Button>
+              </div>
             </div>
-            {/* Placeholder for "Search by All" or extra filters if needed */}
-            <Button variant="outline" className="shrink-0">
-              Add filter <Plus className="ml-2 h-4 w-4" />
-            </Button>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-[auto_1fr_auto_auto] gap-4 px-6 py-3 text-xs font-medium text-muted-foreground border-b bg-white top-0 z-10">
-          <div className="w-4" /> {/* Checkbox placeholder */}
-          <div>Product</div>
-          <div className="text-right w-20">Available</div>
-          <div className="text-right w-20">Price</div>
-        </div>
-        <ScrollArea className="flex-1 min-h-0">
-          <div className="flex flex-col">
-            {products.map((product) => {
-              const allVariantIds = product.variants.map((v) => v.id);
-              const selectedCount = allVariantIds.filter((id) => selectedVariantIds.has(id)).length;
-              const isAllSelected = product.variants.length > 0 && selectedCount === product.variants.length;
-              const isIndeterminate = selectedCount > 0 && selectedCount < product.variants.length;
+            <ScrollArea className="h-full">
+              {loading ? (
+                <div className="flex justify-center py-6">
+                  <Spinner />
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">No products found.</div>
+              ) : (
+                <div className="flex flex-col">
+                  {filteredProducts.map((product) => {
+                    const allVariantIds = product.productVariants.map((v) => v.id);
+                    const selectedCount = allVariantIds.filter((id) => selectedVariantIds.has(id)).length;
+                    const isAllSelected =
+                      product.productVariants.length > 0 && selectedCount === product.productVariants.length;
+                    const isIndeterminate = selectedCount > 0 && selectedCount < product.productVariants.length;
 
-              return (
-                <div key={product.id} className="flex flex-col border-b last:border-0">
-                  {/* Product Header Row */}
-                  <div className="grid grid-cols-[auto_1fr_auto] gap-4 px-6 py-4 items-center hover:bg-muted/30 transition-colors">
-                    <Checkbox
-                      checked={isAllSelected || (isIndeterminate ? "indeterminate" : false)}
-                      onCheckedChange={() => toggleProduct(product)}
-                      className="mt-1"
-                    />
-                    <div className="flex items-center gap-3">
-                      {/* Image placeholder since we don't have images */}
-                      <div className="h-10 w-10 rounded-md bg-muted border flex items-center justify-center text-xs text-muted-foreground shrink-0">
-                        Img
-                      </div>
-                      <span className="font-medium text-sm">{product.title}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {product.isBlackLabel && <Badge className="bg-violet-50 text-violet-700">Black Label</Badge>}
-                      <ProductStatusBadge status={product.status} />
-                    </div>
-                  </div>
-
-                  {/* Variants Rows */}
-                  {product.variants.map((variant) => {
-                    const isSelected = selectedVariantIds.has(variant.id);
                     return (
-                      <div
-                        key={variant.id}
-                        className="grid grid-cols-[auto_1fr_auto_auto] gap-4 px-6 py-3 items-center border-t border-dashed bg-muted/5 hover:bg-muted/10"
-                      >
-                        <Checkbox
-                          checked={isSelected}
-                          onCheckedChange={() => toggleVariant(variant.id)}
-                          className="ml-8" // Indent checkbox
-                        />
-                        <div className="text-sm pl-2">{variant.title}</div>
-                        <div className="text-right text-sm w-20 text-muted-foreground">
-                          {product.isBlackLabel ? (
-                            <Badge className="bg-violet-50 text-violet-700">--</Badge>
-                          ) : (
-                            variant.warehouseInventory
-                          )}
+                      <div key={product.id} className="flex flex-col border-b last:border-0">
+                        {/* Product Header Row */}
+                        <div className="grid grid-cols-[auto_1fr_auto] gap-3 px-4 py-3 items-center hover:bg-muted/30 transition-colors">
+                          <Checkbox
+                            checked={isAllSelected || (isIndeterminate ? "indeterminate" : false)}
+                            onCheckedChange={() => toggleProduct(product)}
+                          />
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-medium text-sm truncate">{product.title}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {product.isBlackLabel && (
+                              <Badge className="bg-violet-50 text-violet-700">Black Label</Badge>
+                            )}
+                            <ProductStatusBadge status={product.status} />
+                          </div>
                         </div>
-                        <div className="text-right text-sm w-20 text-muted-foreground">{variant.price}</div>
+
+                        {/* Variants Rows */}
+                        {product.productVariants.map((variant) => {
+                          const isSelected = selectedVariantIds.has(variant.id);
+                          const hasStock = variant.warehouseInventory > 0;
+                          return (
+                            <div
+                              key={variant.id}
+                              className="grid grid-cols-[auto_1fr_auto] gap-3 px-4 py-2 items-center border-t border-dashed bg-muted/5 hover:bg-muted/10"
+                            >
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={() => toggleVariant(variant.id)}
+                                className="ml-6"
+                              />
+                              <div className="text-sm truncate">{variant.title}</div>
+                              <div className="text-right text-sm w-16 text-muted-foreground shrink-0">
+                                {product.isBlackLabel ? (
+                                  <Badge className="bg-violet-50 text-violet-700">--</Badge>
+                                ) : (
+                                  <span className={cn(hasStock && "text-green-600 font-medium")}>
+                                    {variant.warehouseInventory}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   })}
+                  <div className="h-48"></div>
                 </div>
-              );
-            })}
+              )}
+            </ScrollArea>
+          </div>
 
-            {loading && (
-              <div className="flex justify-center py-6">
-                <Spinner />
+          {/* Right panel: Selected variants */}
+          {selectedVariantIds.size > 0 && (
+            <div className="w-80 flex flex-col bg-zinc-50">
+              <div className="px-4 py-3 min-h-18! border-b flex items-center justify-between">
+                <span className="font-medium text-sm">{selectedVariantIds.size} selected</span>
+                <Button variant="ghost" size="sm" onClick={handleClear}>
+                  Clear all
+                </Button>
               </div>
-            )}
-
-            {!loading && hasMore && <div ref={observerTarget} className="h-4 w-full" />}
-
-            {!loading && products.length === 0 && (
-              <div className="p-8 text-center text-muted-foreground">No products found.</div>
-            )}
-          </div>
-        </ScrollArea>
-
-        <div className="p-4 border-t bg-white flex items-center justify-between shrink-0">
-          <div className="text-sm text-muted-foreground">{selectedVariantIds.size} variants selected</div>
-          <div className="flex gap-2">
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
-            <Button onClick={handleApply}>Apply</Button>
-          </div>
+              <ScrollArea className="h-full">
+                <div className="p-2 space-y-1">
+                  {selectedVariantsWithProduct.toSorted((a, b) => a.product.title.localeCompare(b.product.title)).map(({ variant, product }) => (
+                    <div
+                      key={variant.id}
+                      className="flex items-center justify-between p-2 rounded-md bg-white border text-sm group"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-medium text-xs">{product.title}</div>
+                        <div className="truncate text-muted-foreground text-xs">{variant.title}</div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="opacity-0 group-hover:opacity-100 shrink-0 ml-2"
+                        onClick={() => toggleVariant(variant.id)}
+                      >
+                        <Icon icon="ph:x" className="size-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <div className="h-48"></div>
+              </ScrollArea>
+            </div>
+          )}
         </div>
-      </DialogContent>
-    </Dialog>
+
+        <div className="p-4 border-t bg-white flex items-center justify-end gap-2 shrink-0">
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleApply}>Apply</Button>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

@@ -17,7 +17,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ batch_id: string }> }
 ): Promise<NextResponse<UpdateBatchResponse>> {
-  const user = await authorizeApiUser(["super_admin", "admin", "warehouse_staff"]);
+  const user = await authorizeApiUser(["super_admin", "admin"]);
 
   if (!user) {
     return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
@@ -38,7 +38,7 @@ export async function PATCH(
   }
 
   console.log('parsedData', parsedData);
-  
+
 
   try {
     // If setting this batch as active, deactivate all other batches first
@@ -112,36 +112,24 @@ export async function DELETE(
       // REQUEUE all orders that were in this batch
       // Only requeue orders that are NOT in any other session
       if (orderIds.length > 0) {
-        // Find orders that are still in other sessions after this batch is deleted
-        const ordersStillInSessions = await tx
-          .select({ orderId: ordersBatches.orderId })
-          .from(ordersBatches)
-          .where(inArray(ordersBatches.orderId, orderIds));
+        // Fetch order names for logging
+        const orderData = await tx
+          .select({ id: orders.id, name: orders.name })
+          .from(orders)
+          .where(inArray(orders.id, orderIds));
 
-        const ordersStillInSessionIds = new Set(ordersStillInSessions.map((o) => o.orderId));
+        await tx.update(orders).set({ queued: true }).where(inArray(orders.id, orderIds));
 
-        // Only requeue orders that are NOT in any other session
-        const ordersToRequeue = orderIds.filter((id) => !ordersStillInSessionIds.has(id));
+        // Bulk insert logs for all requeued orders
+        await tx.insert(logs).values(
+          orderData.map<typeof logs.$inferInsert>((order) => ({
+            type: "INFO",
+            category: "AUTOMATED",
+            message: `Batch ${batchId} deleted and order ${order.name} was requeued`,
+            orderId: order.id,
+          }))
+        );
 
-        if (ordersToRequeue.length > 0) {
-          // Fetch order names for logging
-          const orderData = await tx
-            .select({ id: orders.id, name: orders.name })
-            .from(orders)
-            .where(inArray(orders.id, ordersToRequeue));
-
-          await tx.update(orders).set({ queued: true }).where(inArray(orders.id, ordersToRequeue));
-
-          // Bulk insert logs for all requeued orders
-          await tx.insert(logs).values(
-            orderData.map<typeof logs.$inferInsert>((order) => ({
-              type: "INFO",
-              category: "AUTOMATED",
-              message: `Batch ${batchId} deleted and order ${order.name} was requeued`,
-              orderId: order.id,
-            }))
-          );
-        }
       }
     });
 

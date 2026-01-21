@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { SortedAssemblyLineItem } from "@/lib/core/session/create-assembly-line";
+import { AssemblyLineItem } from "@/lib/core/session/create-assembly-line";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Badge } from "../ui/badge";
 import { colorNameToHex } from "@/lib/core/products/color-name-to-hex";
 import { LineItemStatusBadge } from "../badges/line-item-status-badge";
 import { Input } from "../ui/input";
-import { cn, parseGid } from "@/lib/utils";
+import { cn, normalizeSizeName, parseGid } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { useAssemblyNavigation } from "@/lib/stores";
 import Link from "next/link";
@@ -25,7 +25,7 @@ import {
   DialogTrigger,
 } from "../ui/dialog";
 
-export function AssemblyTable({ assemblyLine, batchId }: { assemblyLine: SortedAssemblyLineItem[]; batchId: number }) {
+export function AssemblyTable({ assemblyLine, batchId }: { assemblyLine: AssemblyLineItem[]; batchId: number }) {
   const [filter, setFilter] = useState("");
   const router = useRouter();
   const { start } = useProgress();
@@ -91,6 +91,7 @@ export function AssemblyTable({ assemblyLine, batchId }: { assemblyLine: SortedA
               <TableHead>Blank Size</TableHead>
               <TableHead>Has Heat Transfer</TableHead>
               <TableHead>Completion Status</TableHead>
+              <TableHead>Expected Fulfillment</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -100,7 +101,7 @@ export function AssemblyTable({ assemblyLine, batchId }: { assemblyLine: SortedA
               return (
                 <TableRow
                   key={item.id}
-                  className={cn(index % 2 === 0 && "bg-gray-50")}
+                  className={cn(index % 2 === 0 && "bg-gray-50", (item.expectedFulfillment === 'stock' || item.expectedFulfillment === 'black_label') && "bg-blue-50")}
                   onClick={() => handleRowClick(item.id)}
                 >
                   <TableCell className="font-medium">{item.itemPosition + 1}</TableCell>
@@ -121,7 +122,7 @@ export function AssemblyTable({ assemblyLine, batchId }: { assemblyLine: SortedA
                     )}
                   </TableCell>
 
-                  <TableCell className="capitalize">{item.blankVariant?.size ?? "--"}</TableCell>
+                  <TableCell className="capitalize">{(item.blankVariant?.size && normalizeSizeName(item.blankVariant.size)) ?? "--"}</TableCell>
                   <TableCell>
                     {item.product?.isBlackLabel ? (
                       <Badge className="bg-violet-50 text-violet-700">Black Label</Badge>
@@ -145,6 +146,15 @@ export function AssemblyTable({ assemblyLine, batchId }: { assemblyLine: SortedA
                   <TableCell className="text-left">
                     <LineItemStatusBadge status={item.completionStatus} />
                   </TableCell>
+                  <TableCell className="text-left">
+                    {item.expectedFulfillment === 'stock' ? (
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-800">Stock</Badge>
+                    ) : item.expectedFulfillment === 'black_label' ? (
+                      <Badge variant="secondary" className="bg-indigo-100 text-indigo-800">Black Label</Badge>
+                    ) : (
+                      <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">Print</Badge>
+                    )}
+                  </TableCell>
                 </TableRow>
               );
             })}
@@ -164,9 +174,9 @@ function AssemblyIssueCard({
   color = "red",
 }: {
   label: string;
-  items: SortedAssemblyLineItem[];
+  items: AssemblyLineItem[];
   description: string;
-  renderDetail?: (item: SortedAssemblyLineItem) => React.ReactNode;
+  renderDetail?: (item: AssemblyLineItem) => React.ReactNode;
   color?: "red" | "yellow" | "green" | "blue" | "rose" | "orange";
 }) {
   const colorMap = {

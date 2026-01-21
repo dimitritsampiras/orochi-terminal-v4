@@ -51,7 +51,7 @@ export const getOrderQueue = async (
             name: true,
             productId: true,
             quantity: true,
-            requiresShipping: true
+            requiresShipping: true,
           },
           with: {
             productVariant: {

@@ -12,7 +12,7 @@ export async function PATCH(
   { params }: { params: Promise<{ product_id: string; print_id: string }> }
 ): Promise<NextResponse<UpdatePrintResponse>> {
   try {
-    const user = await authorizeApiUser();
+    const user = await authorizeApiUser(['admin', 'super_admin']);
 
     if (!user) {
       return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
@@ -49,7 +49,7 @@ export async function DELETE(
   { params }: { params: Promise<{ product_id: string; print_id: string }> }
 ): Promise<NextResponse<DeletePrintResponse>> {
   try {
-    const user = await authorizeApiUser();
+    const user = await authorizeApiUser(['admin', 'super_admin']);
 
     if (!user) {
       return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });

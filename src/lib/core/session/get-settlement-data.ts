@@ -1,221 +1,201 @@
 import { db } from "@/lib/clients/db";
 import { DataResponse } from "@/lib/types/misc";
-
-import { PickingRequirement, pickingRequirementsResultSchema } from "./create-picking-requirements";
+import { pickingRequirementSchema, type FulfillmentType } from "./create-picking-requirements";
 import { inventoryTransactions, lineItemCompletionStatus } from "@drizzle/schema";
+import z from "zod";
+
+const storedAssemblyLineSchema = z.object({
+  id: z.string(),
+  itemPosition: z.number(),
+  expectedFulfillment: z.enum(["stock", "black_label", "print"]),
+});
 
 export type SettlementItem = {
+  // Line item info
   lineItemId: string;
   lineItemName: string;
-  orderId: string;
   orderName: string;
-  expectedFulfillmentType: PickingRequirement["expectedFulfillmentType"] | null;
-  lineItemStatus: (typeof lineItemCompletionStatus.enumValues)[number];
-  expectedStockChange: {
-    inventoryType: "blankVariant" | "productVariant";
-    inventoryTypeId: string;
-    inventoryDisplayName: string;
-    change: number;
+  position: number;
+  currentStatus: (typeof lineItemCompletionStatus.enumValues)[number];
+
+  // Expected fulfillment (from stored JSON)
+  expectedFulfillment: FulfillmentType;
+
+  // Inventory target (null for black_label)
+  inventoryTarget: {
+    type: "blank" | "product";
+    id: string;
+    displayName: string;
+    expectedChange: number;
   } | null;
-  actualStockChange: {
-    isMismatchedWithExpected: boolean;
-    totalChangeAmount: number;
-    changes: {
-      inventoryType: "blankVariant" | "productVariant";
-      inventoryTypeId: string;
-      inventoryDisplayName: string;
-      change: number;
-      transaction: typeof inventoryTransactions.$inferSelect;
-    }[];
-  } | null;
-  issues: string[];
+
+  // Transactions for this item
+  transactions: (typeof inventoryTransactions.$inferSelect)[];
+  actualInventoryChange: number;
+
+  // Computed flags
+  hasStatusMismatch: boolean;
+  hasInventoryMismatch: boolean;
 };
 
-export const getSettlementData = async (batchId: number): Promise<DataResponse<SettlementItem[]>> => {
+/**
+ * Gets settlement data for a session.
+ * Uses the stored assemblyLineJson and pickingListJson as the source of truth.
+ */
+export const getSettlementData = async (
+  batchId: number
+): Promise<DataResponse<{ items: SettlementItem[]; batch: { id: number; active: boolean; startedAt: Date | null } }>> => {
   const batch = await db.query.batches.findFirst({
     where: { id: batchId },
-    with: {
-      orders: {
-        with: {
-          lineItems: true,
-        },
-      },
+    columns: {
+      id: true,
+      active: true,
+      startedAt: true,
+      assemblyLineJson: true,
+      pickingListJson: true,
     },
   });
 
   if (!batch) {
-    return { data: null, error: "Could not find session" };
+    return { data: null, error: "Session not found" };
   }
 
-  if (!batch.pickingListJson) {
-    return {
-      data: null,
-      error: "No picking requirements for session. Either this session is old or picking docs were never generated",
-    };
+  if (!batch.assemblyLineJson || !batch.pickingListJson) {
+    return { data: null, error: "Session has not been started yet" };
   }
 
-  const { data: parsedPickingRequirments } = pickingRequirementsResultSchema.safeParse(batch.pickingListJson);
+  // Parse stored JSON (jsonb columns may already be objects or strings)
+  const assemblyLineData =
+    typeof batch.assemblyLineJson === "string"
+      ? JSON.parse(batch.assemblyLineJson)
+      : batch.assemblyLineJson;
+  const pickingListData =
+    typeof batch.pickingListJson === "string"
+      ? JSON.parse(batch.pickingListJson)
+      : batch.pickingListJson;
 
-  if (!parsedPickingRequirments) {
-    return { data: null, error: "Failed to parse picking requirements" };
+  const assemblyLineParsed = storedAssemblyLineSchema.array().safeParse(assemblyLineData);
+  const pickingListParsed = pickingRequirementSchema.array().safeParse(pickingListData);
+
+  if (!assemblyLineParsed.success || !pickingListParsed.success) {
+    return { data: null, error: "Failed to parse session data" };
   }
 
-  const transactions = await db.query.inventoryTransactions.findMany({
-    where: { batchId: batchId },
+  const assemblyLine = assemblyLineParsed.data;
+  const pickingList = pickingListParsed.data;
+
+  // Build picking requirements map for quick lookup
+  const pickingMap = new Map(pickingList.map((p) => [p.lineItemId, p]));
+
+  // Get all line item IDs
+  const lineItemIds = assemblyLine.map((item) => item.id);
+
+  // Fetch current line items status
+  const lineItems = await db.query.lineItems.findMany({
+    where: { id: { in: lineItemIds } },
+    columns: { id: true, name: true, completionStatus: true, orderId: true },
+    with: {
+      order: { columns: { name: true } },
+    },
   });
+  const lineItemMap = new Map(lineItems.map((li) => [li.id, li]));
 
-  const [blankVariantsUsed, productVariantsUsed] = await Promise.all([
-    db.query.blankVariants.findMany({
-      where: {
-        id: {
-          in: transactions
-            .filter((transaction) => transaction.blankVariantId)
-            .map((transaction) => transaction.blankVariantId!),
-        },
-      },
-      with: {
-        blank: {
-          columns: {
-            blankCompany: true,
-            blankName: true,
-          },
-        },
-      },
-    }),
-    db.query.productVariants.findMany({
-      where: {
-        id: {
-          in: transactions
-            .filter((transaction) => transaction.productVariantId)
-            .map((transaction) => transaction.productVariantId!),
-        },
-      },
-      with: {
-        product: {
-          columns: {
-            title: true,
-          },
-        },
-      },
-    }),
-  ]);
-
-  const blankVariantsUsedMap = new Map(blankVariantsUsed.map((blankVariant) => [blankVariant.id, blankVariant]));
-  const productVariantsUsedMap = new Map(
-    productVariantsUsed.map((productVariant) => [productVariant.id, productVariant])
-  );
-
-  if (!transactions) {
-    return { data: null, error: "No inventory transactions found for session" };
+  // Fetch all inventory transactions for this batch
+  const transactions = await db.query.inventoryTransactions.findMany({
+    where: { batchId },
+  });
+  const transactionsByLineItem = new Map<string, (typeof inventoryTransactions.$inferSelect)[]>();
+  for (const tx of transactions) {
+    if (!tx.lineItemId) continue;
+    const existing = transactionsByLineItem.get(tx.lineItemId) ?? [];
+    existing.push(tx);
+    transactionsByLineItem.set(tx.lineItemId, existing);
   }
 
-  const sessionLineItems = batch.orders.flatMap((order) => order.lineItems);
+  // Build settlement items
+  const items: SettlementItem[] = [];
 
-  const settlementItems = [];
+  for (const assemblyItem of assemblyLine) {
+    const lineItem = lineItemMap.get(assemblyItem.id);
+    const picking = pickingMap.get(assemblyItem.id);
+    const itemTransactions = transactionsByLineItem.get(assemblyItem.id) ?? [];
 
-  for (const lineItem of sessionLineItems.map((lineItem) => ({
-    ...lineItem,
-    order: batch.orders.find((order) => order.id === lineItem.orderId),
-  }))) {
-    const settlementItem: SettlementItem = {
-      lineItemStatus: lineItem.completionStatus,
-      lineItemId: lineItem.id,
+    if (!lineItem || !picking) continue;
+
+    // Determine inventory target based on expected fulfillment
+    let inventoryTarget: SettlementItem["inventoryTarget"] = null;
+    if (assemblyItem.expectedFulfillment === "stock" && picking.productVariantId) {
+      inventoryTarget = {
+        type: "product",
+        id: picking.productVariantId,
+        displayName: picking.productDisplayName ?? "Unknown Product",
+        expectedChange: -picking.quantity,
+      };
+    } else if (assemblyItem.expectedFulfillment === "print" && picking.blankVariantId) {
+      inventoryTarget = {
+        type: "blank",
+        id: picking.blankVariantId,
+        displayName: picking.blankDisplayName ?? "Unknown Blank",
+        expectedChange: -picking.quantity,
+      };
+    }
+
+    // Calculate actual inventory change from transactions
+    const actualInventoryChange = itemTransactions.reduce((sum, tx) => sum + tx.changeAmount, 0);
+
+    // Determine mismatches
+    const expectedStatus = getExpectedStatus(assemblyItem.expectedFulfillment);
+    const hasStatusMismatch = !isStatusMatch(lineItem.completionStatus, expectedStatus);
+    const hasInventoryMismatch =
+      inventoryTarget !== null && actualInventoryChange !== inventoryTarget.expectedChange;
+
+    items.push({
+      lineItemId: assemblyItem.id,
       lineItemName: lineItem.name,
-      orderId: lineItem.orderId,
-      orderName: lineItem.order?.name ?? "???",
-      expectedFulfillmentType: null,
-      expectedStockChange: null,
-      actualStockChange: null,
-      issues: [],
-    };
-    const pickingRequirementItem = parsedPickingRequirments.requirements.find(
-      (requirement) => requirement.lineItemId === lineItem.id
-    );
-    if (!pickingRequirementItem) {
-      // this is a problem that needs to be logged
-      settlementItem.issues.push("Picking requirement not found");
-      settlementItems.push(settlementItem);
-      continue;
-    }
-
-    const lineItemTransactions = transactions.filter((transaction) => transaction.lineItemId === lineItem.id);
-
-    /**
-     * we now have:
-     *   1. line item
-     *   2. picking requirement item
-     *   3. transaction for that item
-     * we need to find -> stock mismatch
-     */
-    let expectedStockChange: SettlementItem["expectedStockChange"] = null;
-
-    if (pickingRequirementItem.expectedFulfillmentType === "stock" && pickingRequirementItem.productVariantId) {
-      expectedStockChange = {
-        inventoryType: "productVariant",
-        inventoryDisplayName: pickingRequirementItem.productDisplayName ?? "",
-        inventoryTypeId: pickingRequirementItem.productVariantId,
-        change: -pickingRequirementItem.quantity,
-      };
-    } else if (pickingRequirementItem.expectedFulfillmentType === "print" && pickingRequirementItem.blankVariantId) {
-      expectedStockChange = {
-        inventoryType: "blankVariant",
-        inventoryDisplayName: pickingRequirementItem.blankDisplayName ?? "",
-        inventoryTypeId: pickingRequirementItem.blankVariantId,
-        change: -pickingRequirementItem.quantity,
-      };
-    }
-
-    if (!expectedStockChange) {
-      settlementItem.issues.push("Unable to get expected stock change found");
-      settlementItems.push(settlementItem);
-      continue;
-    }
-
-    const actualStockChanges: NonNullable<SettlementItem["actualStockChange"]>["changes"] = [];
-    if (lineItem.name === "Spiral Passage Tee - Navy - Medium") {
-      console.log(lineItemTransactions);
-    }
-
-    for (const transaction of lineItemTransactions) {
-      // if (transaction.reason === "assembly_usage") {
-      if (transaction.blankVariantId && transaction.blankVariantId !== pickingRequirementItem.blankVariantId) {
-        settlementItem.issues.push("Blank variant mismatch");
-        continue;
-      }
-      if (transaction.productVariantId && transaction.productVariantId !== pickingRequirementItem.productVariantId) {
-        settlementItem.issues.push("Product variant mismatch");
-        continue;
-      }
-
-      const inventoryDisplayName = transaction.blankVariantId
-        ? blankVariantsUsedMap.get(transaction.blankVariantId!)?.blank?.blankCompany +
-          " " +
-          blankVariantsUsedMap.get(transaction.blankVariantId!)?.blank?.blankName
-        : productVariantsUsedMap.get(transaction.productVariantId!)?.product?.title ?? "";
-
-      actualStockChanges.push({
-        inventoryType: transaction.blankVariantId ? "blankVariant" : "productVariant",
-        inventoryTypeId: transaction.blankVariantId ?? transaction.productVariantId!,
-        change: transaction.changeAmount,
-        inventoryDisplayName: inventoryDisplayName,
-        transaction: transaction,
-      });
-      // }
-    }
-
-    settlementItem.expectedStockChange = expectedStockChange;
-
-    const totalInventoryChange = actualStockChanges.reduce((acc, change) => acc + change.change, 0);
-
-    settlementItem.actualStockChange = {
-      isMismatchedWithExpected: totalInventoryChange !== expectedStockChange.change,
-      totalChangeAmount: actualStockChanges.reduce((acc, change) => acc + change.change, 0),
-      changes: actualStockChanges,
-    };
-
-    settlementItem.expectedFulfillmentType = pickingRequirementItem.expectedFulfillmentType;
-    settlementItems.push(settlementItem);
+      orderName: lineItem.order?.name ?? "Unknown Order",
+      position: assemblyItem.itemPosition,
+      currentStatus: lineItem.completionStatus,
+      expectedFulfillment: assemblyItem.expectedFulfillment,
+      inventoryTarget,
+      transactions: itemTransactions,
+      actualInventoryChange,
+      hasStatusMismatch,
+      hasInventoryMismatch,
+    });
   }
 
-  return { data: settlementItems.toSorted((a, b) => a.orderName.localeCompare(b.orderName)), error: null };
+  // Sort by position
+  items.sort((a, b) => a.position - b.position);
+
+  return {
+    data: {
+      items,
+      batch: { id: batch.id, active: batch.active, startedAt: batch.startedAt },
+    },
+    error: null,
+  };
 };
+
+/**
+ * Get the expected line item status based on fulfillment type
+ */
+function getExpectedStatus(fulfillment: FulfillmentType): (typeof lineItemCompletionStatus.enumValues)[number][] {
+  switch (fulfillment) {
+    case "stock":
+      return ["in_stock"];
+    case "print":
+      return ["printed"];
+    case "black_label":
+      return ["in_stock"];
+  }
+}
+
+/**
+ * Check if a status matches the expected statuses
+ */
+function isStatusMatch(
+  current: (typeof lineItemCompletionStatus.enumValues)[number],
+  expected: (typeof lineItemCompletionStatus.enumValues)[number][]
+): boolean {
+  return expected.includes(current);
+}

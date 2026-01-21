@@ -54,10 +54,5 @@ export async function POST(request: NextRequest): Promise<NextResponse<LoginResp
     return NextResponse.json({ data: null, error: "User not found" }, { status: 404 });
   }
 
-  // if (!(["superadmin", "admin", 'va', 'staff',] as (typeof userRole.enumValues)[number][]).includes(user.role)) {
-  //   await supabase.auth.signOut();
-  //   return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
-  // }
-
-  return NextResponse.json({ data: "success", error: null }, { status: 200 });
+  return NextResponse.json({ data: user, error: null }, { status: 200 });
 }

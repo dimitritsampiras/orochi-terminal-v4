@@ -12,9 +12,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { type OrderQueue } from "@/lib/core/orders/get-order-queue";
 import dayjs from "dayjs";
@@ -42,7 +39,6 @@ export function CreateSessionDialog({
   className,
 }: CreateSessionDialogProps) {
   const router = useRouter();
-  const [setAsActive, setSetAsActive] = useState(true);
   const [open, setOpen] = useState(false);
 
   const { trigger, isLoading } = useFetcher<CreateBatchSchema, CreateBatchResponse>({
@@ -57,7 +53,7 @@ export function CreateSessionDialog({
   });
 
   const handleCreateSession = () => {
-    trigger({ orderIds, setAsActive });
+    trigger({ orderIds });
   };
 
   return (
@@ -78,17 +74,6 @@ export function CreateSessionDialog({
             <div className="text-sm">
               Line Items: <span className="font-medium">{numberOfLineItems}</span>
             </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="setAsActive"
-              checked={setAsActive}
-              onCheckedChange={(checked) => setSetAsActive(checked === true)}
-            />
-            <Label htmlFor="setAsActive" className="text-sm font-medium leading-none cursor-pointer">
-              Set as active session
-            </Label>
           </div>
 
           {ordersWithRecentSessions.length > 0 && (

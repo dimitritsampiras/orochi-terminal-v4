@@ -16,6 +16,7 @@ import { lineItems, orders, shipments } from "@drizzle/schema";
 import { Badge } from "../ui/badge";
 import { useOrderNavigation } from "@/lib/stores/order-navigation";
 import { SessionOrder } from "../controllers/session-controller";
+import { QueueStatusBadge } from "../badges/queue-status-badge";
 
 interface SessionOrdersTableProps {
   orders: SessionOrder[];
@@ -109,13 +110,14 @@ export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProp
               const hasActiveHold = order.orderHolds.some((hold) => !hold.isResolved);
               return (
                 <TableRow
-                  
+
                   key={order.id}
                   className={cn(
                     "hover:cursor-pointer hover:bg-gray-100",
                     index % 2 === 0 && "bg-gray-50",
                     order.displayIsCancelled && "opacity-60",
-                    hasActiveHold && "bg-blue-50"
+                    hasActiveHold && "bg-blue-50",
+                    order.queued && "bg-lime-50"
                   )}
                   onClick={() => handleRowClick(order.id)}
                 >
@@ -151,6 +153,7 @@ export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProp
                       <div className="flex items-center gap-2">
                         <FulfillmentStatusBadge status={order.displayFulfillmentStatus} />
                         {hasActiveHold && <Badge variant="outline" className="text-blue-500">On Hold</Badge>}
+                        {order.queued && <QueueStatusBadge queued={order.queued} />}
                       </div>
                     )}
                   </TableCell>

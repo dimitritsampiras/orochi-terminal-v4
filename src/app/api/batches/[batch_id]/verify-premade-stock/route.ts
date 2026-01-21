@@ -20,7 +20,7 @@ export async function GET(
 	_request: NextRequest,
 	{ params }: { params: Promise<{ batch_id: string }> },
 ): Promise<NextResponse<GetPremadeStockRequirementsResponse>> {
-	const user = await authorizeApiUser();
+	const user = await authorizeApiUser(['super_admin', 'admin']);
 
 	if (!user) {
 		return NextResponse.json(
@@ -130,7 +130,7 @@ export async function POST(
 	_request: NextRequest,
 	{ params }: { params: Promise<{ batch_id: string }> },
 ): Promise<NextResponse<VerifyPremadeStockResponse>> {
-	const user = await authorizeApiUser(["admin", "super_admin"]);
+	const user = await authorizeApiUser(['super_admin', 'admin']);
 
 	if (!user) {
 		return NextResponse.json(
@@ -171,7 +171,6 @@ export async function POST(
 			.update(batches)
 			.set({
 				premadeStockVerifiedAt: verifiedAt,
-				premadeStockRequirementsJson: JSON.stringify(snapshot),
 			})
 			.where(eq(batches.id, batchId));
 

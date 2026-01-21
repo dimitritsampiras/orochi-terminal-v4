@@ -115,7 +115,7 @@ export function getShipmentIssue(
   // Check if any shipment is not purchased
   const hasUnpurchased = shipmentsList.some((s) => !s.isPurchased && !s.isRefunded);
   if (hasUnpurchased) {
-    return { type: "unpurchased", label: "Unpurchased" };
+    return { type: "unpurchased", label: "Purchase Issue" };
   }
 
   // Check for missing label slips on purchased shipments

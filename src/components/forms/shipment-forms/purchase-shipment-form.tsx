@@ -1,9 +1,11 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useFetcher } from "@/lib/hooks/use-fetcher";
-import { PurchaseShipmentSchema } from "@/lib/schemas/order-schema";
-import { parseGid } from "@/lib/utils";
+import { PurchaseShipmentResponse } from "@/lib/types/api";
+import { parseGid, sleep } from "@/lib/utils";
+import { useMutation } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export const PurchaseShipmentForm = ({
   databaseShipmentUUID,
@@ -12,14 +14,35 @@ export const PurchaseShipmentForm = ({
   databaseShipmentUUID: string;
   orderId: string;
 }) => {
-  const { isLoading, trigger } = useFetcher<PurchaseShipmentSchema>({
-    path: `/api/orders/${parseGid(orderId)}/shipments/${databaseShipmentUUID}/purchase`,
-    method: "POST",
-    successMessage: "Shipment purchased successfully",
+  const router = useRouter();
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(
+        `/api/orders/${parseGid(orderId)}/shipments/${databaseShipmentUUID}/purchase`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+      const data = (await res.json()) as PurchaseShipmentResponse;
+      if (!res.ok || data.error) {
+        throw new Error(data.error ?? "Failed to purchase shipment");
+      }
+      return data;
+    },
+    onSuccess: async () => {
+      router.refresh();
+      await sleep(1000);
+      toast.success("Shipment purchased successfully");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
   });
 
   return (
-    <Button variant="outline" onClick={() => trigger()} loading={isLoading}>
+    <Button variant="outline" onClick={() => mutate()} loading={isPending}>
       Purchase
     </Button>
   );

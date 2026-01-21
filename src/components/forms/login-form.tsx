@@ -28,8 +28,16 @@ export default function LoginForm() {
       body: JSON.stringify(data),
     });
 
-    if (response.ok) {
-      await router.push("/dashboard");
+    const { data: user, error } = (await response.json()) as LoginResponse;
+    if (response.ok && user) {
+      if (user.roleV4 === "super_admin" || user.roleV4 === "admin") {
+        router.push("/dashboard");
+      } else if (user.roleV4 === "warehouse_staff") {
+        router.push("/assembly");
+      } else {
+        router.push("/orders");
+      }
+
     } else {
       const error = (await response.json()) as LoginResponse;
       console.log("Login failed:", error);

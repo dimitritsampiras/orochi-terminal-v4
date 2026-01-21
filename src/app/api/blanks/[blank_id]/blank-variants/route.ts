@@ -11,7 +11,7 @@ export async function POST(
   { params }: { params: Promise<{ blank_id: string }> }
 ): Promise<NextResponse<CreateBlankVariantResponse>> {
   try {
-    const user = await authorizeApiUser();
+    const user = await authorizeApiUser(['admin', 'super_admin']);
 
     if (!user) {
       return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });

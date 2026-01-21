@@ -37,6 +37,7 @@ export const generatePackingSlip = async (
   const pdfDoc = await PDFDocument.create();
   const page = pdfDoc.addPage([pageWidth, pageHeight]);
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
   // Helper to convert PDFKit Y (top-down) to pdf-lib Y (bottom-up)
   const toY = (pdfKitY: number) => pageHeight - pdfKitY;
@@ -65,10 +66,10 @@ export const generatePackingSlip = async (
 
   // SHIPPING INFO column
   page.drawText("SHIPPING INFO", { x: marginX, y: toY(infoY + fontSize), size: fontSize, font });
-  page.drawText(address1 || "", { x: marginX, y: toY(contentY + fontSize), size: fontSize, font });
+  page.drawText(normalizeText(address1 || ""), { x: marginX, y: toY(contentY + fontSize), size: fontSize, font });
 
   if (address2) {
-    page.drawText(address2, {
+    page.drawText(normalizeText(address2), {
       x: marginX,
       y: toY(contentY + lineHeight * multiplier + fontSize),
       size: fontSize,
@@ -77,7 +78,7 @@ export const generatePackingSlip = async (
     multiplier++;
   }
 
-  page.drawText(`${city || ""}, ${provinceCode || ""}, ${zip || ""}`, {
+  page.drawText(normalizeText(`${city || ""}, ${provinceCode || ""}, ${zip || ""}`), {
     x: marginX,
     y: toY(contentY + lineHeight * multiplier + fontSize),
     size: fontSize,
@@ -85,7 +86,7 @@ export const generatePackingSlip = async (
   });
   multiplier++;
 
-  page.drawText(country || "", {
+  page.drawText(normalizeText(country || ""), {
     x: marginX,
     y: toY(contentY + lineHeight * multiplier + fontSize),
     size: fontSize,
@@ -142,7 +143,7 @@ export const generatePackingSlip = async (
 
   for (const item of lineItems) {
     const { name, quantity } = item;
-    page.drawText(`${name} x${quantity}`, { x: marginX, y: toY(itemsY + fontSize), size: fontSize, font });
+    page.drawText(normalizeText(`${name} x${quantity}`), { x: marginX, y: toY(itemsY + fontSize), size: fontSize, font });
     itemsY += lineHeight * 1.5;
   }
 
@@ -198,10 +199,30 @@ export const generatePackingSlip = async (
     });
   }
 
+  // Order number in big bold letters at bottom left, rotated 90 degrees
+  const orderNumberFontSize = 50;
+  const orderNumberX = inchesToPoint(1); // Left margin
+  const orderNumberY = inchesToPoint(0.5); // Bottom margin (in pdf-lib coordinates, bottom-up)
+  
+  page.drawText(order.name, {
+    x: orderNumberX,
+    y: orderNumberY,
+    size: orderNumberFontSize,
+    font: boldFont,
+    rotate: degrees(90),
+  });
+
   const pdfBytes = await pdfDoc.save();
   return { data: Buffer.from(pdfBytes), error: null };
 };
 
 const inchesToPoint = (inches: number) => {
   return inches * 72;
+};
+
+// Normalize text to remove diacritical marks that WinAnsi encoding can't handle
+const normalizeText = (text: string): string => {
+  return text
+    .normalize("NFD") // Decompose accented characters (e.g., "ň" → "n" + combining caron)
+    .replace(/[\u0300-\u036f]/g, ""); // Remove combining diacritical marks
 };

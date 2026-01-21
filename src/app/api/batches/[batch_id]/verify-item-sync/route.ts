@@ -1,4 +1,5 @@
 import { db } from "@/lib/clients/db";
+import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
 import type { VerifyItemSyncResponse } from "@/lib/types/api";
 import { batches } from "@drizzle/schema";
 import { eq } from "drizzle-orm";
@@ -8,6 +9,7 @@ export const POST = async (
   _request: NextRequest,
   { params }: { params: Promise<{ batch_id: string }> }
 ): Promise<NextResponse<VerifyItemSyncResponse>> => {
+  const user = await authorizeApiUser(['super_admin', 'admin']);
   const { batch_id } = await params;
   const batchId = parseInt(batch_id, 10);
 

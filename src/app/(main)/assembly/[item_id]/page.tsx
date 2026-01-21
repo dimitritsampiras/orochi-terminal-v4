@@ -10,12 +10,15 @@ import { MediaImage } from "@/lib/types/misc";
 import { buildResourceGid } from "@/lib/utils";
 import { notFound } from "next/navigation";
 
-export default async function AssemblyItemPage({ params }: { params: Promise<{ item_id: string; batch_id: string }> }) {
+export default async function AssemblyItemPage({ params }: { params: Promise<{ item_id: string }> }) {
   await authorizePageUser("assembly");
   const { item_id } = await params;
 
   const lineItemId = buildResourceGid("LineItem", item_id);
-  const { data: item, error } = await getLineItemById(lineItemId);
+  const activeSession = await db.query.batches.findFirst({
+    where: { active: true, },
+  });
+  const { data: item, error } = await getLineItemById(lineItemId, activeSession?.id);
 
   if (!item) {
     return notFound();
