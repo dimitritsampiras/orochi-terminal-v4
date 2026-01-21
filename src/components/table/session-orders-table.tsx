@@ -56,36 +56,39 @@ export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProp
     // Check if all shipments have missing label slips
 
     // Get the last non-refunded shipment for carrier info
-    const activeShipments = order.shipments.filter((s) => !s.isRefunded);
+    const activeShipments = order.shipments.filter((s) => !s.isRefunded).toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     const lastActiveShipment = activeShipments[activeShipments.length - 1];
 
     return (
       <div className="flex w-fit mx-4 items-center gap-2">
-        {order.shipments.some((s) => s.isPurchased) ? (
-          <div className="flex items-center gap-2">
-            {lastActiveShipment?.chosenCarrierName && (
-              <Image
-                src={getCarrierImage(lastActiveShipment.chosenCarrierName) || ""}
-                alt={lastActiveShipment.chosenCarrierName}
-                width={16}
-                height={16}
-                className="h-4 w-4"
-                onError={(e) => {
-                  // Hide image if it fails to load
-                  e.currentTarget.style.display = "none";
-                }}
-              />
-            )}
-            <Icon icon="ph:file-text" className="min-h-4 min-w-4" />
-            <div className="font-medium">{order.shipments.length} shipment(s)</div>
+        {lastActiveShipment && lastActiveShipment.isPurchased ? (
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              {lastActiveShipment?.chosenCarrierName && (
+                <Image
+                  src={getCarrierImage(lastActiveShipment.chosenCarrierName) || ""}
+                  alt={lastActiveShipment.chosenCarrierName}
+                  width={16}
+                  height={16}
+                  className="h-4 w-4"
+                  onError={(e) => {
+                    // Hide image if it fails to load
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              )}
+              <Icon icon="ph:file-text" className="min-h-4 min-w-4" />
+              <div className={cn("font-medium", activeShipments.length > 1 && 'text-amber-700')} > {activeShipments.length > 1 && 'Multiple'} Purchased</div>
+            </div>
           </div>
         ) : (
           <div className="flex items-center gap-2">
             <Icon icon="ph:warning-circle" className="min-h-4 min-w-4 text-red-700" />
             <div className="font-normal text-red-700">Rate Only</div>
           </div>
-        )}
-      </div>
+        )
+        }
+      </div >
     );
   };
 
@@ -108,6 +111,11 @@ export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProp
           {orders.length > 0 ? (
             orders.map((order, index) => {
               const hasActiveHold = order.orderHolds.some((hold) => !hold.isResolved);
+              // const hasActiveHold = order.orderHolds.length > 0;
+              if (order.name === '#66736') {
+                console.log('active hold 66736', hasActiveHold, order.orderHolds);
+              }
+
               return (
                 <TableRow
 
@@ -116,8 +124,8 @@ export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProp
                     "hover:cursor-pointer hover:bg-gray-100",
                     index % 2 === 0 && "bg-gray-50",
                     order.displayIsCancelled && "opacity-60",
-                    hasActiveHold && "bg-blue-50",
-                    order.queued && "bg-lime-50"
+                    hasActiveHold && "bg-blue-50!",
+                    order.queued && "bg-lime-50!"
                   )}
                   onClick={() => handleRowClick(order.id)}
                 >

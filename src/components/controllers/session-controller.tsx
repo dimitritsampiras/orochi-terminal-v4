@@ -358,7 +358,7 @@ export function SessionController({
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => setShowItemSyncDialog(true)}
-                disabled={isLoading || !session.shipmentsVerifiedAt}
+                // disabled={isLoading || !session.shipmentsVerifiedAt}
                 className={cn(
                   session.itemSyncVerifiedAt &&
                   "text-emerald-500! hover:text-emerald-500!",
@@ -375,7 +375,7 @@ export function SessionController({
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => setShowPremadeStockSheet(true)}
-                disabled={isLoading || !session.itemSyncVerifiedAt}
+                // disabled={isLoading || !session.itemSyncVerifiedAt}
                 className={cn(
                   session.premadeStockVerifiedAt &&
                   "text-emerald-500! hover:text-emerald-500!",
@@ -395,11 +395,11 @@ export function SessionController({
                   session.blankStockVerifiedAt &&
                   "text-emerald-500! hover:text-emerald-500!",
                 )}
-                disabled={
-                  isLoading ||
-                  !session.itemSyncVerifiedAt ||
-                  !session.premadeStockVerifiedAt
-                }
+                // disabled={
+                //   isLoading ||
+                //   !session.itemSyncVerifiedAt ||
+                //   !session.premadeStockVerifiedAt
+                // }
                 onClick={() => setShowBlankStockSheet(true)}
               >
                 <Icon

@@ -103,12 +103,43 @@ export const getProductDetailsForARXP = (
     }
   }
 
-  const size = productVariant.title.toLowerCase().trim();
+  // --- SIZE FIX START ---
+  const rawSize = productVariant.title.toLowerCase().trim();
+
+  // Map common variants to your specific file naming convention
+  const sizeMap: Record<string, string> = {
+    // XS Mappings -> "xsmall" (matches your screenshot)
+    "xs": "xsmall",
+    "x-small": "xsmall",
+    "extra small": "xsmall",
+
+    // Standard Mappings -> "small", "medium", "large"
+    "s": "small",
+    "m": "medium",
+    "l": "large",
+
+    // XL Mappings -> "xl" (matches your screenshot)
+    "xlarge": "xl",
+    "x-large": "xl",
+    "extra large": "xl",
+
+    // XXL Mappings -> "2xl" (matches your screenshot)
+    "xxl": "2xl",
+    "xx-large": "2xl",
+    "2x-large": "2xl"
+  };
+
+  // Use the mapped size if it exists, otherwise fall back to the raw size
+  const size = sizeMap[rawSize] || rawSize;
+  // --- SIZE FIX END ---
 
   const baseNameForPath = baseName.replace(/ /g, "_");
   const colorForPath = color.replace(/ /g, "_");
-  const fileName = `${baseNameForPath}_${colorForPath}_${size}_${printIndex}.arxp`;
 
+  // Windows/Unix path handling note: 
+  // Ideally, use forward slashes (/) here. The local server helper we fixed earlier 
+  // will now automatically convert them to backslashes (\) for Windows.
+  const fileName = `${baseNameForPath}_${colorForPath}_${size}_${printIndex}.arxp`;
   const path = `${baseName.replace(/ /g, "_")}/${color.replace(/ /g, "_")}/${fileName}`;
 
   return { baseName, color, size, path };

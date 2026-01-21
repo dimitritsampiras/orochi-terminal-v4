@@ -14,6 +14,19 @@ export default async function AssemblyPage() {
     },
   });
 
+  if (activeSession[0].startedAt === null) {
+    return (
+      <div>
+        <h1 className="page-title mb-4">Assembly</h1>
+        <Alert>
+          <Icon icon="ph:info" />
+          <AlertTitle>Session not started</AlertTitle>
+          <AlertDescription>Session not started, cannot load assembly line.</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   if (activeSession.length > 1) {
     return (
       <div>
@@ -55,18 +68,7 @@ export default async function AssemblyPage() {
     );
   }
 
-  if (activeSession[0].startedAt === null) {
-    return (
-      <div>
-        <h1 className="page-title mb-4">Assembly</h1>
-        <Alert>
-          <Icon icon="ph:info" />
-          <AlertTitle>Session not started</AlertTitle>
-          <AlertDescription>Session not started, cannot load assembly line.</AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
+
 
   return (
     <div>

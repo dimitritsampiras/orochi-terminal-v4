@@ -27,7 +27,7 @@ export const generateAssemblyList = async (
 
   // Table headers and column widths
   const headers = [" ", "Name", "Size", "Color", "Type", "Stock", "Check"];
-  const colWidths = [20, 130, 70, 100, 110, 50, 50];
+  const colWidths = [30, 130, 70, 100, 110, 50, 50];
 
   // Font sizes
   const titleFontSize = 12;

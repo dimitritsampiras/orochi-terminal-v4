@@ -34,29 +34,34 @@ export class LocalServerClient {
   // ... (rest of the class methods remain exactly as they were) ...
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     // ... implementation ...
-    const url = `${this.baseUrl}${endpoint}`;
-    const res = await fetch(url, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-    });
+    try {
+      const url = `${this.baseUrl}${endpoint}`;
+      const res = await fetch(url, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          ...options.headers,
+        },
+      });
 
-    if (!res.ok) {
-      let errorMessage = `Request failed with status ${res.status}`;
-      try {
-        const errorBody = await res.json();
-        if (errorBody.message) {
-          errorMessage = errorBody.message;
+      if (!res.ok) {
+        let errorMessage = `Request failed with status ${res.status}`;
+        try {
+          const errorBody = await res.json();
+          if (errorBody.message) {
+            errorMessage = errorBody.message;
+          }
+        } catch (e) {
+          // Ignore JSON parse error on failure
+          console.log("FILE OPENER ERROR", e);
         }
-      } catch (e) {
-        // Ignore JSON parse error on failure
-        console.log("FILE OPENER ERROR", e);
       }
-    }
 
-    return res.json() as Promise<T>;
+      return res.json() as Promise<T>;
+    } catch (e) {
+     
+      throw e;
+    }
   }
 
   async ping(): Promise<PingResponse> {

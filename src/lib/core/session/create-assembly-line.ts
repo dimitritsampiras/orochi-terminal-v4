@@ -114,8 +114,10 @@ export const getAssemblyLine = async (
       }
     } catch {
       // Invalid JSON, fall through to fresh generation
+
     }
   }
+  
   return { data: null, error: "No assembly line found" };
 };
 

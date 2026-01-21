@@ -154,7 +154,7 @@ export function VerifyPremadeStockSheet({
 					</TableRow>
 				</TableHeader>
 				<TableBody>
-					{items.map(({ onHand, requiredQuantity, toPick, ...item }, index) => {
+					{items.toSorted((a, b) => a.productName.localeCompare(b.productName)).map(({ onHand, requiredQuantity, toPick, ...item }, index) => {
 						const isNegative = onHand - requiredQuantity < 0;
 						return (
 							<Fragment key={item.productVariantId}>
