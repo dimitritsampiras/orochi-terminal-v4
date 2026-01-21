@@ -1,7 +1,6 @@
 ---
-alwaysApply: true
+alwaysApply: false
 ---
-
 Understood. Below is a **syntax-only cheat sheet** for **Drizzle relational queries**. No explanations. Copy-paste reference.
 
 ---
