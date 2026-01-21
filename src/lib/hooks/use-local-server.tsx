@@ -8,7 +8,7 @@ const STORAGE_KEY = "orochi-local-config";
 
 const DEFAULT_CONFIG: LocalConfig = {
   serverUrl: "http://127.0.0.1:3001",
-  arxpFolderPath: "/Users/dimitritsampiras/Documents/Orochi/ARXP",
+  arxpFolderPath: "/Users/print/Desktop/ARXP",
 };
 
 // --- Context Type ---
