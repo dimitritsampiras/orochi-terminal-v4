@@ -104,9 +104,11 @@ export async function POST(
       .where(eq(lineItems.id, lineItemId));
 
     // 6. Log the action
-    await logger.info(`[assembly] ${lineItem.name} marked as ${newStatus} by ${user.username}`, {
+    await logger.info(`[assembly] ${lineItem.name} marked as ${newStatus} by ${user.username}. ${skipInventoryAdjustment ? "Inventory adjustment was skipped" : ""}`, {
       orderId: lineItem.orderId,
       profileId: user.id,
+      lineItemId,
+      batchId,
       category: "ASSEMBLY",
     });
 

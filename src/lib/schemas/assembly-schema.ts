@@ -12,6 +12,8 @@ export type MarkPrintedSchema = z.infer<typeof markPrintedSchema>;
 // Mark item as fulfilled from pre-printed stock (decrement product variant inventory)
 export const markStockedSchema = z.object({
   batchId: z.number(),
+  // If true, reduce the product variant inventory by 1
+  reduceInventory: z.boolean().optional().default(false),
 });
 export type MarkStockedSchema = z.infer<typeof markStockedSchema>;
 

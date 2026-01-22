@@ -1,7 +1,7 @@
 import { db } from "@/lib/clients/db";
 import { DataResponse } from "@/lib/types/misc";
 import { pickingRequirementSchema, type FulfillmentType } from "./create-picking-requirements";
-import { inventoryTransactions, lineItemCompletionStatus } from "@drizzle/schema";
+import { inventoryTransactions, lineItemCompletionStatus, logs } from "@drizzle/schema";
 import z from "zod";
 
 const storedAssemblyLineSchema = z.object({
@@ -10,12 +10,16 @@ const storedAssemblyLineSchema = z.object({
   expectedFulfillment: z.enum(["stock", "black_label", "print"]),
 });
 
+
+type TransactionWithLogs = typeof inventoryTransactions.$inferSelect & { log: (typeof logs.$inferSelect) | null };
+
 export type SettlementItem = {
   // Line item info
   lineItemId: string;
   lineItemName: string;
   orderName: string;
   position: number;
+  orderId: string;
   currentStatus: (typeof lineItemCompletionStatus.enumValues)[number];
 
   // Expected fulfillment (from stored JSON)
@@ -30,12 +34,13 @@ export type SettlementItem = {
   } | null;
 
   // Transactions for this item
-  transactions: (typeof inventoryTransactions.$inferSelect)[];
+  transactions: TransactionWithLogs[];
   actualInventoryChange: number;
 
   // Computed flags
   hasStatusMismatch: boolean;
   hasInventoryMismatch: boolean;
+  currentInventory: number;
 };
 
 /**
@@ -88,6 +93,7 @@ export const getSettlementData = async (
     columns: { id: true, name: true, completionStatus: true, orderId: true },
     with: {
       order: { columns: { name: true } },
+      productVariant: { with: { blankVariant: true } }
     },
   });
   const lineItemMap = new Map(lineItems.map((li) => [li.id, li]));
@@ -95,8 +101,11 @@ export const getSettlementData = async (
   // Fetch all inventory transactions for this batch
   const transactions = await db.query.inventoryTransactions.findMany({
     where: { batchId },
+    with: {
+      log: true,
+    }
   });
-  const transactionsByLineItem = new Map<string, (typeof inventoryTransactions.$inferSelect)[]>();
+  const transactionsByLineItem = new Map<string, TransactionWithLogs[]>();
   for (const tx of transactions) {
     if (!tx.lineItemId) continue;
     const existing = transactionsByLineItem.get(tx.lineItemId) ?? [];
@@ -152,7 +161,9 @@ export const getSettlementData = async (
       transactions: itemTransactions,
       actualInventoryChange,
       hasStatusMismatch,
+      orderId: lineItem.orderId,
       hasInventoryMismatch,
+      currentInventory: assemblyItem.expectedFulfillment === 'print' ? lineItem.productVariant?.blankVariant?.quantity ?? 0 : lineItem.productVariant?.warehouseInventory ?? 0,
     });
   }
 
@@ -189,5 +200,6 @@ function isStatusMatch(
   current: (typeof lineItemCompletionStatus.enumValues)[number],
   expected: (typeof lineItemCompletionStatus.enumValues)[number][]
 ): boolean {
+  if (current === "ignore") return true;
   return expected.includes(current);
 }

@@ -326,6 +326,9 @@ export const logs = pgTable("logs", {
   batchId: integer("batch_id").references(() => batches.id, {
     onDelete: "set null",
   }),
+  lineItemId: text("line_item_id").references(() => lineItems.id, {
+    onDelete: "set null",
+  }),
 });
 
 export const orderHolds = pgTable("order_holds", {

@@ -116,7 +116,6 @@ export function GateScanController() {
         { facingMode: "environment" },
         {
           fps: 10,
-          qrbox: { width: 250, height: 250 },
         },
         onScanSuccess,
         undefined
@@ -125,7 +124,7 @@ export function GateScanController() {
         // Check for torch and zoom support after camera starts
         try {
           const capabilities = html5QrCode.getRunningTrackCameraCapabilities();
-          
+
           // Check torch support and store reference
           const torch = capabilities.torchFeature();
           if (torch.isSupported()) {
@@ -185,13 +184,12 @@ export function GateScanController() {
 
   return (
     <div
-      className={`min-h-screen flex flex-col transition-colors duration-300 ${
-        scanStatus === "success"
-          ? "bg-green-600"
-          : scanStatus === "error"
-            ? "bg-red-600"
-            : "bg-zinc-950"
-      }`}
+      className={`min-h-screen flex flex-col transition-colors duration-300 ${scanStatus === "success"
+        ? "bg-green-600"
+        : scanStatus === "error"
+          ? "bg-red-600"
+          : "bg-zinc-950"
+        }`}
     >
       <div className="p-4 text-white text-center font-bold text-xl bg-black/20">
         Warehouse Gate Scanner
@@ -213,9 +211,8 @@ export function GateScanController() {
           {torchSupported && (
             <button
               onClick={toggleTorch}
-              className={`p-3 rounded-full transition-colors ${
-                torchOn ? "bg-yellow-500 text-black" : "bg-zinc-800 text-white"
-              }`}
+              className={`p-3 rounded-full transition-colors ${torchOn ? "bg-yellow-500 text-black" : "bg-zinc-800 text-white"
+                }`}
             >
               {torchOn ? <Flashlight className="w-6 h-6" /> : <FlashlightOff className="w-6 h-6" />}
             </button>
@@ -246,9 +243,8 @@ export function GateScanController() {
 
         <div className="text-center space-y-2">
           <div
-            className={`text-2xl font-bold text-white px-6 py-3 rounded-full ${
-              scanStatus === "idle" ? "bg-zinc-800" : "bg-black/20"
-            }`}
+            className={`text-2xl font-bold text-white px-6 py-3 rounded-full ${scanStatus === "idle" ? "bg-zinc-800" : "bg-black/20"
+              }`}
           >
             {message}
           </div>

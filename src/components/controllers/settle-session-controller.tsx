@@ -1,7 +1,14 @@
 "use client";
 
 import { SettlementItem } from "@/lib/core/session/get-settlement-data";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table";
 import { Badge } from "../ui/badge";
 import { cn, parseGid } from "@/lib/utils";
 import {
@@ -18,20 +25,38 @@ import { Button } from "../ui/button";
 import { Icon } from "@iconify/react";
 import { InventoryTransactionItem } from "../cards/inventory-transactions";
 import { LineItemStatusBadge } from "../badges/line-item-status-badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
 import { useMutation } from "@tanstack/react-query";
-import { UpdateLineItemStatusSchema, AdjustSettlementInventorySchema } from "@/lib/schemas/batch-schema";
-import { UpdateLineItemStatusResponse, AdjustSettlementInventoryResponse } from "@/lib/types/api";
+import {
+  UpdateLineItemStatusSchema,
+  AdjustSettlementInventorySchema,
+} from "@/lib/schemas/batch-schema";
+import {
+  UpdateLineItemStatusResponse,
+  AdjustSettlementInventoryResponse,
+} from "@/lib/types/api";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import { lineItemCompletionStatus } from "@drizzle/schema";
 import { FulfillmentType } from "@/lib/core/session/create-picking-requirements";
 import Link from "next/link";
+import { SetLineItemStatusForm } from "../forms/order-forms/set-line-item-status-form";
 
 export const SettleSessionController = ({
   initialData,
@@ -41,7 +66,6 @@ export const SettleSessionController = ({
   batchId: number;
 }) => {
   const router = useRouter();
-  const [acknowledgedItems, setAcknowledgedItems] = useState<Set<string>>(new Set());
 
   // Dialog state
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
@@ -57,13 +81,17 @@ export const SettleSessionController = ({
   // Mutations
   const updateStatusMutation = useMutation({
     mutationFn: async (input: UpdateLineItemStatusSchema) => {
-      const res = await fetch(`/api/batches/${batchId}/settle/line-item-status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
+      const res = await fetch(
+        `/api/batches/${batchId}/settle/line-item-status`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        }
+      );
       const data = (await res.json()) as UpdateLineItemStatusResponse;
-      if (!res.ok || data.error) throw new Error(data.error ?? "Failed to update status");
+      if (!res.ok || data.error)
+        throw new Error(data.error ?? "Failed to update status");
       return data;
     },
     onSuccess: () => {
@@ -82,7 +110,8 @@ export const SettleSessionController = ({
         body: JSON.stringify(input),
       });
       const data = (await res.json()) as AdjustSettlementInventoryResponse;
-      if (!res.ok || data.error) throw new Error(data.error ?? "Failed to adjust inventory");
+      if (!res.ok || data.error)
+        throw new Error(data.error ?? "Failed to adjust inventory");
       return data;
     },
     onSuccess: () => {
@@ -108,23 +137,12 @@ export const SettleSessionController = ({
     setInventoryDialogOpen(true);
   };
 
-  const handleAcknowledge = (lineItemId: string) => {
-    setAcknowledgedItems((prev) => new Set([...prev, lineItemId]));
-  };
-
-  const handleUnacknowledge = (lineItemId: string) => {
-    setAcknowledgedItems((prev) => {
-      const next = new Set(prev);
-      next.delete(lineItemId);
-      return next;
-    });
-  };
-
   const handleSubmitStatusChange = () => {
     if (!selectedItem || !newStatus) return;
     updateStatusMutation.mutate({
       lineItemId: selectedItem.lineItemId,
-      newStatus: newStatus as (typeof lineItemCompletionStatus.enumValues)[number],
+      newStatus:
+        newStatus as (typeof lineItemCompletionStatus.enumValues)[number],
       notes: statusNotes || undefined,
     });
   };
@@ -132,7 +150,10 @@ export const SettleSessionController = ({
   const handleSubmitInventoryAdjustment = () => {
     if (!selectedItem?.inventoryTarget) return;
     adjustInventoryMutation.mutate({
-      targetType: selectedItem.inventoryTarget.type === "blank" ? "blankVariant" : "productVariant",
+      targetType:
+        selectedItem.inventoryTarget.type === "blank"
+          ? "blankVariant"
+          : "productVariant",
       targetId: selectedItem.inventoryTarget.id,
       changeAmount: inventoryChange,
       lineItemId: selectedItem.lineItemId,
@@ -148,7 +169,6 @@ export const SettleSessionController = ({
             <TableRow>
               <TableHead className="w-8">#</TableHead>
               <TableHead>Line Item</TableHead>
-              <TableHead>Order</TableHead>
               <TableHead>Expected</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Expected Change</TableHead>
@@ -158,40 +178,56 @@ export const SettleSessionController = ({
           </TableHeader>
           <TableBody>
             {initialData.map((item) => {
-              const hasDiscrepancy = item.hasStatusMismatch || item.hasInventoryMismatch;
-              const isAcknowledged = acknowledgedItems.has(item.lineItemId);
+              const hasDiscrepancy =
+                item.hasStatusMismatch || item.hasInventoryMismatch;
 
               return (
-                <TableRow key={item.lineItemId} className={cn(isAcknowledged && "opacity-50")}>
-                  <TableCell className="text-muted-foreground">{item.position + 1}</TableCell>
-                  <TableCell>
-                    <Link href={`/assembly/${parseGid(item.lineItemId)}`} className="font-medium text-wrap hover:underline">{item.lineItemName}</Link>
+                <TableRow key={item.lineItemId}>
+                  <TableCell className="text-muted-foreground text-xs!">
+                    {item.position + 1}
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm text-muted-foreground">{item.orderName}</div>
+                    <div className="flex flex-col gap-1">
+                      <Link
+                        href={`/assembly/${parseGid(item.lineItemId)}`}
+                        className="font-medium text-xs! text-wrap hover:underline"
+                      >
+                        {item.lineItemName.split("-").join("")}
+                      </Link>
+                      <Link
+                        href={`/orders/${parseGid(item.orderId)}`}
+                        className="text-xs! text-muted-foreground hover:underline"
+                      >
+                        {item.orderName}
+                      </Link>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <FulfillmentBadge type={item.expectedFulfillment} />
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <LineItemStatusBadge status={item.currentStatus} />
-                      {item.hasStatusMismatch && !isAcknowledged && (
-                        <Icon icon="ph:warning" className="size-4 text-amber-500" />
+                      <LineItemStatusBadge
+                        status={item.currentStatus}
+                        className="text-[10px]! py-0.5! px-1.5!"
+                      />
+                      {item.hasStatusMismatch && (
+                        <Icon
+                          icon="ph:warning"
+                          className="size-4 text-amber-500"
+                        />
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
                     {item.inventoryTarget ? (
-                      <div className="flex w-full bg-zinc-50 py-1 px-2 rounded-md flex-col">
-                        <span
-                          className={cn(
-                            'text-base font-medium',
-                          )}
-                        >
+                      <div className="flex w-full bg-zinc-50 py-1 px-2 rounded-md flex-row items-center gap-1 justify-between">
+                        <span className={cn("text-sm font-medium")}>
                           {item.inventoryTarget.expectedChange}
                         </span>
-                        <div className="text-xs text-muted-foreground">{item.inventoryTarget.displayName}</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {item.inventoryTarget.displayName}
+                        </div>
                       </div>
                     ) : (
                       <span className="text-muted-foreground text-sm">—</span>
@@ -203,7 +239,7 @@ export const SettleSessionController = ({
                         <span
                           className={cn(
                             "text-base font-medium",
-                            item.hasInventoryMismatch && !isAcknowledged && "text-red-600"
+                            item.hasInventoryMismatch && "text-red-600"
                           )}
                         >
                           {item.actualInventoryChange}
@@ -217,15 +253,22 @@ export const SettleSessionController = ({
                             </DialogTrigger>
                             <DialogContent>
                               <DialogHeader>
-                                <DialogTitle>Inventory Transactions</DialogTitle>
-                                <DialogDescription>{item.inventoryTarget.displayName}</DialogDescription>
+                                <DialogTitle>
+                                  Inventory Transactions
+                                </DialogTitle>
+                                <DialogDescription>
+                                  {item.inventoryTarget.displayName}
+                                </DialogDescription>
                               </DialogHeader>
                               <div className="space-y-2 max-h-64 overflow-y-auto">
                                 {item.transactions.map((tx) => (
                                   <InventoryTransactionItem
                                     key={tx.id}
                                     transaction={tx}
-                                    itemDisplayName={item.inventoryTarget?.displayName}
+                                    itemDisplayName={
+                                      item.inventoryTarget?.displayName
+                                    }
+                                    log={tx.log}
                                   />
                                 ))}
                               </div>
@@ -241,45 +284,32 @@ export const SettleSessionController = ({
                     ) : (
                       <span className="text-muted-foreground text-sm">—</span>
                     )}
-
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
-                      {hasDiscrepancy && !isAcknowledged ? (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="outline" size="sm">
-                              Fix
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            {item.hasStatusMismatch && (
-                              <DropdownMenuItem onClick={() => handleOpenStatusDialog(item)}>
-                                Change Status
-                              </DropdownMenuItem>
-                            )}
-                            {item.hasInventoryMismatch && item.inventoryTarget && (
-                              <DropdownMenuItem onClick={() => handleOpenInventoryDialog(item)}>
+                      {hasDiscrepancy ? (
+                        <div className="flex items-center gap-2">
+                          <SetLineItemStatusForm
+                            className="h-7 w-7"
+                            lineItemId={item.lineItemId}
+                            orderId={item.orderId}
+                          />
+                          {item.hasInventoryMismatch &&
+                            item.inventoryTarget && (
+                              <Button
+                                variant="outline"
+                                size="xs"
+                                onClick={() => handleOpenInventoryDialog(item)}
+                              >
                                 Adjust Inventory
-                              </DropdownMenuItem>
+                              </Button>
                             )}
-                            <DropdownMenuItem onClick={() => handleAcknowledge(item.lineItemId)}>
-                              Acknowledge
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      ) : isAcknowledged ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-amber-600"
-                          onClick={() => handleUnacknowledge(item.lineItemId)}
-                        >
-                          <Icon icon="ph:check" className="size-3 mr-1" />
-                          Ack'd
-                        </Button>
+                        </div>
                       ) : (
-                        <Icon icon="ph:check-circle" className="size-4 text-emerald-500" />
+                        <Icon
+                          icon="ph:check-circle"
+                          className="size-4 text-emerald-500"
+                        />
                       )}
                     </div>
                   </TableCell>
@@ -315,14 +345,23 @@ export const SettleSessionController = ({
             </div>
             <div className="space-y-2">
               <Label>Notes</Label>
-              <Textarea value={statusNotes} onChange={(e) => setStatusNotes(e.target.value)} />
+              <Textarea
+                value={statusNotes}
+                onChange={(e) => setStatusNotes(e.target.value)}
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setStatusDialogOpen(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={handleSubmitStatusChange} loading={updateStatusMutation.isPending}>
+            <Button
+              onClick={handleSubmitStatusChange}
+              loading={updateStatusMutation.isPending}
+            >
               Update
             </Button>
           </DialogFooter>
@@ -334,30 +373,44 @@ export const SettleSessionController = ({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Adjust Inventory</DialogTitle>
-            <DialogDescription>{selectedItem?.inventoryTarget?.displayName}</DialogDescription>
+            <DialogDescription>
+              {selectedItem?.inventoryTarget?.displayName}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="text-sm text-muted-foreground">
-              Expected: {selectedItem?.inventoryTarget?.expectedChange} | Actual: {selectedItem?.actualInventoryChange}
+              Expected: {selectedItem?.inventoryTarget?.expectedChange} |
+              Actual: {selectedItem?.actualInventoryChange}
             </div>
             <div className="space-y-2">
               <Label>Adjustment</Label>
               <Input
                 type="number"
                 value={inventoryChange}
-                onChange={(e) => setInventoryChange(parseInt(e.target.value) || 0)}
+                onChange={(e) =>
+                  setInventoryChange(parseInt(e.target.value) || 0)
+                }
               />
             </div>
             <div className="space-y-2">
               <Label>Notes</Label>
-              <Textarea value={inventoryNotes} onChange={(e) => setInventoryNotes(e.target.value)} />
+              <Textarea
+                value={inventoryNotes}
+                onChange={(e) => setInventoryNotes(e.target.value)}
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setInventoryDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setInventoryDialogOpen(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={handleSubmitInventoryAdjustment} loading={adjustInventoryMutation.isPending}>
+            <Button
+              onClick={handleSubmitInventoryAdjustment}
+              loading={adjustInventoryMutation.isPending}
+            >
               Adjust
             </Button>
           </DialogFooter>
@@ -374,7 +427,9 @@ const FulfillmentBadge = ({ type }: { type: FulfillmentType }) => {
     black_label: "bg-indigo-100 text-indigo-800",
   };
   return (
-    <Badge className={cn(styles[type], "capitalize")}>
+    <Badge
+      className={cn(styles[type], "capitalize text-[10px]! py-0.5! px-1.5!")}
+    >
       {type.replaceAll("_", " ")}
     </Badge>
   );

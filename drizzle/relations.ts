@@ -174,6 +174,10 @@ export const relations = defineRelations(schema, (r) => ({
     }),
   },
   logs: {
+    lineItem: r.one.lineItems({
+      from: r.logs.lineItemId,
+      to: r.lineItems.id,
+    }),
     order: r.one.orders({
       from: r.logs.orderId,
       to: r.orders.id,

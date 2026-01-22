@@ -2,6 +2,7 @@ import "dotenv/config";
 import { webhooks } from "./setup-webhooks";
 import z from "zod";
 import { helloWorldTask } from "@/trigger/example";
+import { db } from "@/lib/clients/db";
 
 // import { getLineItemsByBatchId } from "@/lib/core/session/get-session-line-items";
 // import { generatePremadePickingList } from "@/lib/core/pdf/generate-premade-picking-list";
@@ -38,6 +39,15 @@ async function main() {
   //   admin_graphql_api_id: "gid://shopify/Order/1234567890",
   // }));
   // ;
+  console.log(await db.query.inventoryTransactions.findMany({
+    where: {
+      batchId: 451
+    },
+    with: {
+      log: true,
+    }
+  }));
+
 
   await helloWorldTask.trigger({ message: "Hello, world!" });
 

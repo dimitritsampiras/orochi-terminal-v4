@@ -14,7 +14,7 @@ function LineItemStatusBadge({ status, className }: { status: LineItemStatus; cl
     in_stock: "bg-indigo-100 text-indigo-800",
     oos_blank: "bg-red-100 text-red-800",
     skipped: "bg-amber-100 text-amber-800",
-    ignore: "border-gray-100 bg-gray-50 text-gray-800",
+    ignore: "border-slate-100 bg-slate-100 text-slate-800",
   };
 
   // Default to a neutral style if status is not found or normalize input

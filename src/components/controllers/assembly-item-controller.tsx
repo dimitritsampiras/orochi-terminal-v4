@@ -99,7 +99,7 @@ export const AssemblyItemController = ({
   const batchId = initialBatchId ?? storedBatchId ?? undefined;
 
   const shopifyLineItem = order?.lineItems.nodes.find(
-    (lineItem) => lineItem.id === item.id,
+    (lineItem) => lineItem.id === item.id
   );
 
   const noSyncedPrints =
@@ -191,17 +191,17 @@ export const AssemblyItemController = ({
         ) : null}
         {(order?.displayFulfillmentStatus === "FULFILLED" ||
           item.order.displayFulfillmentStatus === "FULFILLED") && (
-            <Alert className="text-amber-700 bg-amber-50">
-              <Icon icon="ph:warning-circle" className="size-4" />
-              <AlertTitle>Order already fulfilled</AlertTitle>
-              <AlertDescription>
-                <p>
-                  This order has already been fulfilled. There should be no need
-                  to print this item unless specified otherwise
-                </p>
-              </AlertDescription>
-            </Alert>
-          )}
+          <Alert className="text-amber-700 bg-amber-50">
+            <Icon icon="ph:warning-circle" className="size-4" />
+            <AlertTitle>Order already fulfilled</AlertTitle>
+            <AlertDescription>
+              <p>
+                This order has already been fulfilled. There should be no need
+                to print this item unless specified otherwise
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {noSyncedPrints && (
           <Alert className="text-red-700 bg-red-50">
@@ -242,13 +242,21 @@ export const AssemblyItemController = ({
           </Alert>
         )}
 
-        {(item.expectedFulfillment === 'stock' || item.expectedFulfillment === 'black_label') && (
-          <Alert className={cn("text-blue-800 bg-blue-50", item.expectedFulfillment === 'black_label' && "text-indigo-800 bg-indigo-50")}>
+        {(item.expectedFulfillment === "stock" ||
+          item.expectedFulfillment === "black_label") && (
+          <Alert
+            className={cn(
+              "text-blue-800 bg-blue-50",
+              item.expectedFulfillment === "black_label" &&
+                "text-indigo-800 bg-indigo-50"
+            )}
+          >
             <Icon icon="ph:warning-circle" className="size-4" />
             <AlertTitle>Product is in stock</AlertTitle>
             <AlertDescription>
               <p>
-                This product is expected to be fulfilled by premade stock. Please ensure the premade stock is in stock.
+                This product is expected to be fulfilled by premade stock.
+                Please ensure the premade stock is in stock.
               </p>
             </AlertDescription>
           </Alert>
@@ -291,8 +299,8 @@ export const AssemblyItemController = ({
             firstId={
               order
                 ? order?.lineItems.nodes.find(
-                  (lineItem) => lineItem.id === item.id,
-                )?.image?.id || undefined
+                    (lineItem) => lineItem.id === item.id
+                  )?.image?.id || undefined
                 : undefined
             }
           />
@@ -308,7 +316,7 @@ export const AssemblyItemController = ({
             dbOrder={item.order}
             currentLineItemId={item.id}
           />
-          <BlankDetails blank={item.blank} blankVariant={item.blankVariant} />
+          {!item.product?.isBlackLabel && <BlankDetails blank={item.blank} blankVariant={item.blankVariant} />}
           <ProductDetails
             product={item.product}
             productVariant={item.productVariant}
@@ -351,6 +359,12 @@ const Prints = ({
   const [pendingPrintAction, setPendingPrintAction] = useState<
     "print" | "arxp" | null
   >(null);
+
+  // Dialog state for "mark as in stock" scenario
+  const [showStockDialog, setShowStockDialog] = useState(false);
+
+  // Dialog state for "mark as OOS" scenario
+  const [showOosDialog, setShowOosDialog] = useState(false);
 
   // Stock validation
   const blankStock = item.blankVariant?.quantity ?? 0;
@@ -406,7 +420,7 @@ const Prints = ({
       router.refresh();
       await sleep(1000);
       toast.success(
-        `Print marked as completed${data.data?.inventoryChanged ? " (inventory adjusted)" : ""}`,
+        `Print marked as completed${data.data?.inventoryChanged ? " (inventory adjusted)" : ""}`
       );
       setSelectedPrintId(null);
       setShowAlreadyPrintedDialog(false);
@@ -431,8 +445,9 @@ const Prints = ({
       router.refresh();
       await sleep(1000);
       toast.success(
-        `Item marked as in stock${data.data?.inventoryChanged ? " (inventory adjusted)" : ""}`,
+        `Item marked as in stock${data.data?.inventoryChanged ? " (inventory adjusted)" : ""}`
       );
+      setShowStockDialog(false);
     },
     onError: (error) => toast.error(error.message),
   });
@@ -453,9 +468,11 @@ const Prints = ({
       router.refresh();
       await sleep(1000);
       toast.success(
-        `Item marked as out of stock. Other items in order marked as skipped.${data.data?.inventoryChanged ? " (inventory adjusted)" : ""
-        }`,
+        `Item marked as out of stock. Other items in order marked as skipped.${
+          data.data?.inventoryChanged ? " (inventory adjusted)" : ""
+        }`
       );
+      setShowOosDialog(false);
     },
     onError: (error) => toast.error(error.message),
   });
@@ -476,7 +493,7 @@ const Prints = ({
       router.refresh();
       await sleep(1000);
       toast.success(
-        `Item reset to not printed${data.data?.inventoryChanged ? " (inventory restored)" : ""}`,
+        `Item reset to not printed${data.data?.inventoryChanged ? " (inventory restored)" : ""}`
       );
       setSelectedPrintId(null);
     },
@@ -525,10 +542,20 @@ const Prints = ({
 
   const handleMarkAsStocked = () => {
     if (!batchId) return;
-    markStockedMutation.mutate({ batchId });
+    setShowStockDialog(true);
+  };
+
+  const handleConfirmStocked = (reduceInventory: boolean) => {
+    if (!batchId) return;
+    markStockedMutation.mutate({ batchId, reduceInventory });
   };
 
   const handleMarkAsOos = () => {
+    if (!batchId) return;
+    setShowOosDialog(true);
+  };
+
+  const handleConfirmOos = () => {
     if (!batchId) return;
     markOosMutation.mutate({ batchId });
   };
@@ -577,10 +604,10 @@ const Prints = ({
     const details =
       item.product && item.productVariant
         ? getProductDetailsForARXP(
-          item.product,
-          item.productVariant,
-          printIndex,
-        )
+            item.product,
+            item.productVariant,
+            printIndex
+          )
         : null;
 
     return details;
@@ -616,72 +643,84 @@ const Prints = ({
           "printed",
         ] as (typeof lineItemCompletionStatus.enumValues)[number][]
       ).includes(item.completionStatus) && (
-          <div className={cn("gap-2", useGrid ? "grid grid-cols-2" : "flex")}>
-            {prints.map((print, i) => (
-              <Button
-                onClick={() => selectPrint(print.id)}
-                key={print.id}
-                variant="fill"
+        <div className={cn("gap-2", useGrid ? "grid grid-cols-2" : "flex")}>
+          {prints.map((print, i) => (
+            <Button
+              onClick={() => selectPrint(print.id)}
+              key={print.id}
+              variant="fill"
+              className={cn(
+                "flex box-border! rounded-2xl! flex-col items-center gap-1 p-4 h-auto flex-1 border-4 relative overflow-clip hover:bg-zinc-100!",
+                selectedPrintId === print.id && "border-zinc-400! border-4!",
+                getPrintStatus(print.id) === "printed" &&
+                  "border-emerald-400! hover:cursor-not-allowed! hover:bg-white!"
+              )}
+            >
+              <div className="font-medium capitalize text-sm">
+                Location: {print.location.replace(/_/g, " ")}
+              </div>
+              {print.heatTransferCode ? (
+                <div>
+                  Heat Transfer:{" "}
+                  <Badge variant="secondary" className="text-xs">
+                    {print.heatTransferCode}
+                    {print.isSmallPrint && " (Small)"}
+                  </Badge>
+                </div>
+              ) : (
+                <div>
+                  Print Type:{" "}
+                  <Badge variant="outline" className="text-xs text-blue-600">
+                    DTG
+                  </Badge>
+                </div>
+              )}
+              {/* Status bar at bottom */}
+              <div
                 className={cn(
-                  "flex box-border! rounded-2xl! flex-col items-center gap-1 p-4 h-auto flex-1 border-4 relative overflow-clip hover:bg-zinc-100!",
-                  selectedPrintId === print.id && "border-zinc-400! border-4!",
+                  "absolute bottom-0 left-0 right-0 flex h-8 flex-col items-center justify-center bg-gray-200",
                   getPrintStatus(print.id) === "printed" &&
-                  "border-emerald-400! hover:cursor-not-allowed! hover:bg-white!",
+                    "bg-emerald-100 text-emerald-800"
                 )}
               >
-                <div className="font-medium capitalize text-sm">
-                  Location: {print.location.replace(/_/g, " ")}
-                </div>
-                {print.heatTransferCode ? (
-                  <div>
-                    Heat Transfer:{" "}
-                    <Badge variant="secondary" className="text-xs">
-                      {print.heatTransferCode}
-                      {print.isSmallPrint && " (Small)"}
-                    </Badge>
-                  </div>
-                ) : (
-                  <div>
-                    Print Type:{" "}
-                    <Badge variant="outline" className="text-xs text-blue-600">
-                      DTG
-                    </Badge>
-                  </div>
-                )}
-                {/* Status bar at bottom */}
-                <div
-                  className={cn(
-                    "absolute bottom-0 left-0 right-0 flex h-8 flex-col items-center justify-center bg-gray-200",
-                    getPrintStatus(print.id) === "printed" &&
-                    "bg-emerald-100 text-emerald-800",
-                  )}
-                >
-                  <div>
-                    {print.id !== selectedPrintId
-                      ? getPrintStatus(print.id)
+                <div>
+                  {print.id !== selectedPrintId
+                    ? getPrintStatus(print.id)
                         .toLowerCase()
                         .replaceAll("_", " ")
-                      : "selected"}
-                  </div>
-                </div>
-                <div className="h-5" /> {/* Spacer for status bar */}
-              </Button>
-            ))}
-
-            {/* Empty slots */}
-            {Array.from({ length: emptySlots }).map((_, i) => (
-              <div
-                key={`empty-${i}`}
-                className="flex-1 h-auto p-4 border-zinc-200 border-2 bg-zinc-100 border-dashed rounded-lg flex items-center justify-center text-muted-foreground"
-              >
-                {/* <Icon icon="ph:placeholder" className="size-5 opacity-30" /> */}
-                <div className="text-sm">
-                  No {getOrdinalPrintName(printCount + i + 1)} print declared
+                    : "selected"}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+              <div className="h-5" /> {/* Spacer for status bar */}
+            </Button>
+          ))}
+
+          {/* Empty slots */}
+          {Array.from({ length: emptySlots }).map((_, i) => (
+            <div
+              key={`empty-${i}`}
+              className="flex-1 h-auto p-4 border-zinc-200 border-2 bg-zinc-100 border-dashed rounded-lg flex items-center justify-center text-muted-foreground"
+            >
+              {/* <Icon icon="ph:placeholder" className="size-5 opacity-30" /> */}
+              <div className="text-sm">
+                No {getOrdinalPrintName(printCount + i + 1)} print declared
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {item.product?.isBlackLabel && (
+        <Alert className="text-purple-700 bg-purple-50">
+          <Icon icon="ph:check-circle" className="size-4" />
+          <AlertTitle>Black Label Item</AlertTitle>
+          <AlertDescription>
+            <p>
+              This item is a black label item. It is not synced to a blank. You
+              cannot print this item.
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
       {item.completionStatus === "in_stock" && (
         <Alert className="text-indigo-700 bg-indigo-50">
           <Icon icon="ph:check-circle" className="size-4" />
@@ -781,6 +820,7 @@ const Prints = ({
             disabled={
               item.completionStatus === "not_printed" ||
               isAnyMutationPending ||
+              item.completionStatus === "skipped" ||
               !batchId
             }
             onClick={handleReset}
@@ -1007,6 +1047,82 @@ const Prints = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Mark as In Stock Dialog */}
+      <AlertDialog open={showStockDialog} onOpenChange={setShowStockDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark as In Stock</AlertDialogTitle>
+            <AlertDialogDescription>
+              This item will be fulfilled from pre-made stock. Would you like to
+              reduce the product inventory?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="my-4 p-3 bg-zinc-50 rounded-lg text-sm">
+            <div className="flex justify-between">
+              <span className="text-zinc-500">Current product stock:</span>
+              <span className="font-medium">{productStock}</span>
+            </div>
+          </div>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowStockDialog(false)}
+              disabled={markStockedMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleConfirmStocked(false)}
+              disabled={markStockedMutation.isPending}
+              loading={markStockedMutation.isPending}
+            >
+              Mark In Stock Only
+            </Button>
+            <Button
+              className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+              variant="outline"
+              onClick={() => handleConfirmStocked(true)}
+              disabled={markStockedMutation.isPending || !hasProductStock}
+              loading={markStockedMutation.isPending}
+            >
+              Mark & Reduce Inventory
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Mark as OOS Confirmation Dialog */}
+      <AlertDialog open={showOosDialog} onOpenChange={setShowOosDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark as Out of Stock</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will mark this item as out of stock. All other items in this
+              order will be automatically skipped.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowOosDialog(false)}
+              disabled={markOosMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="border-red-200 text-red-700 hover:bg-red-50"
+              variant="outline"
+              onClick={handleConfirmOos}
+              disabled={markOosMutation.isPending}
+              loading={markOosMutation.isPending}
+            >
+              Mark as OOS
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
@@ -1052,7 +1168,7 @@ export const OrderDetails = ({
                   <div
                     className={cn(
                       "size-2 rounded-full bg-zinc-200",
-                      currentLineItemId === lineItem.id && "bg-blue-400",
+                      currentLineItemId === lineItem.id && "bg-blue-400"
                     )}
                   ></div>
                   <div className="font-medium group-hover:underline underline-offset-2">

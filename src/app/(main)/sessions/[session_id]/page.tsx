@@ -3,13 +3,18 @@ import { SessionController } from "@/components/controllers/session-controller";
 import { BackButton } from "@/components/nav/back-button";
 import { SessionDocumentsTable } from "@/components/table/session-documents-table";
 import { SessionOrdersTable } from "@/components/table/session-orders-table";
+import { Badge } from "@/components/ui/badge";
 import { db } from "@/lib/clients/db";
 import { authorizePageUser } from "@/lib/core/auth/authorize-user";
 import { getUserOrSignout } from "@/lib/core/auth/get-user-or-signout";
 import { Icon } from "@iconify/react";
 import dayjs from "dayjs";
 
-export default async function SessionPage({ params }: { params: Promise<{ session_id: string }> }) {
+export default async function SessionPage({
+  params,
+}: {
+  params: Promise<{ session_id: string }>;
+}) {
   const user = await authorizePageUser("sessions");
   const { session_id } = await params;
 
@@ -52,6 +57,9 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
         </div>
       </div>
       <div className="flex items-center gap-2 mb-4">
+        {session.startedAt && (
+          <Badge variant="outline">Verified & Started</Badge>
+        )}
         <ActiveBadge status={session?.active} />
         <div className="flex items-center gap-2 text-xs">
           <Icon icon="ph:calendar-blank" />
@@ -65,7 +73,9 @@ export default async function SessionPage({ params }: { params: Promise<{ sessio
       <SessionController
         orders={
           session?.orders.map((order) => {
-            const hasActiveHold = order.orderHolds.some((hold) => !hold.isResolved);
+            const hasActiveHold = order.orderHolds.some(
+              (hold) => !hold.isResolved
+            );
             const isInLatestMergedPackingSlip = session?.batchDocuments.some(
               (document) =>
                 document.documentType === "merged_label_slips" &&

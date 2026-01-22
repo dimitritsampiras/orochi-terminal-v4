@@ -140,22 +140,27 @@ export async function startSession(lineItems: SessionLineItem[], session: typeof
   // Decrement overstock inventory based on actual allocation
   for (const item of assemblyLine) {
     if (item.expectedFulfillment === "stock" && item.productVariant) {
-      await Promise.all([
-        db.update(lineItemsTable).set({
-          completionStatus: "in_stock",
-        }).where(eq(lineItemsTable.id, item.id)),
-        adjustInventory(
-          { type: "product", variantId: item.productVariant.id },
-          -item.quantity,
-          "assembly_usage",
-          {
-            batchId: session.id,
-            lineItemId: item.id,
-            logMessage: `Session ${session.id} started: decremented ${item.quantity} overstock for ${item.product?.title ?? "Unknown Product"
-              }`,
-          }
-        )
-      ]);
+
+      await db.update(lineItemsTable).set({
+        completionStatus: "in_stock",
+      }).where(eq(lineItemsTable.id, item.id));
+
+      await adjustInventory(
+        { type: "product", variantId: item.productVariant.id },
+        -item.quantity,
+        "assembly_usage",
+        {
+          batchId: session.id,
+          lineItemId: item.id,
+          logMessage: `Session ${session.id} started: decremented ${item.quantity} overstock for ${item.product?.title ?? "Unknown Product"
+            }`,
+        }
+      );
+    }
+    if (item.expectedFulfillment === "black_label" && item.productVariant) {
+      db.update(lineItemsTable).set({
+        completionStatus: "ignore",
+      }).where(eq(lineItemsTable.id, item.id));
     }
   }
 

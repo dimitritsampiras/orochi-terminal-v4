@@ -29,6 +29,8 @@ export async function POST(
     return NextResponse.json({ data: null, error: parsed.error.message }, { status: 400 });
   }
 
+  const { batchId, reduceInventory } = parsed.data;
+
   try {
     // 1. Get line item with related data
     const lineItem = await db.query.lineItems.findFirst({
@@ -50,7 +52,25 @@ export async function POST(
       return NextResponse.json({ data: null, error: "No product variant linked to this line item" }, { status: 400 });
     }
 
-    // 5. Update line item status
+    let inventoryChanged = false;
+
+    // 3. Optionally reduce product variant inventory
+    if (reduceInventory) {
+      await adjustInventory(
+        { type: "product", variantId: productVariantId },
+        -1,
+        "assembly_usage",
+        {
+          profileId: user.id,
+          batchId,
+          lineItemId,
+          logMessage: `[assembly] Reduced product inventory for ${lineItem.name} (fulfilled from stock)`,
+        }
+      );
+      inventoryChanged = true;
+    }
+
+    // 4. Update line item status
     await db
       .update(lineItems)
       .set({
@@ -58,10 +78,11 @@ export async function POST(
       })
       .where(eq(lineItems.id, lineItemId));
 
-    // 6. Log the action
-    await logger.info(`[assembly] ${lineItem.name} fulfilled from stock`, {
+    // 5. Log the action
+    await logger.info(`[assembly] ${lineItem.name} fulfilled from stock${reduceInventory ? " (inventory reduced)" : ""}`, {
       orderId: lineItem.orderId,
       profileId: user.id,
+      lineItemId,
       category: "ASSEMBLY",
     });
 
@@ -69,6 +90,7 @@ export async function POST(
       data: {
         status: "in_stock",
         lineItemId,
+        inventoryChanged,
       },
       error: null,
     });
