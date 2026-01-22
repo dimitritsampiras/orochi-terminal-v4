@@ -799,6 +799,7 @@ const Prints = ({
               item.completionStatus === "in_stock" ||
               item.completionStatus === "oos_blank" ||
               isAnyMutationPending ||
+              item.completionStatus === "skipped" ||
               !batchId
             }
             onClick={handleMarkAsOos}
@@ -819,6 +820,7 @@ const Prints = ({
                   disabled={
                     item.completionStatus === "in_stock" ||
                     item.completionStatus === "oos_blank" ||
+                    item.completionStatus === "skipped" ||
                     isAnyMutationPending ||
                     !batchId
                   }
