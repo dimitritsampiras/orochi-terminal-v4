@@ -10,7 +10,7 @@ import {
   TableRow,
 } from "../ui/table";
 import { Badge } from "../ui/badge";
-import { cn, parseGid } from "@/lib/utils";
+import { cn, parseGid, sleep } from "@/lib/utils";
 import {
   Dialog,
   DialogClose,
@@ -114,10 +114,11 @@ export const SettleSessionController = ({
         throw new Error(data.error ?? "Failed to adjust inventory");
       return data;
     },
-    onSuccess: () => {
-      toast.success("Inventory adjusted");
+    onSuccess: async () => {
       setInventoryDialogOpen(false);
       router.refresh();
+      await sleep(1000);
+      toast.success("Inventory adjusted");
     },
     onError: (error) => toast.error(error.message),
   });
@@ -286,26 +287,22 @@ export const SettleSessionController = ({
                     )}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1">
-                      {hasDiscrepancy ? (
-                        <div className="flex items-center gap-2">
-                          <SetLineItemStatusForm
-                            className="h-7 w-7"
-                            lineItemId={item.lineItemId}
-                            orderId={item.orderId}
-                          />
-                          {item.hasInventoryMismatch &&
-                            item.inventoryTarget && (
-                              <Button
-                                variant="outline"
-                                size="xs"
-                                onClick={() => handleOpenInventoryDialog(item)}
-                              >
-                                Adjust Inventory
-                              </Button>
-                            )}
-                        </div>
-                      ) : (
+                    <div className="flex items-center gap-2">
+                      <SetLineItemStatusForm
+                        className="h-7 w-7"
+                        lineItemId={item.lineItemId}
+                        orderId={item.orderId}
+                      />
+                      {item.inventoryTarget && (
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          onClick={() => handleOpenInventoryDialog(item)}
+                        >
+                          Adjust Inventory
+                        </Button>
+                      )}
+                      {!hasDiscrepancy && (
                         <Icon
                           icon="ph:check-circle"
                           className="size-4 text-emerald-500"
@@ -370,20 +367,66 @@ export const SettleSessionController = ({
 
       {/* Inventory Dialog */}
       <Dialog open={inventoryDialogOpen} onOpenChange={setInventoryDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Adjust Inventory</DialogTitle>
             <DialogDescription>
               {selectedItem?.inventoryTarget?.displayName}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="text-sm text-muted-foreground">
-              Expected: {selectedItem?.inventoryTarget?.expectedChange} |
-              Actual: {selectedItem?.actualInventoryChange}
+          <div className="space-y-4 py-2">
+            {/* Current state summary */}
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="bg-zinc-50 rounded-md p-2">
+                <div className="text-xs text-muted-foreground">Current</div>
+                <div className="text-lg font-medium">
+                  {selectedItem?.currentInventory ?? 0}
+                </div>
+              </div>
+              <div className="bg-zinc-50 rounded-md p-2">
+                <div className="text-xs text-muted-foreground">
+                  Expected Change
+                </div>
+                <div className="text-lg font-medium">
+                  {selectedItem?.inventoryTarget?.expectedChange ?? 0}
+                </div>
+              </div>
+              <div className="bg-zinc-50 rounded-md p-2">
+                <div className="text-xs text-muted-foreground">
+                  Actual Change
+                </div>
+                <div
+                  className={cn(
+                    "text-lg font-medium",
+                    selectedItem?.hasInventoryMismatch && "text-red-600"
+                  )}
+                >
+                  {selectedItem?.actualInventoryChange ?? 0}
+                </div>
+              </div>
             </div>
+
+            {/* Recent transactions */}
+            {selectedItem && selectedItem.transactions.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">
+                  Recent Transactions ({selectedItem.transactions.length})
+                </Label>
+                <div className="max-h-32 overflow-y-auto space-y-1.5">
+                  {selectedItem.transactions.slice(0, 5).map((tx) => (
+                    <InventoryTransactionItem
+                      key={tx.id}
+                      transaction={tx}
+                      log={tx.log}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Adjustment input */}
             <div className="space-y-2">
-              <Label>Adjustment</Label>
+              <Label>Adjustment Amount</Label>
               <Input
                 type="number"
                 value={inventoryChange}
@@ -391,12 +434,38 @@ export const SettleSessionController = ({
                   setInventoryChange(parseInt(e.target.value) || 0)
                 }
               />
+              <p className="text-xs text-muted-foreground">
+                This will create a new transaction that changes inventory by{" "}
+                <span
+                  className={cn(
+                    "font-medium",
+                    inventoryChange > 0 && "text-emerald-600",
+                    inventoryChange < 0 && "text-red-600"
+                  )}
+                >
+                  {inventoryChange > 0 ? "+" : ""}
+                  {inventoryChange}
+                </span>
+              </p>
             </div>
+
+            {/* Preview */}
+            <div className="flex items-center justify-center gap-2 p-3 bg-zinc-50 rounded-md">
+              <span className="text-sm text-muted-foreground">
+                {selectedItem?.currentInventory ?? 0}
+              </span>
+              <Icon icon="ph:arrow-right" className="size-4 text-zinc-400" />
+              <span className="text-sm font-medium">
+                {(selectedItem?.currentInventory ?? 0) + inventoryChange}
+              </span>
+            </div>
+
             <div className="space-y-2">
-              <Label>Notes</Label>
+              <Label>Notes (optional)</Label>
               <Textarea
                 value={inventoryNotes}
                 onChange={(e) => setInventoryNotes(e.target.value)}
+                placeholder="Reason for adjustment..."
               />
             </div>
           </div>
@@ -411,7 +480,7 @@ export const SettleSessionController = ({
               onClick={handleSubmitInventoryAdjustment}
               loading={adjustInventoryMutation.isPending}
             >
-              Adjust
+              Create Transaction
             </Button>
           </DialogFooter>
         </DialogContent>

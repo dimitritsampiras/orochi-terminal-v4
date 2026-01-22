@@ -138,31 +138,43 @@ export async function startSession(lineItems: SessionLineItem[], session: typeof
     .where(eq(batches.id, session.id));
 
   // Decrement overstock inventory based on actual allocation
+  const stockItems = assemblyLine.filter(item => item.expectedFulfillment === "stock" && item.productVariant);
+  console.log(`[startSession] Processing ${stockItems.length} stock items for inventory adjustment`);
+
   for (const item of assemblyLine) {
     if (item.expectedFulfillment === "stock" && item.productVariant) {
+      console.log(`[startSession] Processing stock item: ${item.id}, product: ${item.product?.title}, qty: ${item.quantity}`);
 
-      await db.update(lineItemsTable).set({
-        completionStatus: "in_stock",
-      }).where(eq(lineItemsTable.id, item.id));
+      try {
+        await db.update(lineItemsTable).set({
+          completionStatus: "in_stock",
+        }).where(eq(lineItemsTable.id, item.id));
+        console.log(`[startSession] Updated lineItem ${item.id} to in_stock`);
 
-      await adjustInventory(
-        { type: "product", variantId: item.productVariant.id },
-        -item.quantity,
-        "assembly_usage",
-        {
-          batchId: session.id,
-          lineItemId: item.id,
-          logMessage: `Session ${session.id} started: decremented ${item.quantity} overstock for ${item.product?.title ?? "Unknown Product"
-            }`,
-        }
-      );
+        await adjustInventory(
+          { type: "product", variantId: item.productVariant.id },
+          -item.quantity,
+          "assembly_usage",
+          {
+            batchId: session.id,
+            lineItemId: item.id,
+            logMessage: `Session ${session.id} started: decremented ${item.quantity} overstock for ${item.product?.title ?? "Unknown Product"
+              }`,
+          }
+        );
+        console.log(`[startSession] adjustInventory completed for ${item.id}`);
+      } catch (error) {
+        console.error(`[startSession] ERROR processing stock item ${item.id}:`, error);
+        throw error; // Re-throw to fail the session start
+      }
     }
     if (item.expectedFulfillment === "black_label" && item.productVariant) {
-      db.update(lineItemsTable).set({
+      await db.update(lineItemsTable).set({
         completionStatus: "ignore",
       }).where(eq(lineItemsTable.id, item.id));
     }
   }
+  console.log(`[startSession] Inventory adjustment loop completed`);
 
 
   return {

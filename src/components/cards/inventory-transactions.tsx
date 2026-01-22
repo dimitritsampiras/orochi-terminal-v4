@@ -55,7 +55,7 @@ export const InventoryTransactionItem = ({
   return (
     <div
       className={cn(
-        "relative flex justify-between items-start gap-3 rounded-lg border border-zinc-100 p-3 bg-zinc-50"
+        "relative flex flex-col justify-between items-start gap-3 rounded-lg border border-zinc-100 p-3 bg-zinc-50"
       )}
     >
       <div>
@@ -107,7 +107,8 @@ export const InventoryTransactionItem = ({
         ) : null}
       </div>
       {log && (
-        <div className="text-xs bg-zinc-50 text-zinc-700 px-2 py-1 rounded-md">
+        <div className="text-xs bg-zinc-100 text-zinc-700 px-2 py-1 rounded-md flex gap-2 w-full">
+          <div className="text-zinc-500 font-medium text-xs">LOG:</div>
           {log.message}
         </div>
       )}
