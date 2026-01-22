@@ -385,6 +385,7 @@ export const orders = pgTable.withRLS(
     displayIsCancelled: boolean("display_is_cancelled")
       .default(false)
       .notNull(),
+    displayPriorityReason: text("display_priority_reason"),
   },
   (table) => [
     index("orders_name_idx").using("btree", table.name.asc().nullsLast()),

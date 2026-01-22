@@ -119,6 +119,10 @@ async function processOrder(order: SelectedOrder, orderId: string, sessionId: nu
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
+      // Already purchased by another tab - treat as success
+      if (error.error === "Shipment already purchased") {
+        return;
+      }
       throw new Error(error.error || "Failed to purchase shipment");
     }
   } else {
@@ -133,6 +137,10 @@ async function processOrder(order: SelectedOrder, orderId: string, sessionId: nu
     });
 
     if (!response.ok) {
+      // 409 = already has active shipment (another tab purchased it) - treat as success
+      if (response.status === 409) {
+        return;
+      }
       const error = await response.json().catch(() => ({}));
       throw new Error(error.error || "Failed to create shipment");
     }

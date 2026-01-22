@@ -21,6 +21,7 @@ export interface Task {
   createdAt: number;
   completedAt?: number;
   sessionId?: number; // For context
+  triggerRunId?: string; // For cancelling trigger.dev runs
 }
 
 interface TaskQueueStore {

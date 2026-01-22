@@ -36,7 +36,7 @@ import { Icon } from "@iconify/react";
 import { Button, buttonVariants } from "../ui/button";
 import { useRouter } from "next/navigation";
 import type { DataResponse } from "@/lib/types/misc";
-import { useBulkShipments } from "@/lib/hooks/use-bulk-shipments";
+import { useBulkShipmentsTrigger } from "@/lib/hooks/use-bulk-shipments-trigger";
 import { revalidateSessionPages } from "@/lib/actions/revalidate";
 import {
   BulkShipmentDialog,
@@ -167,7 +167,7 @@ export function SessionController({
     },
   });
 
-  const { start: startBulkShipments } = useBulkShipments({
+  const { start: startBulkShipments } = useBulkShipmentsTrigger({
     sessionId: session.id,
     onComplete: async () => {
       await revalidateSessionPages(session.id);

@@ -3,7 +3,7 @@
 import { SettlementItem } from "@/lib/core/session/get-settlement-data";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Badge } from "../ui/badge";
-import { cn } from "@/lib/utils";
+import { cn, parseGid } from "@/lib/utils";
 import {
   Dialog,
   DialogClose,
@@ -31,6 +31,7 @@ import { Textarea } from "../ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { lineItemCompletionStatus } from "@drizzle/schema";
 import { FulfillmentType } from "@/lib/core/session/create-picking-requirements";
+import Link from "next/link";
 
 export const SettleSessionController = ({
   initialData,
@@ -164,7 +165,7 @@ export const SettleSessionController = ({
                 <TableRow key={item.lineItemId} className={cn(isAcknowledged && "opacity-50")}>
                   <TableCell className="text-muted-foreground">{item.position + 1}</TableCell>
                   <TableCell>
-                    <div className="font-medium text-wrap">{item.lineItemName}</div>
+                    <Link href={`/assembly/${parseGid(item.lineItemId)}`} className="font-medium text-wrap hover:underline">{item.lineItemName}</Link>
                   </TableCell>
                   <TableCell>
                     <div className="text-sm text-muted-foreground">{item.orderName}</div>

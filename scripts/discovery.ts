@@ -1,5 +1,7 @@
 import "dotenv/config";
 import { webhooks } from "./setup-webhooks";
+import z from "zod";
+import { helloWorldTask } from "@/trigger/example";
 
 // import { getLineItemsByBatchId } from "@/lib/core/session/get-session-line-items";
 // import { generatePremadePickingList } from "@/lib/core/pdf/generate-premade-picking-list";
@@ -19,61 +21,25 @@ import { webhooks } from "./setup-webhooks";
 
 async function main() {
 
-  await webhooks();
-  // const assemblyLine = await getAssemblyLine(450);
+  // await webhooks();
 
-  // if (assemblyLine.error || !assemblyLine.data) {
-  //   console.error(assemblyLine.error);
-  //   return;
-  // }
+  // const orderWebhookSchema = z.union([
+  //   z.object({
+  //     order_edit: z.object({
+  //       order_id: z.number(),
+  //     }),
+  //   }),
+  //   z.object({
+  //     admin_graphql_api_id: z.string(),
+  //   }),
+  // ]);
 
+  // console.log(orderWebhookSchema.safeParse({
+  //   admin_graphql_api_id: "gid://shopify/Order/1234567890",
+  // }));
+  // ;
 
-  // const inventoryTransactionIdsToRevert = [104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114]
-  // const transactionsToRevert = await db.query.inventoryTransactions.findMany({
-  //   where: {
-  //     id: { in: inventoryTransactionIdsToRevert },
-  //   },
-  // });
-
-  // for (const transaction of transactionsToRevert) {
-  //   if (transaction.productVariantId) {
-  //     const productVariant = await db.query.productVariants.findFirst({
-  //       where: {
-  //         id: transaction.productVariantId,
-  //       },
-  //     })
-  //     if (productVariant) {
-  //       const changeAmount = transaction.changeAmount < 0 ? Math.abs(transaction.changeAmount) : -transaction.changeAmount;
-  //       console.log('reverting inventory for item', productVariant.title, changeAmount, transaction.id);
-  //       await adjustInventory(
-  //         { type: "product", variantId: productVariant.id },
-  //         transaction.changeAmount,
-  //         transaction.reason,
-  //         {
-  //           batchId: 450,
-  //         }
-  //       );
-  //       await db.delete(inventoryTransactions).where(eq(inventoryTransactions.id, transaction.id));
-  //     }
-  //   }
-  // }
-
-  // for (const item of assemblyLine.data.lineItems) {
-  //   if (item.expectedFulfillment === 'stock' && item.productVariant) {
-  //     console.log('decrementing inventory for item', item.name);
-
-  //     await adjustInventory(
-  //       { type: "product", variantId: item.productVariant.id },
-  //       -item.quantity,
-  //       "assembly_usage",
-  //       {
-  //         batchId: 450,
-  //         lineItemId: item.id,
-  //       }
-  //     );
-  //   }
-  // }
-
+  await helloWorldTask.trigger({ message: "Hello, world!" });
 
 }
 

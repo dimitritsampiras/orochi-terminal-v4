@@ -1,15 +1,45 @@
 // src/components/widgets/task-progress-widget.tsx
 "use client";
 
-import { useTaskQueue } from "@/lib/stores/task-queue";
+import { useTaskQueue, type Task } from "@/lib/stores/task-queue";
 import { Icon } from "@iconify/react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { toast } from "sonner";
 
 export function TaskProgressWidget() {
-  const { tasks, clearCompleted, removeTask } = useTaskQueue();
+  const { tasks, clearCompleted, removeTask, updateTask } = useTaskQueue();
+  const [cancellingIds, setCancellingIds] = useState<Set<string>>(new Set());
+
+  const handleCancelTask = async (task: Task) => {
+    if (!task.triggerRunId) return;
+
+    setCancellingIds((prev) => new Set(prev).add(task.id));
+
+    try {
+      const res = await fetch("/api/trigger/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ runId: task.triggerRunId }),
+      });
+
+      if (res.ok) {
+        updateTask(task.id, { status: "cancelled" });
+        toast.info("Task cancelled");
+      }
+    } catch (err) {
+      console.error("Failed to cancel task:", err);
+    } finally {
+      setCancellingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(task.id);
+        return next;
+      });
+    }
+  };
 
   const activeTasks = tasks.filter((t) => t.status === "running" || t.status === "pending");
   const hasActive = activeTasks.length > 0;
@@ -59,36 +89,51 @@ export function TaskProgressWidget() {
           </div>
 
           <div className="space-y-2 max-h-64 overflow-y-auto">
-            {tasks.map((task) => (
-              <div key={task.id} className="p-2 rounded-md bg-muted/50 space-y-1">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-medium truncate flex-1">{task.label}</span>
-                  <div className="flex items-center gap-1">
-                    <TaskStatusBadge status={task.status} />
-                    <button
-                      onClick={() => removeTask(task.id)}
-                      className="p-0.5 rounded hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground transition-colors"
-                      title="Remove task"
-                    >
-                      <Icon icon="ph:x" className="size-3" />
-                    </button>
+            {tasks.map((task) => {
+              const isRunning = task.status === "running" || task.status === "pending";
+              const canCancel = isRunning && task.triggerRunId;
+              const isCancelling = cancellingIds.has(task.id);
+
+              return (
+                <div key={task.id} className="p-2 rounded-md bg-muted/50 space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium truncate flex-1">{task.label}</span>
+                    <div className="flex items-center gap-1">
+                      <TaskStatusBadge status={task.status} />
+                      {canCancel ? (
+                        <button
+                          onClick={() => handleCancelTask(task)}
+                          disabled={isCancelling}
+                          className="p-0.5 rounded hover:bg-red-500/20 text-muted-foreground hover:text-red-500 transition-colors disabled:opacity-50"
+                          title="Cancel task"
+                        >
+                          <Icon icon={isCancelling ? "ph:spinner" : "ph:stop-circle"} className={cn("size-3", isCancelling && "animate-spin")} />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => removeTask(task.id)}
+                          className="p-0.5 rounded hover:bg-muted-foreground/20 text-muted-foreground hover:text-foreground transition-colors"
+                          title="Remove task"
+                        >
+                          <Icon icon="ph:x" className="size-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {isRunning && <Progress value={task.progress} className="h-1" />}
+
+                  <div className="text-[10px] text-muted-foreground">
+                    {task.items.filter((i) => i.status === "completed").length}/{task.items.length} completed
+                    {task.items.filter((i) => i.status === "failed").length > 0 && (
+                      <span className="text-red-500 ml-1">
+                        ({task.items.filter((i) => i.status === "failed").length} failed)
+                      </span>
+                    )}
                   </div>
                 </div>
-
-                {(task.status === "running" || task.status === "pending") && (
-                  <Progress value={task.progress} className="h-1" />
-                )}
-
-                <div className="text-[10px] text-muted-foreground">
-                  {task.items.filter((i) => i.status === "completed").length}/{task.items.length} completed
-                  {task.items.filter((i) => i.status === "failed").length > 0 && (
-                    <span className="text-red-500 ml-1">
-                      ({task.items.filter((i) => i.status === "failed").length} failed)
-                    </span>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </PopoverContent>

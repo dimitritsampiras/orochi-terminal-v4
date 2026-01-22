@@ -44,6 +44,21 @@ export const POST = async (
 
   const { customShipment, autoPurchase, sessionId } = parsedData;
 
+  // For autoPurchase, check if order already has an active (purchased, non-refunded) shipment
+  // This prevents duplicate purchases when multiple tabs process the same order
+  if (autoPurchase) {
+    const existingActiveShipment = await db.query.shipments.findFirst({
+      where: { orderId, isPurchased: true, isRefunded: false },
+    });
+
+    if (existingActiveShipment) {
+      return NextResponse.json(
+        { data: null, error: "Order already has an active purchased shipment" },
+        { status: 409 }
+      );
+    }
+  }
+
   // Custom shipment: rate + parcel provided directly, just store it
   if (customShipment) {
     logger.info(`[create shipment] ${user.username} creating custom shipment with ${customShipment.rate.carrierName}`, {

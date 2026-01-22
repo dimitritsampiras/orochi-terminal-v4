@@ -13,6 +13,7 @@ const envSchema = z.object({
   SHOPIFY_ACCESS_TOKEN: z.string(),
   SHOPIFY_API_VERSION: z.string(),
   SUPPRESS_LOGGING: z.coerce.boolean().default(false),
+  TRIGGER_SECRET_KEY: z.string(),
 });
 
 export const env = envSchema.parse(process.env);
