@@ -1,8 +1,21 @@
 "use client";
 
 import { blankVariants, garmentSize } from "@drizzle/schema";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -40,12 +53,28 @@ import { useMemo, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useFetcher } from "@/lib/hooks/use-fetcher";
 import { useRouter } from "next/navigation";
-import { CreateBlankVariantSchema } from "@/lib/schemas/product-schema";
+import {
+  CreateBlankVariantSchema,
+  GARMENT_SIZES,
+} from "@/lib/schemas/product-schema";
+import { cn, sleep } from "@/lib/utils";
+import { toast } from "sonner";
 
 type BlankVariant = typeof blankVariants.$inferSelect;
 type GarmentSize = (typeof garmentSize.enumValues)[number];
 
-const SIZE_ORDER: GarmentSize[] = ["xs", "sm", "md", "lg", "xl", "2xl", "3xl", "4xl", "5xl", "os"];
+const SIZE_ORDER: GarmentSize[] = [
+  "xs",
+  "sm",
+  "md",
+  "lg",
+  "xl",
+  "2xl",
+  "3xl",
+  "4xl",
+  "5xl",
+  "os",
+];
 
 /**
  * Detects gaps in size ranges for each color.
@@ -94,7 +123,13 @@ function detectSizeGaps(variants: BlankVariant[]): Map<string, GarmentSize[]> {
   return gaps;
 }
 
-export function BlankVariantsTable({ blankId, variants }: { blankId: string; variants: BlankVariant[] }) {
+export function BlankVariantsTable({
+  blankId,
+  variants,
+}: {
+  blankId: string;
+  variants: BlankVariant[];
+}) {
   const router = useRouter();
 
   // Sort variants by color, then by size order
@@ -131,20 +166,44 @@ export function BlankVariantsTable({ blankId, variants }: { blankId: string; var
         <div>
           <CardTitle>Variants</CardTitle>
           <CardDescription>
-            {variants.length} variants across {colorStats.size} colors • {totalQuantity} total in stock
+            {variants.length} variants across {colorStats.size} colors •{" "}
+            {totalQuantity} total in stock
           </CardDescription>
         </div>
-        <AddVariantDialog blankId={blankId} existingVariants={variants} onSuccess={() => router.refresh()} />
+        <div className="flex gap-2">
+          <AddVariantDialog
+            blankId={blankId}
+            existingVariants={variants}
+            onSuccess={async () => {
+              router.refresh();
+              await sleep(1000);
+              toast.success("Variant added");
+            }}
+          />
+          <AddColorDialog
+            blankId={blankId}
+            existingVariants={variants}
+            onSuccess={async () => {
+              router.refresh();
+              await sleep(1000);
+              toast.success("Color added");
+            }}
+          />
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {hasGaps && (
-          <Alert variant="default" className="bg-amber-50 border-amber-200 text-amber-800">
+          <Alert
+            variant="default"
+            className="bg-amber-50 border-amber-200 text-amber-800"
+          >
             <Icon icon="ph:warning" className="h-4 w-4 text-amber-600" />
             <AlertTitle>Missing Variants Detected</AlertTitle>
             <AlertDescription>
               {Array.from(sizeGaps.entries()).map(([color, sizes]) => (
                 <div key={color}>
-                  <span className="font-medium">{color}:</span> missing {sizes.map((s) => s.toUpperCase()).join(", ")}
+                  <span className="font-medium">{color}:</span> missing{" "}
+                  {sizes.map((s) => s.toUpperCase()).join(", ")}
                 </div>
               ))}
             </AlertDescription>
@@ -163,11 +222,19 @@ export function BlankVariantsTable({ blankId, variants }: { blankId: string; var
           </TableHeader>
           <TableBody>
             {sortedVariants.map((variant) => (
-              <VariantRow key={variant.id} blankId={blankId} variant={variant} onDelete={() => router.refresh()} />
+              <VariantRow
+                key={variant.id}
+                blankId={blankId}
+                variant={variant}
+                onDelete={() => router.refresh()}
+              />
             ))}
             {variants.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableCell
+                  colSpan={6}
+                  className="text-center text-muted-foreground py-8"
+                >
                   No variants found. Add colors and sizes to get started.
                 </TableCell>
               </TableRow>
@@ -183,7 +250,15 @@ export function BlankVariantsTable({ blankId, variants }: { blankId: string; var
 // VariantRow Component
 // ============================================================================
 
-function VariantRow({ blankId, variant, onDelete }: { blankId: string; variant: BlankVariant; onDelete: () => void }) {
+function VariantRow({
+  blankId,
+  variant,
+  onDelete,
+}: {
+  blankId: string;
+  variant: BlankVariant;
+  onDelete: () => void;
+}) {
   return (
     <TableRow>
       <TableCell>
@@ -222,7 +297,11 @@ function VariantRow({ blankId, variant, onDelete }: { blankId: string; variant: 
         />
       </TableCell>
       <TableCell className="text-right">
-        <DeleteVariantDialog blankId={blankId} variant={variant} onDelete={onDelete} />
+        <DeleteVariantDialog
+          blankId={blankId}
+          variant={variant}
+          onDelete={onDelete}
+        />
       </TableCell>
     </TableRow>
   );
@@ -256,7 +335,11 @@ function DeleteVariantDialog({
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
-        <Button variant="outline" size="icon" className="h-8 w-8 text-red-400 hover:text-red-600">
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 text-red-400 hover:text-red-600"
+        >
           <Icon icon="ph:trash" />
         </Button>
       </AlertDialogTrigger>
@@ -331,7 +414,9 @@ function AddVariantDialog({
   const takenSizesForColor = useMemo(() => {
     const normalizedColor = color.toLowerCase().trim();
     return new Set(
-      existingVariants.filter((v) => v.color.toLowerCase() === normalizedColor).map((v) => v.size)
+      existingVariants
+        .filter((v) => v.color.toLowerCase() === normalizedColor)
+        .map((v) => v.size)
     );
   }, [existingVariants, color]);
 
@@ -367,7 +452,9 @@ function AddVariantDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Add New Variant</DialogTitle>
-          <DialogDescription>Add a new color and size variant to this blank.</DialogDescription>
+          <DialogDescription>
+            Add a new color and size variant to this blank.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
@@ -401,7 +488,10 @@ function AddVariantDialog({
           {/* Size Select */}
           <div className="grid gap-2">
             <Label htmlFor="size">Size</Label>
-            <Select value={size} onValueChange={(v) => setSize(v as GarmentSize)}>
+            <Select
+              value={size}
+              onValueChange={(v) => setSize(v as GarmentSize)}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select size" />
               </SelectTrigger>
@@ -417,7 +507,9 @@ function AddVariantDialog({
               </SelectContent>
             </Select>
             {isDuplicate && (
-              <p className="text-sm text-red-500">This color/size combination already exists.</p>
+              <p className="text-sm text-red-500">
+                This color/size combination already exists.
+              </p>
             )}
           </div>
 
@@ -451,8 +543,247 @@ function AddVariantDialog({
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!isValid} loading={isLoading}>
+          <Button
+            onClick={handleSubmit}
+            disabled={!isValid}
+            loading={isLoading}
+          >
             Add Variant
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ============================================================================
+// AddColorDialog Component
+// ============================================================================
+
+function AddColorDialog({
+  blankId,
+  existingVariants,
+  onSuccess,
+}: {
+  blankId: string;
+  existingVariants: BlankVariant[];
+  onSuccess: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [color, setColor] = useState("");
+  const [weight, setWeight] = useState("16");
+  const [volume, setVolume] = useState("500");
+  const [selectedSizes, setSelectedSizes] = useState<GarmentSize[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Determine if existing variants use "os" or standard sizes
+  const existingSizes = useMemo(() => {
+    return Array.from(new Set(existingVariants.map((v) => v.size)));
+  }, [existingVariants]);
+
+  const isOsOnly =
+    existingSizes.length > 0 && existingSizes.every((s) => s === "os");
+  const isStandardOnly =
+    existingSizes.length > 0 && existingSizes.every((s) => s !== "os");
+
+  // Get default weight and volume from existing variants
+  const defaultWeight = useMemo(() => {
+    if (existingVariants.length === 0) return "16";
+    return String(existingVariants[0].weight);
+  }, [existingVariants]);
+
+  const defaultVolume = useMemo(() => {
+    if (existingVariants.length === 0) return "500";
+    return String(existingVariants[0].volume);
+  }, [existingVariants]);
+
+  // Get existing colors to prevent duplicates
+  const existingColors = useMemo(() => {
+    return new Set(existingVariants.map((v) => v.color.toLowerCase()));
+  }, [existingVariants]);
+
+  const resetForm = () => {
+    setColor("");
+    setWeight(defaultWeight);
+    setVolume(defaultVolume);
+    // Default to existing sizes
+    setSelectedSizes(
+      existingSizes.length > 0 ? existingSizes : ["sm", "md", "lg", "xl", "2xl"]
+    );
+  };
+
+  // Initialize form when dialog opens
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (isOpen) {
+      resetForm();
+    }
+  };
+
+  const handleSizeClick = (size: GarmentSize) => {
+    if (size === "os") {
+      // If clicking "os", only allow if no standard sizes exist or it's a new blank
+      if (isStandardOnly) return;
+      setSelectedSizes(["os"]);
+      return;
+    }
+
+    // If clicking a standard size, only allow if no "os" exists or it's a new blank
+    if (isOsOnly) return;
+
+    if (selectedSizes.includes(size)) {
+      setSelectedSizes(selectedSizes.filter((s) => s !== size && s !== "os"));
+    } else {
+      setSelectedSizes(
+        [...selectedSizes.filter((s) => s !== "os"), size].sort(
+          (a, b) => GARMENT_SIZES.indexOf(a) - GARMENT_SIZES.indexOf(b)
+        )
+      );
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!color || selectedSizes.length === 0) return;
+
+    setIsLoading(true);
+    try {
+      // Create all variants for the new color
+      const promises = selectedSizes.map((size) =>
+        fetch(`/api/blanks/${blankId}/blank-variants`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            color,
+            size,
+            weight: parseFloat(weight) || 0,
+            volume: parseFloat(volume) || 0,
+            quantity: 0,
+          } satisfies CreateBlankVariantSchema),
+        })
+      );
+
+      await Promise.all(promises);
+      setOpen(false);
+      resetForm();
+      onSuccess();
+    } catch (error) {
+      console.error("Failed to create color variants:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const isDuplicate = existingColors.has(color.toLowerCase().trim());
+  const isValid = color.length > 0 && selectedSizes.length > 0 && !isDuplicate;
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Icon icon="ph:palette" />
+          Add Color
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add New Color</DialogTitle>
+          <DialogDescription>
+            Add a new color with all its size variants.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4 py-4">
+          {/* Color Input */}
+          <div className="grid gap-2">
+            <Label htmlFor="add-color">Color Name</Label>
+            <Input
+              id="add-color"
+              placeholder="e.g. Black, White, Navy"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+            />
+            {isDuplicate && (
+              <p className="text-sm text-red-500">This color already exists.</p>
+            )}
+          </div>
+
+          {/* Sizes */}
+          <div className="grid gap-2">
+            <Label>Sizes</Label>
+            <div className="flex flex-wrap gap-2">
+              {GARMENT_SIZES.map((size) => {
+                const isDisabled =
+                  (size === "os" && isStandardOnly) ||
+                  (size !== "os" && isOsOnly);
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    disabled={isDisabled}
+                    onClick={() => handleSizeClick(size)}
+                    className={cn(
+                      "flex h-9 w-9 items-center justify-center rounded-md border bg-zinc-50 text-xs text-zinc-600 transition uppercase font-medium hover:bg-zinc-100",
+                      selectedSizes.includes(size) &&
+                      "bg-zinc-900 text-white hover:bg-zinc-800",
+                      isDisabled && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    {size}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {selectedSizes.length} size{selectedSizes.length !== 1 && "s"}{" "}
+              selected
+              {(isOsOnly || isStandardOnly) && (
+                <span className="ml-1">
+                  (
+                  {isOsOnly
+                    ? "OS only - existing variants use OS"
+                    : "Standard sizes only"}
+                  )
+                </span>
+              )}
+            </p>
+          </div>
+
+          {/* Weight & Volume */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="add-color-weight">Weight (oz)</Label>
+              <Input
+                id="add-color-weight"
+                type="number"
+                min="0"
+                step="0.5"
+                value={weight}
+                onChange={(e) => setWeight(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="add-color-volume">Volume</Label>
+              <Input
+                id="add-color-volume"
+                type="number"
+                min="0"
+                value={volume}
+                onChange={(e) => setVolume(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={!isValid}
+            loading={isLoading}
+          >
+            Add Color
           </Button>
         </DialogFooter>
       </DialogContent>
