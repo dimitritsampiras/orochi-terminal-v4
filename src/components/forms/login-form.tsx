@@ -6,11 +6,17 @@ import type { z } from "zod";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "../ui/form";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "../ui/form";
 import { loginSchema } from "@/lib/schemas/auth-schema";
 import { useRouter } from "next/navigation";
 import { LoginResponse } from "@/lib/types/api";
-
 
 export default function LoginForm() {
   const router = useRouter();
@@ -22,7 +28,9 @@ export default function LoginForm() {
     },
   });
 
-  const handleSubmit: SubmitHandler<z.infer<typeof loginSchema>> = async (data) => {
+  const handleSubmit: SubmitHandler<z.infer<typeof loginSchema>> = async (
+    data
+  ) => {
     const response = await fetch("/api/auth/login", {
       method: "POST",
       body: JSON.stringify(data),
@@ -34,14 +42,17 @@ export default function LoginForm() {
         router.push("/dashboard");
       } else if (user.roleV4 === "warehouse_staff") {
         router.push("/assembly");
+      } else if (user.roleV4 === "operator") {
+        router.push("/assembly");
       } else {
         router.push("/orders");
       }
-
     } else {
       const error = (await response.json()) as LoginResponse;
       console.log("Login failed:", error);
-      form.setError("root", { message: error?.error || "An unknown error occurred" });
+      form.setError("root", {
+        message: error?.error || "An unknown error occurred",
+      });
     }
   };
 
@@ -69,14 +80,22 @@ export default function LoginForm() {
             <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input placeholder="Enter your password" type="password" {...field} />
+                <Input
+                  placeholder="Enter your password"
+                  type="password"
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        {form.formState.errors.root && <div className="text-red-500 text-sm">{form.formState.errors.root.message}</div>}
+        {form.formState.errors.root && (
+          <div className="text-red-500 text-sm">
+            {form.formState.errors.root.message}
+          </div>
+        )}
 
         <Button
           type="submit"

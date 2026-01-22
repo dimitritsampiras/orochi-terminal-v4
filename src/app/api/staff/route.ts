@@ -18,6 +18,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<CreateSta
   const validationResult = createStaffSchema.safeParse(body);
 
   if (!validationResult.success) {
+    console.log('invalid request', validationResult.error.issues);
+    
     return NextResponse.json(
       { data: null, error: validationResult.error.issues[0]?.message || "Invalid request" },
       { status: 422 }

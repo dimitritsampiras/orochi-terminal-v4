@@ -60,6 +60,7 @@ export async function PATCH(
       {
         profileId: user.id,
         orderId: lineItem.orderId,
+        batchId,
       }
     );
 

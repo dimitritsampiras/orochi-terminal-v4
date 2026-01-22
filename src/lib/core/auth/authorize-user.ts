@@ -4,6 +4,7 @@ import { createClient } from "@/lib/clients/supabase-server";
 import { getRolesForResource, type Resource } from "@/lib/site";
 import { profiles, userRoleV4 } from "@drizzle/schema";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 
 type Role = (typeof userRoleV4.enumValues)[number];
 type User = typeof profiles.$inferSelect;

@@ -34,6 +34,7 @@ const ROLES: { value: Role; label: string }[] = [
   { value: "admin", label: "Admin" },
   { value: "warehouse_staff", label: "Warehouse Staff" },
   { value: "customer_support", label: "Customer Support" },
+  { value: "operator", label: "Line Operator" },
 ];
 
 export function CreateStaffForm({

@@ -189,3 +189,18 @@ export type GetOrderResponse = DataResponse<
 export type CreateOrderHoldResponse = DataResponse<
   typeof orderHolds.$inferSelect
 >;
+
+// Session logs
+export type SessionLog = {
+  id: number;
+  createdAt: Date;
+  type: "INFO" | "WARN" | "ERROR";
+  category: "SHIPPING" | "ASSEMBLY" | "AUTOMATED" | null;
+  message: string;
+  orderId: string | null;
+  lineItemId: string | null;
+  profileId: string | null;
+  profileUsername: string | null;
+};
+
+export type GetSessionLogsResponse = DataResponse<SessionLog[]>;

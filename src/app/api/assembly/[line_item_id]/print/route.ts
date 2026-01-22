@@ -1,5 +1,6 @@
 import { db } from "@/lib/clients/db";
 import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
+import { getOperator } from "@/lib/core/auth/get-operators";
 import { adjustInventory } from "@/lib/core/inventory/adjust-inventory";
 import { logger } from "@/lib/core/logger";
 import { markPrintedSchema } from "@/lib/schemas/assembly-schema";
@@ -13,10 +14,13 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ line_item_id: string }> }
 ): Promise<NextResponse<MarkPrintedResponse>> {
-  const user = await authorizeApiUser(["super_admin", "admin", "warehouse_staff"]);
-  if (!user) {
+  const authUser = await authorizeApiUser(["super_admin", "admin", "warehouse_staff", "operator"]);
+  if (!authUser) {
     return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
   }
+
+  const operator = await getOperator(authUser)
+  const user = operator ?? authUser;
 
   const { line_item_id: parsedLineItemId } = await params;
   const lineItemId = buildResourceGid("LineItem", parsedLineItemId);

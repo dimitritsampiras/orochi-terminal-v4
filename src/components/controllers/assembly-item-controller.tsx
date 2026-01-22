@@ -68,6 +68,7 @@ import {
   MarkOosSchema,
   ResetLineItemSchema,
 } from "@/lib/schemas/assembly-schema";
+import { useOperatorStore } from "@/lib/stores/operator-store";
 
 type Order = Extract<NonNullable<OrderQuery["node"]>, { __typename: "Order" }>;
 type InventoryTransaction = typeof inventoryTransactionsTable.$inferSelect;
@@ -94,6 +95,8 @@ export const AssemblyItemController = ({
   const { prev, next, position } = getNavigation(item.id);
   const [isLoading, setIsLoading] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
+
+  const { activeOperatorId, setActiveOperator } = useOperatorStore();
 
   // Use provided batchId or fall back to store (convert null to undefined)
   const batchId = initialBatchId ?? storedBatchId ?? undefined;
@@ -316,7 +319,9 @@ export const AssemblyItemController = ({
             dbOrder={item.order}
             currentLineItemId={item.id}
           />
-          {!item.product?.isBlackLabel && <BlankDetails blank={item.blank} blankVariant={item.blankVariant} />}
+          {!item.product?.isBlackLabel && (
+            <BlankDetails blank={item.blank} blankVariant={item.blankVariant} />
+          )}
           <ProductDetails
             product={item.product}
             productVariant={item.productVariant}
@@ -340,6 +345,7 @@ const Prints = ({
   inventoryTransactions: InventoryTransaction[];
 }) => {
   const router = useRouter();
+  const { activeOperatorId, setActiveOperator } = useOperatorStore();
   const { isConnected, config, checkFileExists, openFile } = useLocalServer();
   const printCount = item.prints.length;
   const prints = standardizePrintOrder(item.prints);
@@ -408,7 +414,10 @@ const Prints = ({
     mutationFn: async (input: MarkPrintedSchema) => {
       const res = await fetch(`/api/assembly/${parseGid(item.id)}/print`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(activeOperatorId ? { "x-operator-id": activeOperatorId } : {}),
+        },
         body: JSON.stringify(input),
       });
       const data = (await res.json()) as MarkPrintedResponse;
@@ -433,7 +442,10 @@ const Prints = ({
     mutationFn: async (input: MarkStockedSchema) => {
       const res = await fetch(`/api/assembly/${parseGid(item.id)}/stock`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(activeOperatorId ? { "x-operator-id": activeOperatorId } : {}),
+        },
         body: JSON.stringify(input),
       });
       const data = (await res.json()) as MarkStockedResponse;
@@ -456,7 +468,10 @@ const Prints = ({
     mutationFn: async (input: MarkOosSchema) => {
       const res = await fetch(`/api/assembly/${parseGid(item.id)}/oos`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(activeOperatorId ? { "x-operator-id": activeOperatorId } : {}),
+        },
         body: JSON.stringify(input),
       });
       const data = (await res.json()) as MarkOosResponse;
@@ -481,7 +496,10 @@ const Prints = ({
     mutationFn: async (input: ResetLineItemSchema) => {
       const res = await fetch(`/api/assembly/${parseGid(item.id)}/reset`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(activeOperatorId ? { "x-operator-id": activeOperatorId } : {}),
+        },
         body: JSON.stringify(input),
       });
       const data = (await res.json()) as ResetLineItemResponse;

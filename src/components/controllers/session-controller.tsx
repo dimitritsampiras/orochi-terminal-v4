@@ -56,6 +56,7 @@ import { VerifyBlankStockSheet } from "../dialog/verify-blank-stock-sheet";
 import { getShipmentIssue } from "@/lib/core/shipping/shipping-utils";
 import { orderReadyForFulfillment } from "@/lib/core/session/session.utils";
 import { StartSessionSheet } from "../dialog/start-session-dialog";
+import { SessionLogsSheet } from "../dialog/session-logs-sheet";
 import Link from "next/link";
 
 export type SessionOrder = typeof orders.$inferSelect & {
@@ -93,6 +94,7 @@ export function SessionController({
   const [showBlankStockSheet, setShowBlankStockSheet] = useState(false);
   const [showItemSyncDialog, setShowItemSyncDialog] = useState(false);
   const [showStartSessionDialog, setShowStartSessionDialog] = useState(false);
+  const [showLogsSheet, setShowLogsSheet] = useState(false);
 
   // Check if session already has documents (picking list or assembly list)
   const hasExistingSessionDocs = batchDocuments.some(
@@ -295,6 +297,13 @@ export function SessionController({
                   Post Session Settlement
                 </DropdownMenuItem>
               </Link>
+              <DropdownMenuItem
+                onClick={() => setShowLogsSheet(true)}
+                disabled={isLoading}
+              >
+                <Icon icon="ph:list-bullets" className="size-4" />
+                Show Session Logs
+              </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={handleToggleActive}
                 disabled={isLoading}
@@ -556,6 +565,12 @@ export function SessionController({
         open={showItemSyncDialog}
         onOpenChange={setShowItemSyncDialog}
         session={session}
+      />
+
+      <SessionLogsSheet
+        open={showLogsSheet}
+        onOpenChange={setShowLogsSheet}
+        sessionId={session.id}
       />
     </div>
   );

@@ -117,6 +117,7 @@ export const userRoleV4 = pgEnum("user_role_v4", [
   "super_admin",
   "warehouse_staff",
   "customer_support",
+  "operator"
 ]);
 export const batchDocumentType = pgEnum("batch_document_type", [
   "assembly_list",

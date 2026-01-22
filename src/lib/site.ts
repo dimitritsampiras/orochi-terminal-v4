@@ -5,11 +5,11 @@ type Role = (typeof userRoleV4.enumValues)[number];
 // Resource permissions - single source of truth
 const RESOURCE_ROLES: Record<string, readonly Role[] | undefined> = {
   dashboard: ["admin", "super_admin"], // all authenticated users
-  assembly: ["super_admin", "admin", "warehouse_staff"],
+  assembly: ["super_admin", "admin", "warehouse_staff", 'operator'],
   sessions: ["super_admin", "admin"],
   orders: ["super_admin", "admin", "customer_support"],
   orderHolds: ["super_admin", "admin", "customer_support"],
-  products: ["super_admin", "admin", "customer_support", "warehouse_staff"],
+  products: ["super_admin", "admin", "customer_support", "warehouse_staff", "operator"],
   inventory: ["super_admin", "admin", "customer_support", "warehouse_staff"],
   packager: ["super_admin", "admin", "warehouse_staff"],
   "gate-scan": ["super_admin", "admin", "warehouse_staff"],
