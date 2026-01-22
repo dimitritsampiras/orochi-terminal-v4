@@ -12,6 +12,7 @@ const storedAssemblyLineSchema = z.object({
 
 
 type TransactionWithLogs = typeof inventoryTransactions.$inferSelect & { log: (typeof logs.$inferSelect) | null };
+type Log = typeof logs.$inferSelect;
 
 export type SettlementItem = {
   // Line item info
@@ -36,6 +37,9 @@ export type SettlementItem = {
   // Transactions for this item
   transactions: TransactionWithLogs[];
   actualInventoryChange: number;
+
+  // Line item logs
+  logs: Log[];
 
   // Computed flags
   hasStatusMismatch: boolean;
@@ -113,6 +117,19 @@ export const getSettlementData = async (
     transactionsByLineItem.set(tx.lineItemId, existing);
   }
 
+  // Fetch all logs for line items in this batch
+  const lineItemLogs = await db.query.logs.findMany({
+    where: { lineItemId: { in: lineItemIds }, batchId },
+    orderBy: { createdAt: "desc" },
+  });
+  const logsByLineItem = new Map<string, Log[]>();
+  for (const log of lineItemLogs) {
+    if (!log.lineItemId) continue;
+    const existing = logsByLineItem.get(log.lineItemId) ?? [];
+    existing.push(log);
+    logsByLineItem.set(log.lineItemId, existing);
+  }
+
   // Build settlement items
   const items: SettlementItem[] = [];
 
@@ -120,6 +137,7 @@ export const getSettlementData = async (
     const lineItem = lineItemMap.get(assemblyItem.id);
     const picking = pickingMap.get(assemblyItem.id);
     const itemTransactions = transactionsByLineItem.get(assemblyItem.id) ?? [];
+    const itemLogs = logsByLineItem.get(assemblyItem.id) ?? [];
 
     if (!lineItem || !picking) continue;
 
@@ -160,6 +178,7 @@ export const getSettlementData = async (
       inventoryTarget,
       transactions: itemTransactions,
       actualInventoryChange,
+      logs: itemLogs,
       hasStatusMismatch,
       orderId: lineItem.orderId,
       hasInventoryMismatch,

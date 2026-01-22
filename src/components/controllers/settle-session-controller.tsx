@@ -172,8 +172,8 @@ export const SettleSessionController = ({
               <TableHead>Line Item</TableHead>
               <TableHead>Expected</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Expected Change</TableHead>
-              <TableHead>Actual Change</TableHead>
+              <TableHead>Expected</TableHead>
+              <TableHead>Actual</TableHead>
               <TableHead className="w-32">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -227,7 +227,7 @@ export const SettleSessionController = ({
                           {item.inventoryTarget.expectedChange}
                         </span>
                         <div className="text-[10px] text-muted-foreground">
-                          {item.inventoryTarget.displayName}
+                          {item.inventoryTarget.displayName.split("-").join("")}
                         </div>
                       </div>
                     ) : (
@@ -245,42 +245,6 @@ export const SettleSessionController = ({
                         >
                           {item.actualInventoryChange}
                         </span>
-                        {item.transactions.length > 0 && (
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="outline" size="icon-sm">
-                                <Icon icon="ph:eye" className="size-3" />
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>
-                                  Inventory Transactions
-                                </DialogTitle>
-                                <DialogDescription>
-                                  {item.inventoryTarget.displayName}
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="space-y-2 max-h-64 overflow-y-auto">
-                                {item.transactions.map((tx) => (
-                                  <InventoryTransactionItem
-                                    key={tx.id}
-                                    transaction={tx}
-                                    itemDisplayName={
-                                      item.inventoryTarget?.displayName
-                                    }
-                                    log={tx.log}
-                                  />
-                                ))}
-                              </div>
-                              <DialogFooter>
-                                <DialogClose asChild>
-                                  <Button variant="outline">Close</Button>
-                                </DialogClose>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
-                        )}
                       </div>
                     ) : (
                       <span className="text-muted-foreground text-sm">—</span>
@@ -288,6 +252,63 @@ export const SettleSessionController = ({
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
+                      {(item.transactions.length > 0 ||
+                        item.logs.length > 0) && (
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="icon-sm">
+                              <Icon icon="ph:eye" className="size-3" />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-lg">
+                            <DialogHeader>
+                              <DialogTitle>Activity Log</DialogTitle>
+                              <DialogDescription>
+                                {item.lineItemName}
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 max-h-96 overflow-y-auto">
+                              {item.transactions.length > 0 && (
+                                <div className="space-y-2">
+                                  <Label className="text-xs text-muted-foreground">
+                                    Inventory Transactions (
+                                    {item.transactions.length})
+                                  </Label>
+                                  <div className="space-y-1.5">
+                                    {item.transactions.map((tx) => (
+                                      <InventoryTransactionItem
+                                        key={tx.id}
+                                        transaction={tx}
+                                        itemDisplayName={
+                                          item.inventoryTarget?.displayName
+                                        }
+                                        log={tx.log}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {item.logs.length > 0 && (
+                                <div className="space-y-2">
+                                  <Label className="text-xs text-muted-foreground">
+                                    Line Item Logs ({item.logs.length})
+                                  </Label>
+                                  <div className="space-y-1.5">
+                                    {item.logs.map((log) => (
+                                      <LogItem key={log.id} log={log} />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <DialogFooter>
+                              <DialogClose asChild>
+                                <Button variant="outline">Close</Button>
+                              </DialogClose>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      )}
                       <SetLineItemStatusForm
                         className="h-7 w-7"
                         lineItemId={item.lineItemId}
@@ -501,5 +522,33 @@ const FulfillmentBadge = ({ type }: { type: FulfillmentType }) => {
     >
       {type.replaceAll("_", " ")}
     </Badge>
+  );
+};
+
+const LogItem = ({
+  log,
+}: {
+  log: { id: number; message: string; createdAt: Date; type: string };
+}) => {
+  const typeStyles: Record<string, string> = {
+    INFO: "text-blue-600",
+    WARN: "text-amber-600",
+    ERROR: "text-red-600",
+  };
+
+  return (
+    <div className="flex justify-between items-start gap-3 rounded-lg border border-zinc-100 p-3 bg-zinc-50">
+      <div className="flex-1 min-w-0">
+        <p className={cn("text-sm", typeStyles[log.type] ?? "text-zinc-700")}>
+          {log.message}
+        </p>
+        <span className="text-xs text-zinc-400">
+          {new Date(log.createdAt).toLocaleString()}
+        </span>
+      </div>
+      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+        {log.type}
+      </Badge>
+    </div>
   );
 };

@@ -26,7 +26,7 @@ export default function NavBar({ userRole }: Props) {
     <nav className="z-40 hidden h-screen min-h-[30rem] min-w-56 md:flex">
       <div className="fixed hidden h-dvh w-56 flex-1 flex-col border-r border-zinc-200 bg-white md:flex">
         <div className="flex items-center justify-center h-16 border-b border-zinc-200">
-          
+          {/* account */}
         </div>
         <ul className="flex flex-col gap-1.5 overflow-hidden mt-4">
           {visibleRoutes.map(({ path, name, icon }) => (

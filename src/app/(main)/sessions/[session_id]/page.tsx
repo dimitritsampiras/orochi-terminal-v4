@@ -58,7 +58,10 @@ export default async function SessionPage({
       </div>
       <div className="flex items-center gap-2 mb-4">
         {session.startedAt && (
-          <Badge variant="outline">Verified & Started</Badge>
+          <Badge variant="secondary" className="bg-teal-100 text-teal-700 flex items-center gap-2">
+            <Icon icon="ph:check-circle" className="size-4" />
+            Verified & Started
+          </Badge>
         )}
         <ActiveBadge status={session?.active} />
         <div className="flex items-center gap-2 text-xs">
