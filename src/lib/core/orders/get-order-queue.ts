@@ -37,6 +37,7 @@ export const getOrderQueue = async (
         createdAt: { gte: new Date("2024-01-01") },
         displayIsCancelled: false,
         queued: true,
+        displayFulfillmentStatus: { ne: "FULFILLED" },
       },
       with: {
         batches: {
