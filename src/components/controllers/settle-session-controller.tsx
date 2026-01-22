@@ -252,63 +252,61 @@ export const SettleSessionController = ({
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      {(item.transactions.length > 0 ||
-                        item.logs.length > 0) && (
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="outline" size="icon-sm">
-                              <Icon icon="ph:eye" className="size-3" />
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-lg">
-                            <DialogHeader>
-                              <DialogTitle>Activity Log</DialogTitle>
-                              <DialogDescription>
-                                {item.lineItemName}
-                              </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-4 max-h-96 overflow-y-auto">
-                              {item.transactions.length > 0 && (
-                                <div className="space-y-2">
-                                  <Label className="text-xs text-muted-foreground">
-                                    Inventory Transactions (
-                                    {item.transactions.length})
-                                  </Label>
-                                  <div className="space-y-1.5">
-                                    {item.transactions.map((tx) => (
-                                      <InventoryTransactionItem
-                                        key={tx.id}
-                                        transaction={tx}
-                                        itemDisplayName={
-                                          item.inventoryTarget?.displayName
-                                        }
-                                        log={tx.log}
-                                      />
-                                    ))}
-                                  </div>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" size="icon-sm">
+                            <Icon icon="ph:eye" className="size-3" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-lg">
+                          <DialogHeader>
+                            <DialogTitle>Activity Log</DialogTitle>
+                            <DialogDescription>
+                              {item.lineItemName}
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-4 max-h-96 overflow-y-auto">
+                            {item.transactions.length > 0 && (
+                              <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">
+                                  Inventory Transactions (
+                                  {item.transactions.length})
+                                </Label>
+                                <div className="space-y-1.5">
+                                  {item.transactions.map((tx) => (
+                                    <InventoryTransactionItem
+                                      key={tx.id}
+                                      transaction={tx}
+                                      itemDisplayName={
+                                        item.inventoryTarget?.displayName
+                                      }
+                                      log={tx.log}
+                                    />
+                                  ))}
                                 </div>
-                              )}
-                              {item.logs.length > 0 && (
-                                <div className="space-y-2">
-                                  <Label className="text-xs text-muted-foreground">
-                                    Line Item Logs ({item.logs.length})
-                                  </Label>
-                                  <div className="space-y-1.5">
-                                    {item.logs.map((log) => (
-                                      <LogItem key={log.id} log={log} />
-                                    ))}
-                                  </div>
+                              </div>
+                            )}
+                            {item.logs.length > 0 && (
+                              <div className="space-y-2">
+                                <Label className="text-xs text-muted-foreground">
+                                  Line Item Logs ({item.logs.length})
+                                </Label>
+                                <div className="space-y-1.5">
+                                  {item.logs.map((log) => (
+                                    <LogItem key={log.id} log={log} />
+                                  ))}
                                 </div>
-                              )}
-                            </div>
-                            <DialogFooter>
-                              <DialogClose asChild>
-                                <Button variant="outline">Close</Button>
-                              </DialogClose>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
-                      )}
+                              </div>
+                            )}
+                          </div>
+                          <DialogFooter>
+                            <DialogClose asChild>
+                              <Button variant="outline">Close</Button>
+                            </DialogClose>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+
                       <SetLineItemStatusForm
                         className="h-7 w-7"
                         lineItemId={item.lineItemId}
