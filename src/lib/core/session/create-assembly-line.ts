@@ -13,7 +13,7 @@ import {
 export type AssemblyLineItem = SessionLineItem;
 export type AssemblyLineItemWithPrintLogs = SessionLineItemWithPrintLogs;
 export type { OrderWithLineItems };
-export { getLineItemById };
+export { getLineItemById, getLineItemsByBatchId };
 
 const storedAssemblyLineSchema = z.object({
   id: z.string(),

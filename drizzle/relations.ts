@@ -184,4 +184,14 @@ export const relations = defineRelations(schema, (r) => ({
     }),
     inventoryTransactions: r.many.inventoryTransactions(),
   },
+  ordersBatches: {
+    order: r.one.orders({
+      from: r.ordersBatches.orderId,
+      to: r.orders.id,
+    }),
+    batch: r.one.batches({
+      from: r.ordersBatches.batchId,
+      to: r.batches.id,
+    }),
+  },
 }));

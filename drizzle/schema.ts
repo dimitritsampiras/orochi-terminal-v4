@@ -59,7 +59,7 @@ export const garmentType = pgEnum("garment_type", [
   "accessory",
 ]);
 export const garmentSize = pgEnum("garment_size", ["xs", "sm", "md", "lg", "xl", "2xl", "3xl", "4xl", "5xl", "os"]);
-export const productStatus = pgEnum("product_status", ["ACTIVE", "DRAFT", "ARCHIVED"]);
+export const productStatus = pgEnum("product_status", ["ACTIVE", "DRAFT", "ARCHIVED", "UNLISTED"]);
 export const logType = pgEnum("log_type", ["INFO", "WARN", "ERROR"]);
 export const orderLogCategory = pgEnum("order_log_category", ["SHIPPING", "ASSEMBLY", "AUTOMATED"]);
 export const shipmentApi = pgEnum("shipment_api", ["SHIPPO", "EASYPOST"]);
@@ -85,6 +85,15 @@ export const inventoryTransactionReason = pgEnum("inventory_transaction_reason",
   "defected_item",
 ]);
 
+export const expenseCategory = pgEnum("expense_category", [
+  "rent",
+  "salary",
+  "marketing_meta",
+  "marketing_google",
+  "sponsorship",
+  "other",
+]);
+
 export const batchDocuments = pgTable(
   "batch_documents",
   {
@@ -98,7 +107,7 @@ export const batchDocuments = pgTable(
     documentType: batchDocumentType("document_type").notNull(),
     mergedPdfOrderIds: text("merged_pdf_order_ids").array(),
     /** Groups documents generated together (picking list + assembly list share same group number) */
-    documentGroup: integer("document_group").default(1).notNull(),
+    documentGroup: bigint("document_group", { mode: "number" }).default(1).notNull(),
   },
   (table) => [unique("batch_documents_document_path_key").on(table.documentPath)]
 );
@@ -111,14 +120,16 @@ export const batches = pgTable.withRLS(
       .default(sql`now()`)
       .notNull(),
     active: boolean().default(false).notNull(),
+    pickingListJson: jsonb("picking_list_json"),
     assemblyLineJson: text("assembly_line_json"),
-    pickingListJson: text("picking_list_json"),
     settledAt: timestamp("settled_at", { withTimezone: true }),
     premadeStockVerifiedAt: timestamp("premade_stock_verified_at", { withTimezone: true }),
     premadeStockRequirementsJson: text("premade_stock_requirements_json"),
     blankStockVerifiedAt: timestamp("blank_stock_verified_at", { withTimezone: true }),
     blankStockRequirementsJson: text("blank_stock_requirements_json"),
     itemSyncVerifiedAt: timestamp("item_sync_verified_at", { withTimezone: true }),
+    shipmentsVerifiedAt: timestamp("shipments_verified_at", { withTimezone: true }),
+    startedAt: timestamp("started_at", { withTimezone: true }),
   },
   (table) => [
     uniqueIndex("unique_active")
@@ -215,6 +226,7 @@ export const lineItems = pgTable("line_items", {
   hasDeprecatedVariantStock: boolean("has_deprecated_variant_stock"),
   markedAsPackaged: boolean("marked_as_packaged").default(false).notNull(),
   requiresShipping: boolean("requires_shipping").default(true).notNull(),
+  unfulfilledQuantity: bigint("unfulfilled_quantity", { mode: "number" }).default(0).notNull(),
 });
 
 export const logs = pgTable("logs", {
@@ -435,3 +447,58 @@ export const tasks = pgTable("tasks", {
   totalItems: bigint({ mode: "number" }).notNull(),
   status: taskStatus().notNull(),
 });
+
+export const warehouseExpenses = pgTable("warehouse_expenses", {
+  id: uuid().defaultRandom().primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .default(sql`now()`)
+    .notNull(),
+  category: expenseCategory("category").notNull(),
+  amount: doublePrecision().notNull(),
+  date: timestamp("date", { withTimezone: true }).notNull(),
+  notes: text("notes"),
+  batchId: integer("batch_id").references(() => batches.id, { onDelete: "set null" }),
+  periodStart: timestamp("period_start", { withTimezone: true }),
+  periodEnd: timestamp("period_end", { withTimezone: true }),
+});
+
+export const globalSettings = pgTable("global_settings", {
+  id: integer().primaryKey().generatedByDefaultAsIdentity(),
+  inkCostPerPrint: doublePrecision("ink_cost_per_print").default(0).notNull(),
+  bagCostPerOrder: doublePrecision("bag_cost_per_order").default(0).notNull(),
+  labelCostPerOrder: doublePrecision("label_cost_per_order").default(0).notNull(),
+  misprintCostMultiplier: doublePrecision("misprint_cost_multiplier").default(1.0).notNull(),
+  supplementaryItemCost: doublePrecision("supplementary_item_cost").default(0).notNull(),
+  inkCostPerDesign: doublePrecision("ink_cost_per_design").default(2.5).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
+});
+
+export const recurringExpenseFrequency = pgEnum("recurring_expense_frequency", ["weekly", "monthly", "yearly"]);
+
+export const recurringExpenses = pgTable("recurring_expenses", {
+  id: uuid().defaultRandom().primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .default(sql`now()`)
+    .notNull(),
+  name: text().notNull(),
+  amount: doublePrecision().notNull(),
+  frequency: recurringExpenseFrequency().notNull(),
+  category: expenseCategory("category").default("other").notNull(),
+  active: boolean().default(true).notNull(),
+  startDate: timestamp("start_date", { withTimezone: true }).notNull(),
+  endDate: timestamp("end_date", { withTimezone: true }),
+});
+
+export const shippingRateCache = pgTable("shipping_rate_cache", {
+  id: uuid().defaultRandom().primaryKey(),
+  orderId: text("order_id")
+    .notNull()
+    .unique()
+    .references(() => orders.id, { onDelete: "cascade" }),
+  rate: jsonb().notNull(), // Stores the NormalizedShipmentRate
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .default(sql`now()`)
+    .notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
+
