@@ -101,7 +101,7 @@ export function AssemblyTable({ assemblyLine, batchId }: { assemblyLine: Assembl
               return (
                 <TableRow
                   key={item.id}
-                  className={cn(index % 2 === 0 && "bg-gray-50", (item.expectedFulfillment === 'stock' || item.expectedFulfillment === 'black_label') && "bg-blue-50")}
+                  className={cn(index % 2 === 0 && "bg-gray-50", (item.expectedFulfillment === 'stock' || item.expectedFulfillment === 'black_label') && "bg-blue-50 hover:bg-blue-100")}
                   onClick={() => handleRowClick(item.id)}
                 >
                   <TableCell className="font-medium">{item.itemPosition + 1}</TableCell>

@@ -1226,15 +1226,59 @@ export type ProductMediaQueryQuery = { files: { nodes: Array<Pick<AdminTypes.Ext
       & { image?: AdminTypes.Maybe<Pick<AdminTypes.Image, 'id' | 'url'>> }
     ) | Pick<AdminTypes.Model3d, 'createdAt' | 'updatedAt' | 'alt'> | Pick<AdminTypes.Video, 'createdAt' | 'updatedAt' | 'alt'>> } };
 
+export type WebhookSubscriptionsQueryVariables = AdminTypes.Exact<{ [key: string]: never; }>;
+
+
+export type WebhookSubscriptionsQuery = { webhookSubscriptions: { edges: Array<{ node: (
+        Pick<AdminTypes.WebhookSubscription, 'id' | 'topic'>
+        & { endpoint: (
+          { __typename: 'WebhookEventBridgeEndpoint' }
+          & Pick<AdminTypes.WebhookEventBridgeEndpoint, 'arn'>
+        ) | (
+          { __typename: 'WebhookHttpEndpoint' }
+          & Pick<AdminTypes.WebhookHttpEndpoint, 'callbackUrl'>
+        ) | (
+          { __typename: 'WebhookPubSubEndpoint' }
+          & Pick<AdminTypes.WebhookPubSubEndpoint, 'pubSubProject' | 'pubSubTopic'>
+        ) }
+      ) }> } };
+
+export type WebhookSubscriptionCreateMutationVariables = AdminTypes.Exact<{
+  topic: AdminTypes.WebhookSubscriptionTopic;
+  webhookSubscription: AdminTypes.WebhookSubscriptionInput;
+}>;
+
+
+export type WebhookSubscriptionCreateMutation = { webhookSubscriptionCreate?: AdminTypes.Maybe<{ webhookSubscription?: AdminTypes.Maybe<(
+      Pick<AdminTypes.WebhookSubscription, 'id' | 'topic' | 'format'>
+      & { endpoint: { __typename: 'WebhookEventBridgeEndpoint' | 'WebhookPubSubEndpoint' } | (
+        { __typename: 'WebhookHttpEndpoint' }
+        & Pick<AdminTypes.WebhookHttpEndpoint, 'callbackUrl'>
+      ) }
+    )>, userErrors: Array<Pick<AdminTypes.UserError, 'field' | 'message'>> }> };
+
+export type WebhookSubscriptionDeleteMutationVariables = AdminTypes.Exact<{
+  id: AdminTypes.Scalars['ID']['input'];
+}>;
+
+
+export type WebhookSubscriptionDeleteMutation = { webhookSubscriptionDelete?: AdminTypes.Maybe<(
+    Pick<AdminTypes.WebhookSubscriptionDeletePayload, 'deletedWebhookSubscriptionId'>
+    & { userErrors: Array<Pick<AdminTypes.UserError, 'field' | 'message'>> }
+  )> };
+
 interface GeneratedQueryTypes {
   "#graphql\n  query FulfillmentOrders($id: ID!) {\n    node(id: $id) {\n      id\n      __typename\n      ... on Order {\n        name\n        createdAt\n        updatedAt\n        cancelledAt\n        fulfillmentOrders(first: 25) {\n          nodes {\n            assignedLocation {\n              name\n              address1\n            }\n            channelId\n            createdAt\n            destination {\n              address1\n              countryCode\n            }\n            fulfillAt\n            id\n            status\n            orderId\n            requestStatus\n            lineItems(first: 25) {\n              nodes {\n                id\n                productTitle\n              }\n            }\n          }\n        }\n      }\n    }\n  }\n": {return: FulfillmentOrdersQuery, variables: FulfillmentOrdersQueryVariables},
   "#graphql\n  query Order($id: ID!){\n    node(id: $id) {\n      id\n      __typename\n      ... on Order {\n        name\n        createdAt\n        updatedAt\n        cancelledAt\n        note\n        displayFinancialStatus\n        totalPriceSet {\n          shopMoney {\n            amount\n          }\n        }\n        risk {\n          assessments {\n            riskLevel\n          }\n        }\n        localizedFields(first: 5) {\n          nodes {\n            key\n            purpose\n            value \n          }\n        }\n        customer {\n          firstName\n          lastName\n          numberOfOrders\n          email\n          tags\n        }\n        app {\n          name\n        }\n        discountCodes\n        shippingLine {\n          title\n        }\n        shippingAddress {\n          address1\n          address2\n          city\n          country\n          countryCodeV2\n          firstName\n          lastName\n          phone\n          company\n          provinceCode\n          province\n          zip\n        }\n        displayFulfillmentStatus\n        lineItems(first: 25) {\n          nodes {\n            id\n            title\n            variantTitle\n            quantity\n            name\n            image {\n              id\n              url(transform: {maxHeight: 100, maxWidth: 100})\n            }\n            originalTotalSet {\n              shopMoney {\n                amount\n              }\n            }\n            vendor\n            unfulfilledQuantity\n            requiresShipping\n            nonFulfillableQuantity\n            variant {\n              id\n              inventoryItem {\n                measurement {\n                  weight {\n                    unit\n                    value\n                  }\n                }\n              }\n            }\n            product {\n              id\n              tracksInventory\n              productType\n            }\n          }\n        }\n      }\n    }\n  }\n": {return: OrderQuery, variables: OrderQueryVariables},
   "#graphql\nquery Product($id: ID!) {\n  product(id: $id) {\n    id\n    title\n    vendor\n    createdAt\n    updatedAt\n    status\n    tracksInventory\n    featuredMedia {\n      preview {\n        image {\n          id\n          url\n        }\n      }\n    }\n    variants(first: 25) {\n      edges {\n        cursor\n      }\n      nodes {\n        id\n        title\n        price\n        createdAt\n        updatedAt\n      }\n    }\n  }\n}": {return: ProductQuery, variables: ProductQueryVariables},
   "#graphql\n  query ProductMediaQuery($query: String) {\n    files(first: 7, query: $query) {\n      nodes {\n        createdAt\n        updatedAt\n        alt\n        ... on MediaImage {\n          __typename\n          id\n          alt\n          image {\n            id\n            url(transform: {maxHeight: 750, maxWidth: 750})\n          }\n        }\n      }\n    }\n  }\n": {return: ProductMediaQueryQuery, variables: ProductMediaQueryQueryVariables},
+  "#graphql\n  query WebhookSubscriptions {\n    webhookSubscriptions(first: 15) {\n      edges {\n        node {\n          id\n          topic\n          endpoint {\n            __typename\n            ... on WebhookHttpEndpoint {\n              callbackUrl\n            }\n            ... on WebhookEventBridgeEndpoint {\n              arn\n            }\n            ... on WebhookPubSubEndpoint {\n              pubSubProject\n              pubSubTopic\n            }\n          }\n        }\n      }\n    }\n  }\n": {return: WebhookSubscriptionsQuery, variables: WebhookSubscriptionsQueryVariables},
 }
 
 interface GeneratedMutationTypes {
   "#graphql\n  mutation CreateFulfillment($fulfillment: FulfillmentV2Input!) {\n    fulfillmentCreateV2(fulfillment: $fulfillment) {\n      fulfillment {\n        id\n        status\n      }\n      userErrors {\n        field\n        message\n      }\n    }\n  }\n": {return: CreateFulfillmentMutation, variables: CreateFulfillmentMutationVariables},
+  "#graphql \n  mutation WebhookSubscriptionCreate($topic: WebhookSubscriptionTopic!, $webhookSubscription: WebhookSubscriptionInput!) {\n    webhookSubscriptionCreate(topic: $topic, webhookSubscription: $webhookSubscription) {\n      webhookSubscription {\n        id\n        topic\n        format\n        endpoint {\n          __typename\n          ... on WebhookHttpEndpoint {\n            callbackUrl\n          }\n        }\n      }\n      userErrors {\n        field\n        message\n      }\n    }\n  }\n": {return: WebhookSubscriptionCreateMutation, variables: WebhookSubscriptionCreateMutationVariables},
+  "#graphql\n  mutation WebhookSubscriptionDelete($id: ID!) {\n    webhookSubscriptionDelete(id: $id) {\n      userErrors {\n        field\n        message\n      }\n      deletedWebhookSubscriptionId\n    }\n  }\n": {return: WebhookSubscriptionDeleteMutation, variables: WebhookSubscriptionDeleteMutationVariables},
 }
 declare module '@shopify/admin-api-client' {
   type InputMaybe<T> = AdminTypes.InputMaybe<T>;

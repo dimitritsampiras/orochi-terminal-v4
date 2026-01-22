@@ -240,10 +240,6 @@ export function VerifyBlankStockSheet({
     );
   };
 
-  const handleRefetch = () => {
-    refetch();
-    router.refresh();
-  };
 
   const handleVerify = () => {
     verifyMutation.mutate();
@@ -319,7 +315,12 @@ export function VerifyBlankStockSheet({
                       currentQuantity={item.onHand}
                       className="ml-auto"
                       batchId={sessionId}
-                      onSuccess={handleRefetch}
+                      onSuccess={async () => {
+                        await refetch();
+                        router.refresh();
+                        await sleep(1000);
+                        toast.success("Blank quantity updated");
+                      }}
                     />
                   </TableCell>
                   <TableCell className="text-right">
@@ -574,9 +575,13 @@ export function VerifyBlankStockSheet({
                         </CardHeader>
                         <CardContent className="bg-zinc-100 rounded-md mx-4 p-3">
                           {order.lineItems.map((lineItem) => {
+                            const blankVariant = blankItems.find(item => item.blankVariantId === lineItem.productVariant?.blankVariantId);
                             const isItemAffected =
                               lineItem.productVariant?.blankVariantId ===
                               selectedBlankVariantId;
+                            const onHand = blankVariant?.onHand ?? 0;
+                            const requiredQuantity = blankVariant?.requiredQuantity ?? 0;
+                            const isItemShortage = onHand < requiredQuantity;
                             return (
                               <div
                                 key={lineItem.id}
@@ -585,7 +590,7 @@ export function VerifyBlankStockSheet({
                                 <div
                                   className={cn(
                                     "text-xs",
-                                    isItemAffected && "text-red-700",
+                                    isItemShortage && isItemAffected && "text-red-700",
                                   )}
                                 >
                                   {lineItem.name}

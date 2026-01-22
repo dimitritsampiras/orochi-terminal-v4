@@ -56,6 +56,7 @@ import { VerifyBlankStockSheet } from "../dialog/verify-blank-stock-sheet";
 import { getShipmentIssue } from "@/lib/core/shipping/shipping-utils";
 import { orderReadyForFulfillment } from "@/lib/core/session/session.utils";
 import { StartSessionSheet } from "../dialog/start-session-dialog";
+import Link from "next/link";
 
 export type SessionOrder = typeof orders.$inferSelect & {
   shipments: (typeof shipments.$inferSelect)[];
@@ -285,13 +286,15 @@ export function SessionController({
               <Icon icon="ph:dots-three" className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem
-                onClick={() => router.push(`/sessions/${session.id}/settle`)}
-                disabled={isLoading}
-              >
-                <Icon icon="ph:scales" className="size-4" />
-                Post Session Settlement
-              </DropdownMenuItem>
+              <Link href={`/sessions/${session.id}/settle`}>
+                <DropdownMenuItem
+                  onClick={() => router.push(`/sessions/${session.id}/settle`)}
+                  disabled={isLoading}
+                >
+                  <Icon icon="ph:scales" className="size-4" />
+                  Post Session Settlement
+                </DropdownMenuItem>
+              </Link>
               <DropdownMenuItem
                 onClick={handleToggleActive}
                 disabled={isLoading}
@@ -418,7 +421,8 @@ export function SessionController({
             disabled={
               !session.premadeStockVerifiedAt ||
               !session.blankStockVerifiedAt ||
-              !session.itemSyncVerifiedAt
+              !session.itemSyncVerifiedAt ||
+              Boolean(session.startedAt)
             }
             onClick={() => setShowStartSessionDialog(true)}
           >

@@ -47,13 +47,6 @@ export const getSettlementData = async (
 ): Promise<DataResponse<{ items: SettlementItem[]; batch: { id: number; active: boolean; startedAt: Date | null } }>> => {
   const batch = await db.query.batches.findFirst({
     where: { id: batchId },
-    columns: {
-      id: true,
-      active: true,
-      startedAt: true,
-      assemblyLineJson: true,
-      pickingListJson: true,
-    },
   });
 
   if (!batch) {
@@ -64,7 +57,6 @@ export const getSettlementData = async (
     return { data: null, error: "Session has not been started yet" };
   }
 
-  // Parse stored JSON (jsonb columns may already be objects or strings)
   const assemblyLineData =
     typeof batch.assemblyLineJson === "string"
       ? JSON.parse(batch.assemblyLineJson)

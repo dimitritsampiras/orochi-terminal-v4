@@ -30,7 +30,6 @@ export async function POST(request: Request) {
   if (!parsedBody.success) {
     logger.error("[order update webhook] Invalid request body", {
       category: "AUTOMATED",
-      metadata: JSON.stringify(body).slice(0, 5000),
     });
     return new Response("Invalid request body", { status: 400 });
   }
@@ -54,7 +53,6 @@ export async function POST(request: Request) {
   if (!existingOrder) {
     logger.warn(`[order update webhook] Order ${adminGraphqlApiId} doesn't exist`, {
       category: "AUTOMATED",
-      metadata: JSON.stringify(existingOrder).slice(0, 5000),
     });
     return new Response("Order doesn't exist", { status: 404 });
   }
@@ -66,7 +64,6 @@ export async function POST(request: Request) {
   if (errors || !data?.node || data.node?.__typename !== "Order") {
     logger.error("[order update webhook] Error fetching shopify order", {
       category: "AUTOMATED",
-      metadata: JSON.stringify(errors).slice(0, 5000),
     });
     return new Response("Error fetching order", { status: 400 });
   }

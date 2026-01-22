@@ -20,7 +20,7 @@ export const UpdateBlankQuantityForm = ({
   currentQuantity: number;
   className?: string;
   batchId?: number;
-  onSuccess?: () => void;
+  onSuccess?: () => void | Promise<void>;
 }) => {
   const [value, setValue] = useState(currentQuantity);
   const [isDirty, setIsDirty] = useState(false);
@@ -39,10 +39,10 @@ export const UpdateBlankQuantityForm = ({
       }
       return data;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setIsDirty(false);
       isSubmittingRef.current = false;
-      onSuccess?.();
+      await onSuccess?.();
     },
     onError: (error) => {
       toast.error(error.message);

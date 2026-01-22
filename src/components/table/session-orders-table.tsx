@@ -124,7 +124,7 @@ export function SessionOrdersTable({ orders, sessionId }: SessionOrdersTableProp
                     "hover:cursor-pointer hover:bg-gray-100",
                     index % 2 === 0 && "bg-gray-50",
                     order.displayIsCancelled && "opacity-60",
-                    hasActiveHold && "bg-blue-50!",
+                    hasActiveHold && "bg-blue-100 hover:bg-blue-200!",
                     order.queued && "bg-lime-50!"
                   )}
                   onClick={() => handleRowClick(order.id)}

@@ -14,7 +14,8 @@ export default async function SettleSessionPage({ params }: { params: Promise<{ 
   const { data, error } = await getSettlementData(batchId);
 
   if (error || !data) {
-    notFound();
+    // notFound();
+    return <div>Error: {error}</div>;
   }
 
   return (

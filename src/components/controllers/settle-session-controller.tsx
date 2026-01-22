@@ -141,15 +141,17 @@ export const SettleSessionController = ({
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-lg p-4 border">
+      <div className="bg-white rounded-lg p-4 border shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-8">#</TableHead>
               <TableHead>Line Item</TableHead>
+              <TableHead>Order</TableHead>
               <TableHead>Expected</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Inventory</TableHead>
+              <TableHead>Expected Change</TableHead>
+              <TableHead>Actual Change</TableHead>
               <TableHead className="w-32">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -162,7 +164,9 @@ export const SettleSessionController = ({
                 <TableRow key={item.lineItemId} className={cn(isAcknowledged && "opacity-50")}>
                   <TableCell className="text-muted-foreground">{item.position + 1}</TableCell>
                   <TableCell>
-                    <div className="font-medium">{item.lineItemName}</div>
+                    <div className="font-medium text-wrap">{item.lineItemName}</div>
+                  </TableCell>
+                  <TableCell>
                     <div className="text-sm text-muted-foreground">{item.orderName}</div>
                   </TableCell>
                   <TableCell>
@@ -178,19 +182,35 @@ export const SettleSessionController = ({
                   </TableCell>
                   <TableCell>
                     {item.inventoryTarget ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex w-full bg-zinc-50 py-1 px-2 rounded-md flex-col">
                         <span
                           className={cn(
-                            "font-mono",
+                            'text-base font-medium',
+                          )}
+                        >
+                          {item.inventoryTarget.expectedChange}
+                        </span>
+                        <div className="text-xs text-muted-foreground">{item.inventoryTarget.displayName}</div>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="h-full">
+                    {item.inventoryTarget ? (
+                      <div className="w-full py-1 px-2 flex gap-2 rounded-md">
+                        <span
+                          className={cn(
+                            "text-base font-medium",
                             item.hasInventoryMismatch && !isAcknowledged && "text-red-600"
                           )}
                         >
-                          {item.actualInventoryChange} / {item.inventoryTarget.expectedChange}
+                          {item.actualInventoryChange}
                         </span>
                         {item.transactions.length > 0 && (
                           <Dialog>
                             <DialogTrigger asChild>
-                              <Button variant="ghost" size="icon-sm">
+                              <Button variant="outline" size="icon-sm">
                                 <Icon icon="ph:eye" className="size-3" />
                               </Button>
                             </DialogTrigger>
@@ -220,6 +240,7 @@ export const SettleSessionController = ({
                     ) : (
                       <span className="text-muted-foreground text-sm">—</span>
                     )}
+
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
@@ -279,13 +300,13 @@ export const SettleSessionController = ({
             <div className="space-y-2">
               <Label>New Status</Label>
               <Select value={newStatus} onValueChange={setNewStatus}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-white!">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {lineItemCompletionStatus.enumValues.map((status) => (
                     <SelectItem key={status} value={status}>
-                      {status.replaceAll("_", " ")}
+                      <LineItemStatusBadge status={status} />
                     </SelectItem>
                   ))}
                 </SelectContent>

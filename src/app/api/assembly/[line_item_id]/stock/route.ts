@@ -33,11 +33,6 @@ export async function POST(
     // 1. Get line item with related data
     const lineItem = await db.query.lineItems.findFirst({
       where: { id: lineItemId },
-      with: {
-        order: true,
-        product: true,
-        productVariant: true,
-      },
     });
 
     if (!lineItem) {

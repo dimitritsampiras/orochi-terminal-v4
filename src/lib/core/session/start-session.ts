@@ -136,21 +136,24 @@ export async function startSession(lineItems: SessionLineItem[], session: typeof
     })
     .where(eq(batches.id, session.id));
 
-  // Decrement overstock inventory (not black label - that's tracked by Shopify)
-  for (const item of premadeStockItems) {
-    if (item.isBlackLabel) continue;
-    if (item.toPick <= 0) continue;
-
-    await adjustInventory(
-      { type: "product", variantId: item.productVariantId },
-      -item.toPick,
-      "assembly_usage",
-      {
-        batchId: session.id,
-        logMessage: `Session ${session.id} started: decremented ${item.toPick} overstock for ${item.productName}`,
-      }
-    );
+  // Decrement overstock inventory based on actual allocation
+  for (const item of assemblyLine) {
+    if (item.expectedFulfillment === "stock" && item.productVariant) {
+      await adjustInventory(
+        { type: "product", variantId: item.productVariant.id },
+        -item.quantity,
+        "assembly_usage",
+        {
+          batchId: session.id,
+          lineItemId: item.id,
+          logMessage: `Session ${session.id} started: decremented ${item.quantity} overstock for ${
+            item.product?.title ?? "Unknown Product"
+          }`,
+        }
+      );
+    }
   }
+
 
   return {
     data: {
