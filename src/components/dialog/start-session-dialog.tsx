@@ -80,7 +80,7 @@ export function StartSessionSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="overflow-y-auto sm:max-w-2xl">
         <SheetHeader>
-          <SheetTitle>Start Session</SheetTitle>
+          <SheetTitle>Verify Session</SheetTitle>
           <SheetDescription>
             Review before starting. This locks the assembly line.
           </SheetDescription>

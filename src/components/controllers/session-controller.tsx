@@ -435,7 +435,7 @@ export function SessionController({
             }
             onClick={() => setShowStartSessionDialog(true)}
           >
-            Start Session
+            Verify Session
           </Button>
         </div>
       </div>

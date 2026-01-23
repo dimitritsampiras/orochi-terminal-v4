@@ -60,7 +60,7 @@ export default async function SessionPage({
         {session.startedAt && (
           <Badge variant="secondary" className="bg-teal-100 text-teal-700 flex items-center gap-2">
             <Icon icon="ph:check-circle" className="size-4" />
-            Verified & Started
+            Verified ({dayjs(session.startedAt).format("MMMM DD, YYYY")})
           </Badge>
         )}
         <ActiveBadge status={session?.active} />
