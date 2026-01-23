@@ -81,7 +81,7 @@ export default async function ProductPage({ params }: { params: Promise<{ produc
       <div className="mb-24 mt-4 grid-cols-[2fr_1fr] gap-4 md:grid">
         <div className="flex flex-col gap-4">
           {/* MEDIA IMAGES */}
-          {media && (media[0] as MediaImage).image?.url && (
+          {media && media.length > 0 && (media[0] as MediaImage).image?.url && (
             <ProductMediaGrid media={media as MediaImage[]} product={product} />
           )}
           <ProductVariants
