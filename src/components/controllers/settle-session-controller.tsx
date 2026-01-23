@@ -24,6 +24,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "../ui/sheet";
 import { Button } from "../ui/button";
 import { Icon } from "@iconify/react";
 import { InventoryTransactionItem } from "../cards/inventory-transactions";
@@ -197,8 +205,21 @@ export const SettleSessionController = ({
     setInventoryChange(expected - actual);
   };
 
+  const misprints = initialData.reduce((acc, item) => {
+    return (
+      acc +
+      (Math.abs(item.blankTarget?.misprintChange ?? 0) ?? 0) +
+      (Math.abs(item.productTarget?.misprintChange ?? 0) ?? 0)
+    );
+  }, 0);
+
   return (
     <div className="space-y-4">
+      {misprints > 0 && (
+        <Badge variant="secondary" className="text-xs bg-rose-50 text-rose-600">
+          {misprints} misprint{misprints > 1 ? "s" : ""}
+        </Badge>
+      )}
       <div className="bg-white rounded-lg p-4 border shadow-sm">
         <Table>
           <TableHeader>
@@ -496,14 +517,14 @@ export const SettleSessionController = ({
         </DialogContent>
       </Dialog>
 
-      {/* Inventory Dialog */}
-      <Dialog open={inventoryDialogOpen} onOpenChange={setInventoryDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Adjust Inventory</DialogTitle>
-            <DialogDescription>{selectedItem?.lineItemName}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
+      {/* Inventory Sheet */}
+      <Sheet open={inventoryDialogOpen} onOpenChange={setInventoryDialogOpen}>
+        <SheetContent side="right" className="sm:max-w-md flex flex-col">
+          <SheetHeader>
+            <SheetTitle>Adjust Inventory</SheetTitle>
+            <SheetDescription>{selectedItem?.lineItemName}</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto space-y-4 py-2 px-4">
             {/* Target type selector - only show if both targets exist */}
             {selectedItem?.blankTarget && selectedItem?.productTarget && (
               <div className="space-y-2">
@@ -605,7 +626,7 @@ export const SettleSessionController = ({
                     Recent Transactions (
                     {getSelectedTarget()!.transactions.length})
                   </Label>
-                  <div className="max-h-32 overflow-y-auto space-y-1.5">
+                  <div className="space-y-1.5">
                     {getSelectedTarget()!
                       .transactions.slice(0, 5)
                       .map((tx) => (
@@ -665,7 +686,7 @@ export const SettleSessionController = ({
               />
             </div>
           </div>
-          <DialogFooter>
+          <SheetFooter className="px-4 border-t pt-4">
             <Button
               variant="outline"
               onClick={() => setInventoryDialogOpen(false)}
@@ -675,13 +696,13 @@ export const SettleSessionController = ({
             <Button
               onClick={handleSubmitInventoryAdjustment}
               loading={adjustInventoryMutation.isPending}
-              disabled={!getSelectedTarget()}
+              disabled={!getSelectedTarget() || inventoryChange === 0}
             >
               Create Transaction
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
