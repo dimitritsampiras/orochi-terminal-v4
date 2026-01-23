@@ -18,7 +18,7 @@ type Transaction = PgTransaction<PostgresJsQueryResultHKT, typeof schema>;
 
 class Logger {
   private async insert(level: LogLevel, entry: LogEntry, tx?: Transaction): Promise<number | undefined> {
-    const { message, orderId, profileId, category, type, metadata } = entry;
+    const { message, orderId, profileId, category, type, metadata, lineItemId, batchId } = entry;
     const ctx = tx ?? db;
 
 
@@ -36,6 +36,8 @@ class Logger {
         orderId,
         profileId,
         metadata,
+        lineItemId,
+        batchId,
       }).returning({ id: logs.id });
 
       return log?.id;

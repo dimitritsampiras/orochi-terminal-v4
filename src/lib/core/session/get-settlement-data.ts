@@ -14,6 +14,16 @@ const storedAssemblyLineSchema = z.object({
 type TransactionWithLogs = typeof inventoryTransactions.$inferSelect & { log: (typeof logs.$inferSelect) | null };
 type Log = typeof logs.$inferSelect;
 
+export type InventoryTarget = {
+  type: "blank" | "product";
+  id: string;
+  displayName: string;
+  expectedChange: number;
+  currentInventory: number;
+  actualInventoryChange: number;
+  transactions: TransactionWithLogs[];
+};
+
 export type SettlementItem = {
   // Line item info
   lineItemId: string;
@@ -26,15 +36,14 @@ export type SettlementItem = {
   // Expected fulfillment (from stored JSON)
   expectedFulfillment: FulfillmentType;
 
-  // Inventory target (null for black_label)
-  inventoryTarget: {
-    type: "blank" | "product";
-    id: string;
-    displayName: string;
-    expectedChange: number;
-  } | null;
+  // Primary inventory target based on expected fulfillment (null for black_label)
+  inventoryTarget: InventoryTarget | null;
 
-  // Transactions for this item
+  // Both inventory targets for switching (when both exist)
+  blankTarget: InventoryTarget | null;
+  productTarget: InventoryTarget | null;
+
+  // Transactions for this item (all, regardless of target)
   transactions: TransactionWithLogs[];
   actualInventoryChange: number;
 
@@ -44,6 +53,8 @@ export type SettlementItem = {
   // Computed flags
   hasStatusMismatch: boolean;
   hasInventoryMismatch: boolean;
+  // True when expectedFulfillment doesn't match currentStatus (e.g., expected print but fulfilled from stock)
+  hasFulfillmentMismatch: boolean;
   currentInventory: number;
 };
 
@@ -141,32 +152,63 @@ export const getSettlementData = async (
 
     if (!lineItem || !picking) continue;
 
-    // Determine inventory target based on expected fulfillment
-    let inventoryTarget: SettlementItem["inventoryTarget"] = null;
-    if (assemblyItem.expectedFulfillment === "stock" && picking.productVariantId) {
-      inventoryTarget = {
-        type: "product",
-        id: picking.productVariantId,
-        displayName: picking.productDisplayName ?? "Unknown Product",
-        expectedChange: -picking.quantity,
-      };
-    } else if (assemblyItem.expectedFulfillment === "print" && picking.blankVariantId) {
-      inventoryTarget = {
+    // Separate transactions by target type
+    const blankTransactions = itemTransactions.filter(tx => tx.blankVariantId !== null);
+    const productTransactions = itemTransactions.filter(tx => tx.productVariantId !== null);
+
+    // Build both inventory targets (when available)
+    let blankTarget: InventoryTarget | null = null;
+    let productTarget: InventoryTarget | null = null;
+
+    if (picking.blankVariantId) {
+      blankTarget = {
         type: "blank",
         id: picking.blankVariantId,
         displayName: picking.blankDisplayName ?? "Unknown Blank",
-        expectedChange: -picking.quantity,
+        expectedChange: assemblyItem.expectedFulfillment === "print" ? -picking.quantity : 0,
+        currentInventory: lineItem.productVariant?.blankVariant?.quantity ?? 0,
+        actualInventoryChange: blankTransactions.reduce((sum, tx) => sum + tx.changeAmount, 0),
+        transactions: blankTransactions,
       };
     }
 
-    // Calculate actual inventory change from transactions
+    if (picking.productVariantId) {
+      productTarget = {
+        type: "product",
+        id: picking.productVariantId,
+        displayName: picking.productDisplayName ?? "Unknown Product",
+        expectedChange: assemblyItem.expectedFulfillment === "stock" ? -picking.quantity : 0,
+        currentInventory: lineItem.productVariant?.warehouseInventory ?? 0,
+        actualInventoryChange: productTransactions.reduce((sum, tx) => sum + tx.changeAmount, 0),
+        transactions: productTransactions,
+      };
+    }
+
+    // Determine primary inventory target based on expected fulfillment
+    let inventoryTarget: InventoryTarget | null = null;
+    if (assemblyItem.expectedFulfillment === "stock") {
+      inventoryTarget = productTarget;
+    } else if (assemblyItem.expectedFulfillment === "print") {
+      inventoryTarget = blankTarget;
+    }
+
+    // Calculate total actual inventory change from all transactions
     const actualInventoryChange = itemTransactions.reduce((sum, tx) => sum + tx.changeAmount, 0);
 
     // Determine mismatches
     const expectedStatus = getExpectedStatus(assemblyItem.expectedFulfillment);
     const hasStatusMismatch = !isStatusMatch(lineItem.completionStatus, expectedStatus);
+    
+    // Check if fulfillment method doesn't match the status
+    // e.g., expected "print" but status is "in_stock" (fulfilled from stock instead of printing)
+    const hasFulfillmentMismatch = 
+      (assemblyItem.expectedFulfillment === "print" && lineItem.completionStatus === "in_stock") ||
+      (assemblyItem.expectedFulfillment === "stock" && lineItem.completionStatus === "printed");
+
+    // Inventory mismatch is only a real error if there's no fulfillment mismatch
+    // With fulfillment mismatch, inventory changes happen on different target, which is expected
     const hasInventoryMismatch =
-      inventoryTarget !== null && actualInventoryChange !== inventoryTarget.expectedChange;
+      !hasFulfillmentMismatch && inventoryTarget !== null && actualInventoryChange !== inventoryTarget.expectedChange;
 
     items.push({
       lineItemId: assemblyItem.id,
@@ -176,10 +218,13 @@ export const getSettlementData = async (
       currentStatus: lineItem.completionStatus,
       expectedFulfillment: assemblyItem.expectedFulfillment,
       inventoryTarget,
+      blankTarget,
+      productTarget,
       transactions: itemTransactions,
       actualInventoryChange,
       logs: itemLogs,
       hasStatusMismatch,
+      hasFulfillmentMismatch,
       orderId: lineItem.orderId,
       hasInventoryMismatch,
       currentInventory: assemblyItem.expectedFulfillment === 'print' ? lineItem.productVariant?.blankVariant?.quantity ?? 0 : lineItem.productVariant?.warehouseInventory ?? 0,

@@ -24,7 +24,10 @@ import { LineItemStatusBadge } from "../badges/line-item-status-badge";
 // Types
 type LineItemStatus = (typeof lineItemCompletionStatus.enumValues)[number];
 
-type LineItem = Extract<NonNullable<OrderQuery["node"]>, { __typename: "Order" }>["lineItems"]["nodes"][number];
+type LineItem = Extract<
+  NonNullable<OrderQuery["node"]>,
+  { __typename: "Order" }
+>["lineItems"]["nodes"][number];
 
 interface LineItemsCardProps {
   orderId: string;
@@ -32,16 +35,22 @@ interface LineItemsCardProps {
   databaseLineItems: (typeof lineItems.$inferSelect)[];
 }
 
-export function OrderLineItems({ orderId, shopifyLineItems, databaseLineItems }: LineItemsCardProps) {
+export function OrderLineItems({
+  orderId,
+  shopifyLineItems,
+  databaseLineItems,
+}: LineItemsCardProps) {
   // Create a map for fast O(1) lookup of DB items
   const dbItemsMap = new Map(databaseLineItems.map((item) => [item.id, item]));
 
   // Sort: Unfulfilled first, then alphabetical
-  const sortedItems = shopifyLineItems.toSorted((a, b) => {
-    const unfulfillableDiff = b.unfulfilledQuantity - a.unfulfilledQuantity;
-    if (unfulfillableDiff !== 0) return unfulfillableDiff;
-    return a.name.localeCompare(b.name);
-  }).filter((item) => item.requiresShipping);
+  const sortedItems = shopifyLineItems
+    .toSorted((a, b) => {
+      const unfulfillableDiff = b.unfulfilledQuantity - a.unfulfilledQuantity;
+      if (unfulfillableDiff !== 0) return unfulfillableDiff;
+      return a.name.localeCompare(b.name);
+    })
+    .filter((item) => item.requiresShipping);
 
   return (
     <Card>
@@ -56,8 +65,14 @@ export function OrderLineItems({ orderId, shopifyLineItems, databaseLineItems }:
 
           return (
             <div key={shopifyItem.id}>
-              <LineItemRow shopifyItem={shopifyItem} dbItem={dbItem} orderId={orderId} />
-              {index < sortedItems.length - 1 && <hr className="my-3 border-gray-100" />}
+              <LineItemRow
+                shopifyItem={shopifyItem}
+                dbItem={dbItem}
+                orderId={orderId}
+              />
+              {index < sortedItems.length - 1 && (
+                <hr className="my-3 border-gray-100" />
+              )}
             </div>
           );
         })}
@@ -78,7 +93,12 @@ function LineItemRow({
   const isFulfilled = shopifyItem.unfulfilledQuantity <= 0;
 
   return (
-    <div className={cn("flex flex-col gap-2 @container", isFulfilled && "opacity-50")}>
+    <div
+      className={cn(
+        "flex flex-col gap-2 @container",
+        isFulfilled && "opacity-50"
+      )}
+    >
       <div className="flex w-full items-center justify-between">
         {/* Left: Image & Details */}
         <div className="flex items-center gap-3">
@@ -112,27 +132,35 @@ function LineItemRow({
           )}
 
           <LineItemStatusBadge status={dbItem.completionStatus} />
-
-          <SetLineItemStatusForm lineItemId={dbItem.id} orderId={orderId} />
         </div>
       </div>
 
       {/* Footer: Status Messages */}
       <div className="flex flex-col gap-1 text-xs">
         {shopifyItem.nonFulfillableQuantity > 0 && (
-          <span className="text-gray-400">Nonfulfillable Quantity: {shopifyItem.nonFulfillableQuantity}</span>
+          <span className="text-gray-400">
+            Nonfulfillable Quantity: {shopifyItem.nonFulfillableQuantity}
+          </span>
         )}
 
         {shopifyItem.unfulfilledQuantity > 0 ? (
-          <span className="text-yellow-700 font-medium">Requires Fulfillment: {shopifyItem.unfulfilledQuantity}</span>
+          <span className="text-yellow-700 font-medium">
+            Requires Fulfillment: {shopifyItem.unfulfilledQuantity}
+          </span>
         ) : (
-          <span className="text-emerald-600 font-medium">No fulfillment needed</span>
+          <span className="text-emerald-600 font-medium">
+            No fulfillment needed
+          </span>
         )}
 
-        {!shopifyItem.requiresShipping && <span className="text-gray-400">Unshippable</span>}
+        {!shopifyItem.requiresShipping && (
+          <span className="text-gray-400">Unshippable</span>
+        )}
 
         {/* Example logic for Unsynced - adjust based on your exact data shape */}
-        {!shopifyItem.product?.tracksInventory && <span className="text-gray-400">Unsynced</span>}
+        {!shopifyItem.product?.tracksInventory && (
+          <span className="text-gray-400">Unsynced</span>
+        )}
       </div>
     </div>
   );

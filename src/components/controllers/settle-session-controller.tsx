@@ -1,6 +1,9 @@
 "use client";
 
-import { SettlementItem } from "@/lib/core/session/get-settlement-data";
+import {
+  SettlementItem,
+  InventoryTarget,
+} from "@/lib/core/session/get-settlement-data";
 import {
   Table,
   TableBody,
@@ -77,6 +80,10 @@ export const SettleSessionController = ({
   const [statusNotes, setStatusNotes] = useState("");
   const [inventoryChange, setInventoryChange] = useState<number>(0);
   const [inventoryNotes, setInventoryNotes] = useState("");
+  // Track which inventory target is selected in the dialog (blank or product)
+  const [selectedTargetType, setSelectedTargetType] = useState<
+    "blank" | "product"
+  >("blank");
 
   // Mutations
   const updateStatusMutation = useMutation({
@@ -132,8 +139,15 @@ export const SettleSessionController = ({
 
   const handleOpenInventoryDialog = (item: SettlementItem) => {
     setSelectedItem(item);
-    const expected = item.inventoryTarget?.expectedChange ?? 0;
-    setInventoryChange(expected - item.actualInventoryChange);
+    // Default to the primary target, or blank if no primary
+    const defaultType =
+      item.inventoryTarget?.type ?? (item.blankTarget ? "blank" : "product");
+    setSelectedTargetType(defaultType);
+    const target =
+      defaultType === "blank" ? item.blankTarget : item.productTarget;
+    const expected = target?.expectedChange ?? 0;
+    const actual = target?.actualInventoryChange ?? 0;
+    setInventoryChange(expected - actual);
     setInventoryNotes("");
     setInventoryDialogOpen(true);
   };
@@ -149,17 +163,38 @@ export const SettleSessionController = ({
   };
 
   const handleSubmitInventoryAdjustment = () => {
-    if (!selectedItem?.inventoryTarget) return;
+    if (!selectedItem) return;
+    const target =
+      selectedTargetType === "blank"
+        ? selectedItem.blankTarget
+        : selectedItem.productTarget;
+    if (!target) return;
     adjustInventoryMutation.mutate({
-      targetType:
-        selectedItem.inventoryTarget.type === "blank"
-          ? "blankVariant"
-          : "productVariant",
-      targetId: selectedItem.inventoryTarget.id,
+      targetType: target.type === "blank" ? "blankVariant" : "productVariant",
+      targetId: target.id,
       changeAmount: inventoryChange,
       lineItemId: selectedItem.lineItemId,
       notes: inventoryNotes || undefined,
     });
+  };
+
+  // Helper to get the currently selected target in the dialog
+  const getSelectedTarget = (): InventoryTarget | null => {
+    if (!selectedItem) return null;
+    return selectedTargetType === "blank"
+      ? selectedItem.blankTarget
+      : selectedItem.productTarget;
+  };
+
+  // Update inventory change when switching targets
+  const handleTargetTypeChange = (type: "blank" | "product") => {
+    setSelectedTargetType(type);
+    if (!selectedItem) return;
+    const target =
+      type === "blank" ? selectedItem.blankTarget : selectedItem.productTarget;
+    const expected = target?.expectedChange ?? 0;
+    const actual = target?.actualInventoryChange ?? 0;
+    setInventoryChange(expected - actual);
   };
 
   return (
@@ -179,8 +214,11 @@ export const SettleSessionController = ({
           </TableHeader>
           <TableBody>
             {initialData.map((item) => {
-              const hasDiscrepancy =
+              // Real errors that need attention
+              const hasRealError =
                 item.hasStatusMismatch || item.hasInventoryMismatch;
+              // Fulfillment mismatch is informational, not an error
+              const isAllGood = !hasRealError && !item.hasFulfillmentMismatch;
 
               return (
                 <TableRow key={item.lineItemId}>
@@ -204,7 +242,17 @@ export const SettleSessionController = ({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <FulfillmentBadge type={item.expectedFulfillment} />
+                    <div className="flex items-center gap-1.5">
+                      <FulfillmentBadge type={item.expectedFulfillment} />
+                      {item.hasFulfillmentMismatch && (
+                        <span title="Fulfilled differently than expected">
+                          <Icon
+                            icon="ph:arrows-left-right"
+                            className="size-3.5 text-blue-500"
+                          />
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
@@ -212,12 +260,13 @@ export const SettleSessionController = ({
                         status={item.currentStatus}
                         className="text-[10px]! py-0.5! px-1.5!"
                       />
-                      {item.hasStatusMismatch && (
-                        <Icon
-                          icon="ph:warning"
-                          className="size-4 text-amber-500"
-                        />
-                      )}
+                      {item.hasStatusMismatch &&
+                        !item.hasFulfillmentMismatch && (
+                          <Icon
+                            icon="ph:warning"
+                            className="size-4 text-amber-500"
+                          />
+                        )}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -235,7 +284,33 @@ export const SettleSessionController = ({
                     )}
                   </TableCell>
                   <TableCell className="h-full">
-                    {item.inventoryTarget ? (
+                    {item.hasFulfillmentMismatch ? (
+                      // Show both targets when there's a fulfillment mismatch
+                      <div className="flex flex-col gap-1">
+                        {item.blankTarget && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <span className="text-muted-foreground">Blank:</span>
+                            <span className={cn("font-medium")}>
+                              {item.blankTarget.actualInventoryChange}
+                            </span>
+                          </div>
+                        )}
+                        {item.productTarget && (
+                          <div className="flex items-center gap-1 text-xs">
+                            <span className="text-muted-foreground">Product:</span>
+                            <span
+                              className={cn(
+                                "font-medium",
+                                item.productTarget.actualInventoryChange !==
+                                  0 && "text-blue-600"
+                              )}
+                            >
+                              {item.productTarget.actualInventoryChange}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ) : item.inventoryTarget ? (
                       <div className="w-full py-1 px-2 flex gap-2 rounded-md">
                         <span
                           className={cn(
@@ -254,8 +329,15 @@ export const SettleSessionController = ({
                     <div className="flex items-center gap-2">
                       <Dialog>
                         <DialogTrigger asChild>
-                          <Button variant="outline" size="icon-sm">
-                            <Icon icon="ph:eye" className="size-3" />
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            disabled={
+                              item.transactions.length === 0 &&
+                              item.logs.length === 0
+                            }
+                          >
+                            <Icon icon="ph:list-bullets" className="size-3" />
                           </Button>
                         </DialogTrigger>
                         <DialogContent className="max-w-lg">
@@ -266,7 +348,7 @@ export const SettleSessionController = ({
                             </DialogDescription>
                           </DialogHeader>
                           <div className="space-y-4 max-h-96 overflow-y-auto">
-                            {item.transactions.length > 0 && (
+                            {item.transactions.length > 0 ? (
                               <div className="space-y-2">
                                 <Label className="text-xs text-muted-foreground">
                                   Inventory Transactions (
@@ -278,11 +360,19 @@ export const SettleSessionController = ({
                                       key={tx.id}
                                       transaction={tx}
                                       itemDisplayName={
-                                        item.inventoryTarget?.displayName
+                                        tx.blankVariantId
+                                          ? item.blankTarget?.displayName
+                                          : item.productTarget?.displayName
                                       }
                                       log={tx.log}
                                     />
                                   ))}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                <div className="text-xs text-muted-foreground">
+                                  No inventory transactions found for this item
                                 </div>
                               </div>
                             )}
@@ -312,7 +402,7 @@ export const SettleSessionController = ({
                         lineItemId={item.lineItemId}
                         orderId={item.orderId}
                       />
-                      {item.inventoryTarget && (
+                      {(item.blankTarget || item.productTarget) && (
                         <Button
                           variant="outline"
                           size="xs"
@@ -321,11 +411,19 @@ export const SettleSessionController = ({
                           Adjust Inventory
                         </Button>
                       )}
-                      {!hasDiscrepancy && (
+                      {isAllGood && (
                         <Icon
                           icon="ph:check-circle"
                           className="size-4 text-emerald-500"
                         />
+                      )}
+                      {item.hasFulfillmentMismatch && !hasRealError && (
+                        <span title="Fulfilled from different source than expected">
+                          <Icon
+                            icon="ph:swap"
+                            className="size-4 text-blue-500"
+                          />
+                        </span>
                       )}
                     </div>
                   </TableCell>
@@ -389,17 +487,74 @@ export const SettleSessionController = ({
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Adjust Inventory</DialogTitle>
-            <DialogDescription>
-              {selectedItem?.inventoryTarget?.displayName}
-            </DialogDescription>
+            <DialogDescription>{selectedItem?.lineItemName}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {/* Target type selector - only show if both targets exist */}
+            {selectedItem?.blankTarget && selectedItem?.productTarget && (
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">
+                  Inventory Type
+                </Label>
+                <div className="flex gap-2">
+                  <Button
+                    variant={
+                      selectedTargetType === "blank" ? "default" : "outline"
+                    }
+                    size="sm"
+                    onClick={() => handleTargetTypeChange("blank")}
+                    className="flex-1"
+                  >
+                    Blank
+                  </Button>
+                  <Button
+                    variant={
+                      selectedTargetType === "product" ? "default" : "outline"
+                    }
+                    size="sm"
+                    onClick={() => handleTargetTypeChange("product")}
+                    className="flex-1"
+                  >
+                    Product
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Show selected target info */}
+            {getSelectedTarget() && (
+              <div className="p-2 bg-zinc-50 rounded-md">
+                <div className="text-xs text-muted-foreground mb-1">
+                  {selectedTargetType === "blank"
+                    ? "Blank Variant"
+                    : "Product Variant"}
+                </div>
+                <div className="text-sm font-medium">
+                  {getSelectedTarget()?.displayName.split("-").join("")}
+                </div>
+              </div>
+            )}
+
+            {/* Fulfillment mismatch info */}
+            {selectedItem?.hasFulfillmentMismatch && (
+              <div className="p-2 bg-blue-50 rounded-md border border-blue-100">
+                <div className="flex items-center gap-2 text-blue-700 text-xs">
+                  <Icon icon="ph:info" className="size-4" />
+                  <span>
+                    Expected <strong>{selectedItem.expectedFulfillment}</strong>{" "}
+                    but status is <strong>{selectedItem.currentStatus}</strong>.
+                    Inventory may have changed on a different target.
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Current state summary */}
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="bg-zinc-50 rounded-md p-2">
                 <div className="text-xs text-muted-foreground">Current</div>
                 <div className="text-lg font-medium">
-                  {selectedItem?.currentInventory ?? 0}
+                  {getSelectedTarget()?.currentInventory ?? 0}
                 </div>
               </div>
               <div className="bg-zinc-50 rounded-md p-2">
@@ -407,7 +562,7 @@ export const SettleSessionController = ({
                   Expected Change
                 </div>
                 <div className="text-lg font-medium">
-                  {selectedItem?.inventoryTarget?.expectedChange ?? 0}
+                  {getSelectedTarget()?.expectedChange ?? 0}
                 </div>
               </div>
               <div className="bg-zinc-50 rounded-md p-2">
@@ -417,31 +572,39 @@ export const SettleSessionController = ({
                 <div
                   className={cn(
                     "text-lg font-medium",
-                    selectedItem?.hasInventoryMismatch && "text-red-600"
+                    getSelectedTarget() &&
+                      getSelectedTarget()!.actualInventoryChange !==
+                        getSelectedTarget()!.expectedChange &&
+                      "text-amber-600"
                   )}
                 >
-                  {selectedItem?.actualInventoryChange ?? 0}
+                  {getSelectedTarget()?.actualInventoryChange ?? 0}
                 </div>
               </div>
             </div>
 
-            {/* Recent transactions */}
-            {selectedItem && selectedItem.transactions.length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">
-                  Recent Transactions ({selectedItem.transactions.length})
-                </Label>
-                <div className="max-h-32 overflow-y-auto space-y-1.5">
-                  {selectedItem.transactions.slice(0, 5).map((tx) => (
-                    <InventoryTransactionItem
-                      key={tx.id}
-                      transaction={tx}
-                      log={tx.log}
-                    />
-                  ))}
+            {/* Recent transactions for selected target */}
+            {getSelectedTarget() &&
+              getSelectedTarget()!.transactions.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">
+                    Recent Transactions (
+                    {getSelectedTarget()!.transactions.length})
+                  </Label>
+                  <div className="max-h-32 overflow-y-auto space-y-1.5">
+                    {getSelectedTarget()!
+                      .transactions.slice(0, 5)
+                      .map((tx) => (
+                        <InventoryTransactionItem
+                          key={tx.id}
+                          transaction={tx}
+                          itemDisplayName={getSelectedTarget()?.displayName}
+                          log={tx.log}
+                        />
+                      ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
             {/* Adjustment input */}
             <div className="space-y-2">
@@ -471,11 +634,11 @@ export const SettleSessionController = ({
             {/* Preview */}
             <div className="flex items-center justify-center gap-2 p-3 bg-zinc-50 rounded-md">
               <span className="text-sm text-muted-foreground">
-                {selectedItem?.currentInventory ?? 0}
+                {getSelectedTarget()?.currentInventory ?? 0}
               </span>
               <Icon icon="ph:arrow-right" className="size-4 text-zinc-400" />
               <span className="text-sm font-medium">
-                {(selectedItem?.currentInventory ?? 0) + inventoryChange}
+                {(getSelectedTarget()?.currentInventory ?? 0) + inventoryChange}
               </span>
             </div>
 
@@ -498,6 +661,7 @@ export const SettleSessionController = ({
             <Button
               onClick={handleSubmitInventoryAdjustment}
               loading={adjustInventoryMutation.isPending}
+              disabled={!getSelectedTarget()}
             >
               Create Transaction
             </Button>
