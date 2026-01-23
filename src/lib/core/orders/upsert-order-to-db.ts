@@ -31,6 +31,9 @@ export const upsertOrderToDb = async (adminGraphqlApiId: string) => {
     where: {
       id: adminGraphqlApiId,
     },
+    with: {
+      lineItems: true,
+    }
   });
 
   if (!existingOrder) {
@@ -40,7 +43,7 @@ export const upsertOrderToDb = async (adminGraphqlApiId: string) => {
   return updateOrder(existingOrder, order);
 };
 
-const updateOrder = async (existingOrder: typeof orders.$inferSelect, shopifyOrder: ShopifyOrder): Promise<DataResponse<"success">> => {
+const updateOrder = async (existingOrder: typeof orders.$inferSelect & { lineItems: typeof lineItems.$inferSelect[] }, shopifyOrder: ShopifyOrder): Promise<DataResponse<"success">> => {
   console.log("[upsertOrderToDb] Updating order in db");
   try {
     await db.transaction(async (tx) => {
@@ -62,6 +65,21 @@ const updateOrder = async (existingOrder: typeof orders.$inferSelect, shopifyOrd
       // Upsert line items: insert new ones or update existing ones
       // We don't delete removed line items as per requirements
       if (shopifyOrder.lineItems.nodes.length > 0) {
+        const newLineItems = shopifyOrder.lineItems.nodes.filter((item) => !existingOrder.lineItems.some((li) => li.id === item.id));
+        const removedLineItems = existingOrder.lineItems.filter((item) => !shopifyOrder.lineItems.nodes.some((li) => li.id === item.id));
+
+        for (const lineItem of newLineItems) {
+          logger.info(`[update-order] Item ${lineItem.name} added to order`, {
+            category: "AUTOMATED",
+            orderId: shopifyOrder.id,
+          });
+        }
+        for (const lineItem of removedLineItems) {
+          logger.info(`[update-order] Item ${lineItem.name} removed from order`, {
+            category: "AUTOMATED",
+            orderId: shopifyOrder.id,
+          });
+        }
         await tx
           .insert(lineItems)
           .values(
@@ -154,6 +172,7 @@ const determineFulfillmentPriority = (
   if (order.discountCodes?.some((code) => code.toLowerCase().includes("norush"))) {
     logger.info("[upsertOrderToDb] Order was set to low priority because it contains a norush discount code", {
       category: "AUTOMATED",
+      orderId: order.id,
     });
     return { priority: "low", displayReason: "NORUSH discount was applied" };
   }
@@ -169,6 +188,7 @@ const determineFulfillmentPriority = (
   if (customerPrestigeStatus === "VIP") {
     logger.info("Order was set to critical priority because customer is VIP", {
       category: "AUTOMATED",
+      orderId: order.id,
     });
     return { priority: "urgent", displayReason: "Customer is VIP" };
   }
@@ -183,6 +203,7 @@ const determineFulfillmentPriority = (
   if (priceAsNumber > 300) {
     logger.info("Order was set to priority because customer is high spender", {
       category: "AUTOMATED",
+      orderId: order.id,
     });
     return { priority: "critical" };
   }
@@ -190,6 +211,7 @@ const determineFulfillmentPriority = (
   if (customerPrestigeStatus && ["GOLD", "SILVER", "PLATINUM"].includes(customerPrestigeStatus)) {
     logger.info("Order was set to priority priority due to loyalty tier", {
       category: "AUTOMATED",
+      orderId: order.id,
     });
     return { priority: "priority", displayReason: `${customerPrestigeStatus} tier priority` };
   }
@@ -198,6 +220,7 @@ const determineFulfillmentPriority = (
   if (order.lineItems.nodes.some((item) => item.name.toLowerCase().includes("care package"))) {
     logger.info("Order was set to priority because it contains a care package", {
       category: "AUTOMATED",
+      orderId: order.id,
     });
     return { priority: "priority" };
   }
@@ -213,6 +236,7 @@ const determineFulfillmentPriority = (
   if (customerOrderNumber > 3) {
     logger.info("Order was set to priority because customer has multiple orders", {
       category: "AUTOMATED",
+      orderId: order.id,
     });
     return { priority: "priority" };
   }
