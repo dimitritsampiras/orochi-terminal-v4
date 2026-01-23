@@ -63,9 +63,7 @@ const createProduct = async (shopifyProduct: ShopifyProduct): Promise<DataRespon
       }
     });
   } catch (error) {
-    logger.error("[upsertProductToDb] Error creating product in db", {
-      category: "AUTOMATED",
-    });
+    console.log('[upsertProductToDb] Error creating product in db', error);
     return { data: null, error: "Error creating product in db" };
   }
 
