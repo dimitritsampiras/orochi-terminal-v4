@@ -19,7 +19,9 @@ function PaginationController({
 
 	const handleNavigate = (newPage: number) => {
 		if (newPage >= 1 && newPage <= totalPages) {
-			router.replace(`${pathname}?page=${newPage}`, {
+			const params = new URLSearchParams(searchParams.toString());
+			params.set("page", newPage.toString());
+			router.replace(`${pathname}?${params.toString()}`, {
 				scroll: false,
 			});
 		}

@@ -35,11 +35,14 @@ const easypostEventSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  console.log('[easypost webhook] Received request');
+
   const rawBody = await request.json();
 
   const parsedBody = easypostEventSchema.safeParse(rawBody);
 
   if (!parsedBody.success) {
+    console.log('[easypost webhook] Invalid event payload', parsedBody.error);
     return new NextResponse("Invalid event payload", { status: 400 });
   }
 
@@ -56,12 +59,13 @@ export async function POST(request: NextRequest) {
   const carrier = tracker.carrier ?? "EASYPOST";
 
   if (!tracker.shipment_id) {
+    console.log('[easypost webhook] Shipment ID not found');
     return new NextResponse("Shipment ID not found", { status: 404 });
   }
 
   const shipment = await db.query.shipments.findFirst({
     where: {
-      OR: [{ trackingNumber: trackingNumber }, { shipmentId: tracker.shipment_id ?? undefined }],
+      OR: [{ trackingNumber: trackingNumber }, ...(tracker.shipment_id ? [{ shipmentId: tracker.shipment_id }] : [])],
       api: "EASYPOST",
     },
     with: {
@@ -70,12 +74,14 @@ export async function POST(request: NextRequest) {
   });
 
   if (!shipment) {
+    console.log('[easypost webhook] Shipment not found');
     return new NextResponse("Shipment not found", { status: 404 });
   }
 
   const order = shipment.order;
 
   if (!order) {
+    console.log('[easypost webhook] Order not found');
     return new NextResponse("Order not found", { status: 404 });
   }
 

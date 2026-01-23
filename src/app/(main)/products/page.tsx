@@ -1,10 +1,10 @@
-import { MultiSelectFilter } from "@/components/inputs/multi-select-filter";
 import { Search } from "@/components/inputs/search";
-import { env } from "@/lib/env";
-import { getUserOrSignout } from "@/lib/core/auth/get-user-or-signout";
 import { db } from "@/lib/clients/db";
 import { ProductsTable } from "@/components/table/products-table";
 import { authorizePageUser } from "@/lib/core/auth/authorize-user";
+import { PaginationController } from "@/components/pagination-controller";
+
+const PAGE_SIZE = 50;
 
 export default async function ProductsPage({
   searchParams,
@@ -21,30 +21,44 @@ export default async function ProductsPage({
   }
 
   const q = params.get("q");
+  const page = Math.max(1, parseInt(params.get("page") || "1", 10));
+  const offset = (page - 1) * PAGE_SIZE;
 
-  const products = await db.query.products.findMany({
-    limit: 50,
-    with: {
-      productVariants: true,
-    },
-    orderBy: { createdAt: "desc" },
-    where: q
-      ? {
-          OR: [
-            {
-              title: {
-                ilike: `%${q}%`,
-              },
+  const whereClause = q
+    ? {
+        OR: [
+          {
+            title: {
+              ilike: `%${q}%`,
             },
-            {
-              id: {
-                ilike: `%${q}%`,
-              },
+          },
+          {
+            id: {
+              ilike: `%${q}%`,
             },
-          ],
-        }
-      : undefined,
-  });
+          },
+        ],
+      }
+    : undefined;
+
+  const [products, totalResult] = await Promise.all([
+    db.query.products.findMany({
+      limit: PAGE_SIZE,
+      offset,
+      with: {
+        productVariants: true,
+      },
+      orderBy: { createdAt: "desc" },
+      where: whereClause,
+    }),
+    db.query.products.findMany({
+      columns: { id: true },
+      where: whereClause,
+    }),
+  ]);
+
+  const total = totalResult.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div>
@@ -57,6 +71,15 @@ export default async function ProductsPage({
         <div>{/* <CreateProductForm categories={categories} /> */}</div>
       </div>
       <ProductsTable products={products} />
+
+      {totalPages > 1 && (
+        <PaginationController
+          total={total}
+          totalPages={totalPages}
+          currentPage={page}
+          className="mt-4"
+        />
+      )}
     </div>
   );
 }

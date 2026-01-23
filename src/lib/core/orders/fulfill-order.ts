@@ -25,14 +25,14 @@ export const fulfillOrder = async (
       .toSorted((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     if (validFulfillmentOrders.length !== 1) {
-      console.log(validFulfillmentOrders);
+      console.log('[fulfillOrder] Multiple or 0 open fulfillment orders found', validFulfillmentOrders);
       return { data: null, error: "Multiple or 0 open fulfillment orders found" };
     }
 
     const targetFulfillmentOrder = validFulfillmentOrders[0];
 
     if (targetFulfillmentOrder) {
-      console.log("target:", targetFulfillmentOrder.status, "\nfrom forders:", fulfillmentOrders.length);
+      console.log("[fulfillOrder] Target fulfillment order:", targetFulfillmentOrder.status, "\nfrom forders:", fulfillmentOrders.length);
 
       const shouldNotifyCustomer = dayjs().diff(dayjs(targetFulfillmentOrder.createdAt), "day") <= 40;
       const { data, errors } = await shopify.request(createFulfillmentMutation, {

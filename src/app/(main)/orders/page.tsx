@@ -1,7 +1,4 @@
 import { Search } from "@/components/inputs/search";
-import { getUserOrSignout } from "@/lib/core/auth/get-user-or-signout";
-import { MultiSelectFilter } from "@/components/inputs/multi-select-filter";
-
 import { OrdersTable } from "@/components/table/orders-table";
 
 import type { SearchParams } from "next/dist/server/request/search-params";
@@ -10,7 +7,15 @@ import { authorizePageUser } from "@/lib/core/auth/authorize-user";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Icon } from "@iconify/react";
-export default async function OrdersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+import { PaginationController } from "@/components/pagination-controller";
+
+const PAGE_SIZE = 50;
+
+export default async function OrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   await authorizePageUser("orders");
 
   const params = new URLSearchParams();
@@ -21,36 +26,50 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   }
 
   let q = params.get("q");
+  const page = Math.max(1, parseInt(params.get("page") || "1", 10));
+  const offset = (page - 1) * PAGE_SIZE;
 
   if (q?.length && Number.isInteger(Number(q)) && q?.length <= 6) {
     q = `#${q}`;
   }
 
-  const orders = await db.query.orders.findMany({
-    limit: 50,
-    orderBy: { createdAt: "desc" },
-    where: q
-      ? {
-          OR: [
-            {
-              displayCustomerName: {
-                ilike: `%${q}%`,
-              },
+  const whereClause = q
+    ? {
+        OR: [
+          {
+            displayCustomerName: {
+              ilike: `%${q}%`,
             },
-            {
-              name: {
-                ilike: `%${q}%`,
-              },
+          },
+          {
+            name: {
+              ilike: `%${q}%`,
             },
-            {
-              id: {
-                ilike: `%${q}%`,
-              },
+          },
+          {
+            id: {
+              ilike: `%${q}%`,
             },
-          ],
-        }
-      : undefined,
-  });
+          },
+        ],
+      }
+    : undefined;
+
+  const [orders, totalResult] = await Promise.all([
+    db.query.orders.findMany({
+      limit: PAGE_SIZE,
+      offset,
+      orderBy: { createdAt: "desc" },
+      where: whereClause,
+    }),
+    db.query.orders.findMany({
+      columns: { id: true },
+      where: whereClause,
+    }),
+  ]);
+
+  const total = totalResult.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div>
@@ -70,6 +89,15 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
       <div className="mt-4" />
 
       <OrdersTable orders={orders || []} />
+
+      {totalPages > 1 && (
+        <PaginationController
+          total={total}
+          totalPages={totalPages}
+          currentPage={page}
+          className="mt-4"
+        />
+      )}
     </div>
   );
 }
