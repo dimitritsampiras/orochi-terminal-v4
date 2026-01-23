@@ -45,8 +45,8 @@ const createProduct = async (shopifyProduct: ShopifyProduct): Promise<DataRespon
         title: shopifyProduct.title,
         vendor: shopifyProduct.vendor,
         status: shopifyProduct.status,
-        createdAt: shopifyProduct.createdAt,
-        updatedAt: shopifyProduct.updatedAt,
+        createdAt: new Date(shopifyProduct.createdAt),
+        updatedAt: new Date(shopifyProduct.updatedAt),
       });
 
       if (shopifyProduct.variants.nodes.length > 0) {
@@ -56,8 +56,8 @@ const createProduct = async (shopifyProduct: ShopifyProduct): Promise<DataRespon
             title: variant.title,
             price: variant.price,
             productId: shopifyProduct.id,
-            createdAt: variant.createdAt,
-            updatedAt: variant.updatedAt,
+            createdAt: new Date(variant.createdAt),
+            updatedAt: new Date(variant.updatedAt),
           }))
         );
       }
