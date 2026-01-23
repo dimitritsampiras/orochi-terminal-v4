@@ -67,8 +67,9 @@ export async function POST(
         {
           profileId: user.id,
           batchId,
+          orderIdForLog: lineItem.orderId,
           lineItemId,
-          logMessage: `[assembly] Reduced product inventory for ${lineItem.name} (fulfilled from stock)`,
+          logMessage: `[assembly] Reduced product inventory for ${lineItem.name} (marked as stock on assembly)`,
         }
       );
       inventoryChanged = true;
@@ -83,7 +84,7 @@ export async function POST(
       .where(eq(lineItems.id, lineItemId));
 
     // 5. Log the action
-    await logger.info(`[assembly] ${lineItem.name} fulfilled from stock${reduceInventory ? " (inventory reduced)" : ""}`, {
+    await logger.info(`[assembly] ${lineItem.name} marked as stock${reduceInventory ? " (inventory reduced)" : ""}`, {
       orderId: lineItem.orderId,
       profileId: user.id,
       lineItemId,

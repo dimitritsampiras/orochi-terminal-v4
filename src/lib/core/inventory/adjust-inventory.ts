@@ -16,7 +16,8 @@ export async function adjustInventory(
     batchId,
     logMessage,
     lineItemId,
-  }: { profileId?: string; batchId?: number; logMessage?: string; lineItemId?: string }
+    orderIdForLog,
+  }: { profileId?: string; batchId?: number; logMessage?: string; lineItemId?: string; orderIdForLog?: string }
 ) {
   const txId = Math.random().toString(36).substring(7); // Simple ID for tracking
   console.log(`[adjustInventory:${txId}] START - ${target.type}:${target.variantId}, delta:${delta}, reason:${reason}, batchId:${batchId}, lineItemId:${lineItemId}`);
@@ -56,7 +57,7 @@ export async function adjustInventory(
       // 3. Create log if message provided
       let logId: number | undefined;
       if (logMessage) {
-        logId = await logger.info(logMessage, { profileId }, tx);
+        logId = await logger.info(logMessage, { profileId, batchId, lineItemId, orderId: orderIdForLog }, tx);
         console.log(`[adjustInventory:${txId}] Step 4: Created log, logId=${logId}`);
       }
 

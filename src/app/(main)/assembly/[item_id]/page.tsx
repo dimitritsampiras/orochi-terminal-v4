@@ -33,6 +33,9 @@ export default async function AssemblyItemPage({ params }: { params: Promise<{ i
     }),
     db.query.inventoryTransactions.findMany({
       where: { lineItemId },
+      with: {
+        log: true,
+      }
     }),
   ]);
   const { data: media } = mediaRes;

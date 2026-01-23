@@ -13,6 +13,7 @@ import {
   type PickingRequirement,
 } from "./create-picking-requirements";
 import type { PremadeStockItem } from "./get-premade-stock-requirements";
+import { storedAssemblyLineSchema } from "@/lib/schemas/assembly-schema";
 
 // Re-export types for backwards compatibility
 export type AssemblyLineItem = SessionLineItem & {
@@ -23,11 +24,6 @@ export type AssemblyLineItemWithPrintLogs = AssemblyLineItem & {
   printLogs: (typeof printLogs.$inferSelect)[];
 };
 
-const storedAssemblyLineSchema = z.object({
-  id: z.string(),
-  itemPosition: z.number(),
-  expectedFulfillment: z.enum(["stock", "black_label", "print"]),
-});
 
 const GARMENT_TYPE_ORDER: (typeof garmentType.enumValues)[number][] = [
   "hoodie",
@@ -117,7 +113,7 @@ export const getAssemblyLine = async (
 
     }
   }
-  
+
   return { data: null, error: "No assembly line found" };
 };
 

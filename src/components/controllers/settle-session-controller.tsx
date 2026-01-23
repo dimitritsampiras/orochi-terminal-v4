@@ -289,15 +289,24 @@ export const SettleSessionController = ({
                       <div className="flex flex-col gap-1">
                         {item.blankTarget && (
                           <div className="flex items-center gap-1 text-xs">
-                            <span className="text-muted-foreground">Blank:</span>
+                            <span className="text-muted-foreground">
+                              Blank:
+                            </span>
                             <span className={cn("font-medium")}>
                               {item.blankTarget.actualInventoryChange}
                             </span>
+                            {item.blankTarget.misprintChange !== 0 && (
+                              <span className="text-rose-500 text-[10px]">
+                                ({item.blankTarget.misprintChange} misprint)
+                              </span>
+                            )}
                           </div>
                         )}
                         {item.productTarget && (
                           <div className="flex items-center gap-1 text-xs">
-                            <span className="text-muted-foreground">Product:</span>
+                            <span className="text-muted-foreground">
+                              Product:
+                            </span>
                             <span
                               className={cn(
                                 "font-medium",
@@ -311,15 +320,20 @@ export const SettleSessionController = ({
                         )}
                       </div>
                     ) : item.inventoryTarget ? (
-                      <div className="w-full py-1 px-2 flex gap-2 rounded-md">
+                      <div className="w-full py-1 px-2 flex flex-col gap-0.5 rounded-md">
                         <span
                           className={cn(
                             "text-base font-medium",
                             item.hasInventoryMismatch && "text-red-600"
                           )}
                         >
-                          {item.actualInventoryChange}
+                          {item.inventoryTarget.actualInventoryChange}
                         </span>
+                        {item.inventoryTarget.misprintChange !== 0 && (
+                          <span className="text-rose-500 text-[10px]">
+                            ({item.inventoryTarget.misprintChange} misprint)
+                          </span>
+                        )}
                       </div>
                     ) : (
                       <span className="text-muted-foreground text-sm">—</span>

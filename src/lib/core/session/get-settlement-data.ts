@@ -21,6 +21,10 @@ export type InventoryTarget = {
   expectedChange: number;
   currentInventory: number;
   actualInventoryChange: number;
+  // Misprint adjustments (sum of transactions with reason "misprint")
+  misprintChange: number;
+  // Actual change minus misprints - used for mismatch calculation
+  adjustedActualChange: number;
   transactions: TransactionWithLogs[];
 };
 
@@ -161,25 +165,42 @@ export const getSettlementData = async (
     let productTarget: InventoryTarget | null = null;
 
     if (picking.blankVariantId) {
+      const actualChange = blankTransactions.reduce((sum, tx) => sum + tx.changeAmount, 0);
+      // Sum of misprint transactions (these are expected extra decrements)
+      const misprintChange = blankTransactions
+        .filter(tx => tx.reason === "misprint")
+        .reduce((sum, tx) => sum + tx.changeAmount, 0);
+      
       blankTarget = {
         type: "blank",
         id: picking.blankVariantId,
         displayName: picking.blankDisplayName ?? "Unknown Blank",
         expectedChange: assemblyItem.expectedFulfillment === "print" ? -picking.quantity : 0,
         currentInventory: lineItem.productVariant?.blankVariant?.quantity ?? 0,
-        actualInventoryChange: blankTransactions.reduce((sum, tx) => sum + tx.changeAmount, 0),
+        actualInventoryChange: actualChange,
+        misprintChange,
+        // Adjusted = actual minus misprints (e.g., actual -2 with -1 misprint = adjusted -1)
+        adjustedActualChange: actualChange - misprintChange,
         transactions: blankTransactions,
       };
     }
 
     if (picking.productVariantId) {
+      const actualChange = productTransactions.reduce((sum, tx) => sum + tx.changeAmount, 0);
+      // Misprints shouldn't happen on product variants, but handle for completeness
+      const misprintChange = productTransactions
+        .filter(tx => tx.reason === "misprint")
+        .reduce((sum, tx) => sum + tx.changeAmount, 0);
+      
       productTarget = {
         type: "product",
         id: picking.productVariantId,
         displayName: picking.productDisplayName ?? "Unknown Product",
         expectedChange: assemblyItem.expectedFulfillment === "stock" ? -picking.quantity : 0,
         currentInventory: lineItem.productVariant?.warehouseInventory ?? 0,
-        actualInventoryChange: productTransactions.reduce((sum, tx) => sum + tx.changeAmount, 0),
+        actualInventoryChange: actualChange,
+        misprintChange,
+        adjustedActualChange: actualChange - misprintChange,
         transactions: productTransactions,
       };
     }
@@ -207,8 +228,9 @@ export const getSettlementData = async (
 
     // Inventory mismatch is only a real error if there's no fulfillment mismatch
     // With fulfillment mismatch, inventory changes happen on different target, which is expected
+    // Use adjustedActualChange which accounts for misprints (e.g., expected -1, actual -2 with 1 misprint = no mismatch)
     const hasInventoryMismatch =
-      !hasFulfillmentMismatch && inventoryTarget !== null && actualInventoryChange !== inventoryTarget.expectedChange;
+      !hasFulfillmentMismatch && inventoryTarget !== null && inventoryTarget.adjustedActualChange !== inventoryTarget.expectedChange;
 
     items.push({
       lineItemId: assemblyItem.id,

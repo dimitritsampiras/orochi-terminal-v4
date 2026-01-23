@@ -16,7 +16,9 @@ import { Icon } from "@iconify/react";
 import { cn } from "@/lib/utils";
 import dayjs from "dayjs";
 
-type InventoryTransaction = typeof inventoryTransactionsTable.$inferSelect;
+type InventoryTransaction = typeof inventoryTransactionsTable.$inferSelect & {
+  log?: typeof logs.$inferSelect | null;
+};
 type Log = typeof logs.$inferSelect;
 
 const REASON_LABELS: Record<string, { label: string; color: string }> = {
@@ -132,10 +134,13 @@ export const InventoryTransactionsList = ({
   return (
     <div className="space-y-3">
       {transactions.map((transaction) => (
-        <InventoryTransactionItem
-          key={transaction.id}
-          transaction={transaction}
-        />
+        <div className="space-y-2 bg-zinc-50">
+          <InventoryTransactionItem
+            key={transaction.id}
+            transaction={transaction}
+            log={transaction.log}
+          />
+        </div>
       ))}
     </div>
   );

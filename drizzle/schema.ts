@@ -142,6 +142,7 @@ export const inventoryTransactionReason = pgEnum(
     "correction",
     "manual_print",
     "defected_item",
+    "misprint"
   ],
 );
 

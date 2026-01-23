@@ -128,6 +128,7 @@ export type MarkPrintedResponse = DataResponse<AssemblyActionResult>;
 export type MarkStockedResponse = DataResponse<AssemblyActionResult>;
 export type MarkOosResponse = DataResponse<AssemblyActionResult>;
 export type ResetLineItemResponse = DataResponse<AssemblyActionResult>;
+export type ReportMisprintResponse = DataResponse<AssemblyActionResult>;
 
 // Settlement response types
 export type UpdateLineItemStatusResponse = DataResponse<{ success: boolean }>;

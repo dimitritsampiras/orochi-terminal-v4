@@ -85,7 +85,8 @@ export async function POST(
         profileId: user.id,
         batchId,
         lineItemId,
-        logMessage: `[assembly] Blank used for ${lineItem.name} by ${user.username}`,
+        orderIdForLog: lineItem.orderId,
+        logMessage: `[assembly] Blank used for ${lineItem.name} by ${user.username} due to print.`,
       });
       inventoryChanged = true;
     }

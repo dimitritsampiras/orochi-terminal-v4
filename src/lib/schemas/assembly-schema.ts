@@ -29,3 +29,17 @@ export const resetLineItemSchema = z.object({
 });
 export type ResetLineItemSchema = z.infer<typeof resetLineItemSchema>;
 
+// Report a misprint (decrement blank inventory, log with notes)
+export const reportMisprintSchema = z.object({
+  batchId: z.number(),
+  notes: z.string().min(1, "Please describe what happened"),
+});
+export type ReportMisprintSchema = z.infer<typeof reportMisprintSchema>;
+
+
+
+export const storedAssemblyLineSchema = z.object({
+  id: z.string(),
+  itemPosition: z.number(),
+  expectedFulfillment: z.enum(["stock", "black_label", "print"]),
+});

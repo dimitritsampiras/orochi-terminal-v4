@@ -71,6 +71,7 @@ export async function POST(
         category: "ASSEMBLY",
         metadata: { batchId },
         batchId,
+        lineItemId,
       }
     );
 

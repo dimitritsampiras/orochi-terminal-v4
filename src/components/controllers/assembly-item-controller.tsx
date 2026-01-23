@@ -14,6 +14,7 @@ import {
   MarkStockedResponse,
   MarkOosResponse,
   ResetLineItemResponse,
+  ReportMisprintResponse,
 } from "@/lib/types/api";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -58,6 +59,7 @@ import { LineItemStatusBadge } from "../badges/line-item-status-badge";
 import {
   inventoryTransactions as inventoryTransactionsTable,
   lineItemCompletionStatus,
+  logs,
 } from "@drizzle/schema";
 import { IdCopyBadge } from "../badges/id-copy-badge";
 import { useMutation } from "@tanstack/react-query";
@@ -67,11 +69,16 @@ import {
   MarkStockedSchema,
   MarkOosSchema,
   ResetLineItemSchema,
+  ReportMisprintSchema,
 } from "@/lib/schemas/assembly-schema";
+import { Textarea } from "../ui/textarea";
+import { Label } from "../ui/label";
 import { useOperatorStore } from "@/lib/stores/operator-store";
 
 type Order = Extract<NonNullable<OrderQuery["node"]>, { __typename: "Order" }>;
-type InventoryTransaction = typeof inventoryTransactionsTable.$inferSelect;
+type InventoryTransaction = typeof inventoryTransactionsTable.$inferSelect & {
+  log: typeof logs.$inferSelect | null;
+};
 
 export const AssemblyItemController = ({
   item,
@@ -326,6 +333,7 @@ export const AssemblyItemController = ({
             product={item.product}
             productVariant={item.productVariant}
           />
+
           <InventoryTransactionsCard
             inventoryTransactions={inventoryTransactions}
           />
@@ -371,6 +379,10 @@ const Prints = ({
 
   // Dialog state for "mark as OOS" scenario
   const [showOosDialog, setShowOosDialog] = useState(false);
+
+  // Dialog state for "report misprint" scenario
+  const [showMisprintDialog, setShowMisprintDialog] = useState(false);
+  const [misprintNotes, setMisprintNotes] = useState("");
 
   // Stock validation
   const blankStock = item.blankVariant?.quantity ?? 0;
@@ -518,11 +530,37 @@ const Prints = ({
     onError: (error) => toast.error(error.message),
   });
 
+  const reportMisprintMutation = useMutation({
+    mutationFn: async (input: ReportMisprintSchema) => {
+      const res = await fetch(`/api/assembly/${parseGid(item.id)}/misprint`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(activeOperatorId ? { "x-operator-id": activeOperatorId } : {}),
+        },
+        body: JSON.stringify(input),
+      });
+      const data = (await res.json()) as ReportMisprintResponse;
+      if (!res.ok || data.error)
+        throw new Error(data.error ?? "Failed to report misprint");
+      return data;
+    },
+    onSuccess: async () => {
+      router.refresh();
+      await sleep(1000);
+      toast.success("Misprint reported - blank inventory reduced by 1");
+      setShowMisprintDialog(false);
+      setMisprintNotes("");
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
   const isAnyMutationPending =
     markPrintedMutation.isPending ||
     markStockedMutation.isPending ||
     markOosMutation.isPending ||
-    resetMutation.isPending;
+    resetMutation.isPending ||
+    reportMisprintMutation.isPending;
 
   // === HANDLERS ===
 
@@ -581,6 +619,16 @@ const Prints = ({
   const handleReset = () => {
     if (!batchId) return;
     resetMutation.mutate({ batchId });
+  };
+
+  const handleOpenMisprintDialog = () => {
+    setMisprintNotes("");
+    setShowMisprintDialog(true);
+  };
+
+  const handleConfirmMisprint = () => {
+    if (!batchId || !misprintNotes.trim()) return;
+    reportMisprintMutation.mutate({ batchId, notes: misprintNotes.trim() });
   };
 
   const handleOpenArxpAndPrint = async () => {
@@ -937,6 +985,18 @@ const Prints = ({
             </Tooltip>
           </TooltipProvider>
         </div>
+        <div className="mt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-rose-600"
+            disabled={!batchId || !item.blankVariant || isAnyMutationPending}
+            onClick={handleOpenMisprintDialog}
+          >
+            <Icon icon="ph:warning" className="size-3" />
+            Report Misprint
+          </Button>
+        </div>
         <div className="mt-4">
           {!isConnected ? (
             <Alert>
@@ -1137,6 +1197,65 @@ const Prints = ({
               loading={markOosMutation.isPending}
             >
               Mark as OOS
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Report Misprint Dialog */}
+      <AlertDialog
+        open={showMisprintDialog}
+        onOpenChange={setShowMisprintDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Report Misprint</AlertDialogTitle>
+            <AlertDialogDescription>
+              Report a misprint that wasted a blank. This will decrease blank
+              inventory by 1.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="my-4 space-y-4">
+            <div className="p-3 bg-zinc-50 rounded-lg text-sm">
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Current blank stock:</span>
+                <span className="font-medium">{blankStock}</span>
+              </div>
+              <div className="flex justify-between mt-1">
+                <span className="text-zinc-500">After reporting:</span>
+                <span className="font-medium text-rose-600">
+                  {Math.max(0, blankStock - 1)}
+                </span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="misprint-notes">What happened?</Label>
+              <Textarea
+                id="misprint-notes"
+                placeholder="Describe the misprint issue..."
+                value={misprintNotes}
+                onChange={(e) => setMisprintNotes(e.target.value)}
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowMisprintDialog(false)}
+              disabled={reportMisprintMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="border-rose-200 text-rose-700 hover:bg-rose-50"
+              variant="outline"
+              onClick={handleConfirmMisprint}
+              disabled={
+                reportMisprintMutation.isPending || !misprintNotes.trim()
+              }
+              loading={reportMisprintMutation.isPending}
+            >
+              Report Misprint
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
