@@ -15,7 +15,7 @@ const shippoTrackingUpdateSchema = z.object({
   data: z.object({
     carrier: z.string(),
     tracking_number: z.string(),
-    transaction: z.string(),
+    transaction: z.string().nullable(),
     tracking_status: z.object({
       status: z.enum(trackingStatuses),
     }),
@@ -24,6 +24,8 @@ const shippoTrackingUpdateSchema = z.object({
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
+  console.log(body);
+
   const parsedBody = shippoTrackingUpdateSchema.safeParse(body);
 
   if (!parsedBody.success) {
@@ -39,7 +41,10 @@ export async function POST(request: NextRequest) {
 
   const shipment = await db.query.shipments.findFirst({
     where: {
-      OR: [{ trackingNumber: trackingNumber }, { shippoTransactionId: transaction }],
+      OR: [
+        { trackingNumber: trackingNumber },
+        ...(transaction ? [{ shippoTransactionId: transaction }] : []),
+      ],
       api: "SHIPPO",
     },
     with: {

@@ -31,17 +31,11 @@ export const webhooks = async () => {
 
 
   const topicToRoute: { topics: `${WebhookSubscriptionTopic}`[], route: string }[] = [{
-    topics: ["ORDERS_CREATE"],
-    route: `${baseUrl}/api/webhook/shopify/orders/create`
+    topics: ["ORDERS_CREATE", "ORDERS_UPDATED", "ORDERS_EDITED", "ORDERS_CANCELLED", "ORDERS_FULFILLED"],
+    route: `${baseUrl}/api/webhook/shopify/order`
   }, {
-    topics: ["ORDERS_UPDATED", "ORDERS_EDITED", "ORDERS_CANCELLED", "ORDERS_FULFILLED"],
-    route: `${baseUrl}/api/webhook/shopify/orders/update`
-  }, {
-    topics: ["PRODUCTS_CREATE"],
-    route: `${baseUrl}/api/webhook/shopify/products/create`
-  }, {
-    topics: ["PRODUCTS_UPDATE", "PRODUCTS_DELETE"],
-    route: `${baseUrl}/api/webhook/shopify/products/update`
+    topics: ["PRODUCTS_CREATE", "PRODUCTS_UPDATE", "PRODUCTS_DELETE"],
+    route: `${baseUrl}/api/webhook/shopify/product`
   }]
 
 

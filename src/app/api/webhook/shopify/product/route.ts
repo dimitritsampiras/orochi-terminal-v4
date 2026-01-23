@@ -33,20 +33,13 @@ export const POST = async (request: NextRequest) => {
   }
 
   // Extract admin_graphql_api_id from either payload type
-  let adminGraphqlApiId: string;
-
-  if ("order_edit" in parsedBody.data) {
-    // Convert numeric order_id to GraphQL ID format
-    adminGraphqlApiId = buildResourceGid("Product", parsedBody.data.admin_graphql_api_id);
-  } else {
-    adminGraphqlApiId = parsedBody.data.admin_graphql_api_id;
-  }
-
+  const adminGraphqlApiId = parsedBody.data.admin_graphql_api_id;
+  
   const { data, error } = await upsertProductToDb(adminGraphqlApiId);
 
   if (error) {
     console.error(error);
-    return new NextResponse("Error upserting order to db", { status: 500 });
+    return new NextResponse("Error upserting product to db", { status: 500 });
   }
 
   return new NextResponse("OK");
