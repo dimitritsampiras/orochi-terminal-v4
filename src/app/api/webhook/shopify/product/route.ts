@@ -26,15 +26,13 @@ export const POST = async (request: NextRequest) => {
   const parsedBody = productWebhookSchema.safeParse(rawBody);
 
   if (!parsedBody.success) {
-    logger.error("[product webhook] Invalid request body", {
-      category: "AUTOMATED",
-    });
+    console.log('[product webhook] Invalid request body', parsedBody.error);
     return new NextResponse("Invalid request body", { status: 400 });
   }
 
   // Extract admin_graphql_api_id from either payload type
   const adminGraphqlApiId = parsedBody.data.admin_graphql_api_id;
-  
+
   const { data, error } = await upsertProductToDb(adminGraphqlApiId);
 
   if (error) {
