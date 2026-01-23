@@ -14,19 +14,6 @@ export default async function AssemblyPage() {
     },
   });
 
-  if (activeSession[0].startedAt === null) {
-    return (
-      <div>
-        <h1 className="page-title mb-4">Assembly</h1>
-        <Alert>
-          <Icon icon="ph:info" />
-          <AlertTitle>Session not started</AlertTitle>
-          <AlertDescription>Session not started, cannot load assembly line.</AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
   if (activeSession.length > 1) {
     return (
       <div>
@@ -34,7 +21,9 @@ export default async function AssemblyPage() {
         <Alert variant="destructive">
           <Icon icon="ph:warning-circle" />
           <AlertTitle>Multiple active sessions</AlertTitle>
-          <AlertDescription>There are multiple active sessions, cannot load assembly line.</AlertDescription>
+          <AlertDescription>
+            There are multiple active sessions, cannot load assembly line.
+          </AlertDescription>
         </Alert>
       </div>
     );
@@ -47,7 +36,24 @@ export default async function AssemblyPage() {
         <Alert>
           <Icon icon="ph:info" />
           <AlertTitle>No active sessions</AlertTitle>
-          <AlertDescription>There are no active sessions, cannot load assembly line.</AlertDescription>
+          <AlertDescription>
+            There are no active sessions, cannot load assembly line.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  if (activeSession[0].startedAt === null) {
+    return (
+      <div>
+        <h1 className="page-title mb-4">Assembly</h1>
+        <Alert>
+          <Icon icon="ph:info" />
+          <AlertTitle>Not verified</AlertTitle>
+          <AlertDescription>
+            Active session found but not verified, cannot load assembly line.
+          </AlertDescription>
         </Alert>
       </div>
     );
@@ -68,23 +74,27 @@ export default async function AssemblyPage() {
     );
   }
 
-
-
   return (
     <div>
       <h1 className="page-title">Assembly</h1>
-      <div className="text-sm text-muted-foreground">Session: {activeSession[0].id}</div>
+      <div className="text-sm text-muted-foreground">
+        Session: {activeSession[0].id}
+      </div>
       {data.removedItemIds.length > 0 && (
         <Alert className="my-4">
           <Icon icon="ph:info" />
           <AlertTitle>Items removed from assembly line</AlertTitle>
           <AlertDescription>
-            {data.removedItemIds.length} item(s) were removed from this session (e.g., due to hold resolution) and are
-            no longer in the assembly line.
+            {data.removedItemIds.length} item(s) were removed from this session
+            (e.g., due to hold resolution) and are no longer in the assembly
+            line.
           </AlertDescription>
         </Alert>
       )}
-      <AssemblyTable assemblyLine={data.lineItems} batchId={activeSession[0].id} />
+      <AssemblyTable
+        assemblyLine={data.lineItems}
+        batchId={activeSession[0].id}
+      />
     </div>
   );
 }
