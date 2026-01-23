@@ -132,7 +132,6 @@ export async function startSession(lineItems: SessionLineItem[], session: typeof
   await db
     .update(batches)
     .set({
-      active: true,
       startedAt: new Date(),
     })
     .where(eq(batches.id, session.id));
