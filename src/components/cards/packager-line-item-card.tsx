@@ -69,7 +69,7 @@ export function PackagerLineItemCard({ orderId, shopifyItem, dbItem }: PackagerL
   };
 
   return (
-    <Card className="max-w-lg">
+    <Card className="max-w-lg sm:min-w-lg">
       <CardHeader>
         <div className="gap-2 flex items-center justify-between">
           <div className="gap-2 flex flex-col">

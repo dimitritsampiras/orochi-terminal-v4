@@ -2,7 +2,14 @@
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 
 import { cn, getCarrierImage } from "@/lib/utils";
@@ -20,12 +27,16 @@ import Image from "next/image";
 import { PurchaseShipmentForm } from "../forms/shipment-forms/purchase-shipment-form";
 import { DeleteShipmentForm } from "../forms/shipment-forms/delete-shipment-form";
 import { RefundShipmentForm } from "../forms/shipment-forms/refund-shipment-form";
-import { EasyPostTrackingStatusBadge, ShippoTrackingStatusBadge } from "../badges/tracking-status-badge";
+import {
+  EasyPostTrackingStatusBadge,
+  ShippoTrackingStatusBadge,
+} from "../badges/tracking-status-badge";
 import { IdCopyBadge } from "../badges/id-copy-badge";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
-const PACKING_SLIPS_BASE_URL = "https://muihkdbhpgfkahlyyhmo.supabase.co/storage/v1/object/public/packing-slips";
+const PACKING_SLIPS_BASE_URL =
+  "https://muihkdbhpgfkahlyyhmo.supabase.co/storage/v1/object/public/packing-slips";
 
 // Types
 type Order = Extract<NonNullable<OrderQuery["node"]>, { __typename: "Order" }>;
@@ -68,9 +79,13 @@ interface NormalizedShipmentDisplay {
 }
 
 // Normalizer function to transform API-specific data into a common format
-function normalizeShipmentData(shipment: OrderShipmentData): NormalizedShipmentDisplay | null {
+function normalizeShipmentData(
+  shipment: OrderShipmentData
+): NormalizedShipmentDisplay | null {
   if (shipment.api === "SHIPPO") {
-    const rate = shipment.shippoInfo.rates.find((r) => r.objectId === shipment.chosenRateId);
+    const rate = shipment.shippoInfo.rates.find(
+      (r) => r.objectId === shipment.chosenRateId
+    );
 
     // if (!rate) return null;
 
@@ -97,15 +112,30 @@ function normalizeShipmentData(shipment: OrderShipmentData): NormalizedShipmentD
       rateInfo: {
         carrierLogo:
           rate?.providerImage200 ||
-          getCarrierImage(shipment.shippoInfo.chosenRate?.provider || shipment.chosenCarrierName || "") ||
+          getCarrierImage(
+            shipment.shippoInfo.chosenRate?.provider ||
+              shipment.chosenCarrierName ||
+              ""
+          ) ||
           null,
-        carrierName: rate?.provider || shipment.shippoInfo.chosenRate?.provider || shipment.chosenCarrierName || "???",
-        serviceName: rate?.servicelevel.name || shipment.shippoInfo.chosenRate?.servicelevel.name || "???",
+        carrierName:
+          rate?.provider ||
+          shipment.shippoInfo.chosenRate?.provider ||
+          shipment.chosenCarrierName ||
+          "???",
+        serviceName:
+          rate?.servicelevel.name ||
+          shipment.shippoInfo.chosenRate?.servicelevel.name ||
+          "???",
         amount: rate?.amount || shipment.cost || "???",
         estimatedDays: rate?.estimatedDays ?? null,
       },
-      labelSlipURL: shipment.labelSlipPath ? `${PACKING_SLIPS_BASE_URL}/${shipment.labelSlipPath}` : null,
-      plainSlipURL: shipment.plainSlipPath ? `${PACKING_SLIPS_BASE_URL}/${shipment.plainSlipPath}` : null,
+      labelSlipURL: shipment.labelSlipPath
+        ? `${PACKING_SLIPS_BASE_URL}/${shipment.labelSlipPath}`
+        : null,
+      plainSlipURL: shipment.plainSlipPath
+        ? `${PACKING_SLIPS_BASE_URL}/${shipment.plainSlipPath}`
+        : null,
       apiShipmentId: shipment.shipmentId,
       lineItemIds: shipment.lineItemIds,
       parcelSnapshot: shipment.parcelSnapshot,
@@ -129,7 +159,10 @@ function normalizeShipmentData(shipment: OrderShipmentData): NormalizedShipmentD
     // Extract messages
     const messages: ShipmentMessage[] = [];
     for (const msg of shipment.easypostInfo.messages ?? []) {
-      messages.push({ source: msg.carrier ?? "EasyPost", text: msg.message ?? "" });
+      messages.push({
+        source: msg.carrier ?? "EasyPost",
+        text: msg.message ?? "",
+      });
     }
     for (const issue of shipment.easypostInfo.issues) {
       messages.push({ source: "System", text: issue });
@@ -146,14 +179,26 @@ function normalizeShipmentData(shipment: OrderShipmentData): NormalizedShipmentD
       gateScannerBy: shipment.gateScannerBy,
       rateInfo: {
         carrierLogo:
-          getCarrierImage(shipment.easypostInfo.chosenRate?.carrier || shipment.chosenCarrierName || "") || null,
-        carrierName: shipment.easypostInfo.chosenRate?.carrier || shipment.chosenCarrierName || "???",
+          getCarrierImage(
+            shipment.easypostInfo.chosenRate?.carrier ||
+              shipment.chosenCarrierName ||
+              ""
+          ) || null,
+        carrierName:
+          shipment.easypostInfo.chosenRate?.carrier ||
+          shipment.chosenCarrierName ||
+          "???",
         serviceName: shipment.easypostInfo.chosenRate?.service || "???",
-        amount: shipment.easypostInfo.chosenRate?.rate || shipment.cost || "???",
+        amount:
+          shipment.easypostInfo.chosenRate?.rate || shipment.cost || "???",
         estimatedDays: shipment.easypostInfo.chosenRate?.delivery_days ?? null,
       },
-      labelSlipURL: shipment.labelSlipPath ? `${PACKING_SLIPS_BASE_URL}/${shipment.labelSlipPath}` : null,
-      plainSlipURL: shipment.plainSlipPath ? `${PACKING_SLIPS_BASE_URL}/${shipment.plainSlipPath}` : null,
+      labelSlipURL: shipment.labelSlipPath
+        ? `${PACKING_SLIPS_BASE_URL}/${shipment.labelSlipPath}`
+        : null,
+      plainSlipURL: shipment.plainSlipPath
+        ? `${PACKING_SLIPS_BASE_URL}/${shipment.plainSlipPath}`
+        : null,
       apiShipmentId: shipment.shipmentId,
       lineItemIds: shipment.lineItemIds,
       parcelSnapshot: shipment.parcelSnapshot,
@@ -179,7 +224,12 @@ interface ShippingInfoProps {
   hideButtons?: boolean;
 }
 
-export function ShippingInfo({ orderId, orderShipmentData, lineItems = [], hideButtons = false }: ShippingInfoProps) {
+export function ShippingInfo({
+  orderId,
+  orderShipmentData,
+  lineItems = [],
+  hideButtons = false,
+}: ShippingInfoProps) {
   return (
     <Card>
       <CardHeader>
@@ -188,7 +238,10 @@ export function ShippingInfo({ orderId, orderShipmentData, lineItems = [], hideB
           {!hideButtons && (
             <div className="flex items-center gap-2">
               <AutoCreateShipmentForm orderId={orderId} />
-              <CreateCustomShipmentForm orderId={orderId} lineItems={lineItems} />
+              <CreateCustomShipmentForm
+                orderId={orderId}
+                lineItems={lineItems}
+              />
             </div>
           )}
         </div>
@@ -199,8 +252,14 @@ export function ShippingInfo({ orderId, orderShipmentData, lineItems = [], hideB
           if (!shipment) return null;
           return (
             <div key={shipment.id}>
-              <ShipmentCard shipment={shipment} lineItems={lineItems} hideButtons={hideButtons} />
-              {idx < orderShipmentData.length - 1 && <hr className="mt-8 mb-4" />}
+              <ShipmentCard
+                shipment={shipment}
+                lineItems={lineItems}
+                hideButtons={hideButtons}
+              />
+              {idx < orderShipmentData.length - 1 && (
+                <hr className="mt-8 mb-4" />
+              )}
             </div>
           );
         })}
@@ -232,7 +291,9 @@ const ShipmentCard = ({
       <div className="flex items-center gap-2 text-sm">
         <IdCopyBadge id={shipment.id} iconOnly />
         <ShippingAPI api={shipment.api} />
-        <div className="text-muted-foreground">{dayjs(shipment.createdAt).format("MMM DD, YYYY HH:mm a")}</div>
+        <div className="text-muted-foreground">
+          {dayjs(shipment.createdAt).format("MMM DD, YYYY HH:mm a")}
+        </div>
       </div>
       <div className="flex items-center justify-between gap-2 mt-2">
         <div className="flex items-center gap-2">
@@ -256,7 +317,10 @@ const ShipmentCard = ({
               {shipment.rateInfo.estimatedDays !== null && (
                 <>
                   {" "}
-                  • <span className="text-zinc-500">{shipment.rateInfo.estimatedDays} days</span>
+                  •{" "}
+                  <span className="text-zinc-500">
+                    {shipment.rateInfo.estimatedDays} days
+                  </span>
                 </>
               )}
             </div>
@@ -269,13 +333,23 @@ const ShipmentCard = ({
                 <Icon icon="ph:tag" className="text-zinc-700 size-3" />
                 <div className="text-sm text-zinc-500">Purchased</div>
               </div>
-              <ShipmentDetailsSheet shipment={shipment} lineItems={lineItems} smallIcon />
+              <ShipmentDetailsSheet
+                shipment={shipment}
+                lineItems={lineItems}
+                smallIcon
+              />
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <PurchaseShipmentForm databaseShipmentUUID={shipment.id} orderId={shipment.orderId} />
+              <PurchaseShipmentForm
+                databaseShipmentUUID={shipment.id}
+                orderId={shipment.orderId}
+              />
               <ShipmentDetailsSheet shipment={shipment} lineItems={lineItems} />
-              <DeleteShipmentForm shipmentId={shipment.id} orderId={shipment.orderId} />
+              <DeleteShipmentForm
+                shipmentId={shipment.id}
+                orderId={shipment.orderId}
+              />
             </div>
           )}
         </div>
@@ -288,7 +362,9 @@ const ShipmentCard = ({
               <div
                 className="hover:opacity-50 transition-opacity hover:cursor-pointer flex items-center gap-1"
                 onClick={() => {
-                  navigator.clipboard.writeText(shipment.tracking?.number || "");
+                  navigator.clipboard.writeText(
+                    shipment.tracking?.number || ""
+                  );
                   toast.success("Tracking number copied to clipboard");
                 }}
               >
@@ -304,14 +380,20 @@ const ShipmentCard = ({
                   target="_blank"
                   className="hover:opacity-50 transition-opacity hover:cursor-pointer"
                 >
-                  {shipment.tracking.url.replace(/^(https?:\/\/[^/]+).*$/, "$1/...")}
+                  {shipment.tracking.url.replace(
+                    /^(https?:\/\/[^/]+).*$/,
+                    "$1/..."
+                  )}
                 </Link>
               </div>
             )}
             {shipment.tracking.status && (
               <div className="flex items-center gap-2">
                 <div className="font-semibold">Tracking Status: </div>
-                <TrackingStatusBadge status={shipment.tracking.status} api={shipment.api} />
+                <TrackingStatusBadge
+                  status={shipment.tracking.status}
+                  api={shipment.api}
+                />
               </div>
             )}
 
@@ -322,10 +404,14 @@ const ShipmentCard = ({
                 <Badge className="text-zinc-700 gap-2" variant="outline">
                   <div className="min-w-1.5 min-h-1.5 rounded-full bg-red-600"></div>
                   <div className="text-xs">
-                    <span className="text-zinc-700 font-semibold">Scanned: </span>
+                    <span className="text-zinc-700 font-semibold">
+                      Scanned:{" "}
+                    </span>
                     <span className="text-zinc-500">
                       {" "}
-                      {dayjs(shipment.gateScannedAt).format("MMM DD, YYYY hh:mm a")}
+                      {dayjs(shipment.gateScannedAt).format(
+                        "MMM DD, YYYY hh:mm a"
+                      )}
                     </span>
                   </div>
                 </Badge>
@@ -344,7 +430,10 @@ const ShipmentCard = ({
             !hideButtons ? (
               <div className="mt-4 flex items-center justify-between">
                 <div className="flex items-center">
-                  <RefundShipmentForm shipmentId={shipment.id} orderId={shipment.orderId} />
+                  <RefundShipmentForm
+                    shipmentId={shipment.id}
+                    orderId={shipment.orderId}
+                  />
                 </div>
                 <div className="flex items-center gap-2">
                   <Tooltip open={shipment.plainSlipURL ? false : undefined}>
@@ -355,7 +444,9 @@ const ShipmentCard = ({
                         className={buttonVariants({
                           variant: "outline",
                           size: "icon",
-                          className: !shipment.plainSlipURL ? "opacity-50 cursor-not-allowed" : "",
+                          className: !shipment.plainSlipURL
+                            ? "opacity-50 cursor-not-allowed"
+                            : "",
                         })}
                         onClick={(e) => {
                           if (!shipment.plainSlipURL) {
@@ -366,7 +457,9 @@ const ShipmentCard = ({
                         <Icon icon="ph:file" />
                       </Link>
                     </TooltipTrigger>
-                    <TooltipContent>Packing slip filed to generate</TooltipContent>
+                    <TooltipContent>
+                      Packing slip filed to generate
+                    </TooltipContent>
                   </Tooltip>
                   <Link
                     aria-disabled={!shipment.tracking.labelURL}
@@ -375,7 +468,9 @@ const ShipmentCard = ({
                     className={buttonVariants({
                       variant: "fill",
                       size: "icon",
-                      className: !shipment.tracking.labelURL ? "opacity-50 cursor-not-allowed" : "",
+                      className: !shipment.tracking.labelURL
+                        ? "opacity-50 cursor-not-allowed"
+                        : "",
                     })}
                     onClick={(e) => {
                       if (!shipment.tracking?.labelURL) {
@@ -392,7 +487,9 @@ const ShipmentCard = ({
                         href={shipment.labelSlipURL ?? "#"}
                         target="_blank"
                         className={buttonVariants({
-                          className: !shipment.labelSlipURL ? "opacity-50 cursor-not-allowed" : "",
+                          className: !shipment.labelSlipURL
+                            ? "opacity-50 cursor-not-allowed"
+                            : "",
                         })}
                         onClick={(e) => {
                           if (!shipment.labelSlipURL) {
@@ -404,7 +501,9 @@ const ShipmentCard = ({
                         <Icon icon="ph:file-text" />
                       </Link>
                     </TooltipTrigger>
-                    <TooltipContent>Packing slip filed to generate</TooltipContent>
+                    <TooltipContent>
+                      Packing slip filed to generate
+                    </TooltipContent>
                   </Tooltip>
                 </div>
               </div>
@@ -423,16 +522,36 @@ const ShipmentCard = ({
 };
 
 // Tracking Status Badge
-const TrackingStatusBadge = ({ status, api }: { status: string; api: (typeof shipmentApi)["enumValues"][number] }) => {
+const TrackingStatusBadge = ({
+  status,
+  api,
+}: {
+  status: string;
+  api: (typeof shipmentApi)["enumValues"][number];
+}) => {
   if (api === "SHIPPO") {
-    return <ShippoTrackingStatusBadge status={status as Parameters<typeof ShippoTrackingStatusBadge>[0]["status"]} />;
+    return (
+      <ShippoTrackingStatusBadge
+        status={
+          status as Parameters<typeof ShippoTrackingStatusBadge>[0]["status"]
+        }
+      />
+    );
   }
   if (api === "EASYPOST") {
     return (
-      <EasyPostTrackingStatusBadge status={status as Parameters<typeof EasyPostTrackingStatusBadge>[0]["status"]} />
+      <EasyPostTrackingStatusBadge
+        status={
+          status as Parameters<typeof EasyPostTrackingStatusBadge>[0]["status"]
+        }
+      />
     );
   }
-  return <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 text-zinc-700 font-medium">{status}</span>;
+  return (
+    <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 text-zinc-700 font-medium">
+      {status}
+    </span>
+  );
 };
 
 // Shipment Details Sheet
@@ -451,7 +570,9 @@ const ShipmentDetailsSheet = ({
 
   // Get line items included in this shipment
   const shipmentLineItemIds = shipment.lineItemIds ?? [];
-  const includedLineItems = lineItems.filter((item) => shipmentLineItemIds.includes(item.id));
+  const includedLineItems = lineItems.filter((item) =>
+    shipmentLineItemIds.includes(item.id)
+  );
   const allItemsIncluded = shipmentLineItemIds.length === 0;
 
   // Which items to display
@@ -471,7 +592,8 @@ const ShipmentDetailsSheet = ({
             Shipment Details
           </SheetTitle>
           <SheetDescription>
-            Created {dayjs(shipment.createdAt).format("MMM DD, YYYY")} at {dayjs(shipment.createdAt).format("h:mm A")}
+            Created {dayjs(shipment.createdAt).format("MMM DD, YYYY")} at{" "}
+            {dayjs(shipment.createdAt).format("h:mm A")}
           </SheetDescription>
         </SheetHeader>
 
@@ -501,12 +623,14 @@ const ShipmentDetailsSheet = ({
                   <Icon icon="ph:truck" className="size-5 text-zinc-500" />
                 )}
                 <span className="font-medium">
-                  {shipment.rateInfo.carrierName} {shipment.rateInfo.serviceName}
+                  {shipment.rateInfo.carrierName}{" "}
+                  {shipment.rateInfo.serviceName}
                 </span>
               </div>
               <div className="text-sm text-zinc-600">
                 ${shipment.rateInfo.amount}
-                {shipment.rateInfo.estimatedDays !== null && ` • ${shipment.rateInfo.estimatedDays} days`}
+                {shipment.rateInfo.estimatedDays !== null &&
+                  ` • ${shipment.rateInfo.estimatedDays} days`}
               </div>
             </div>
           </section>
@@ -514,12 +638,18 @@ const ShipmentDetailsSheet = ({
           {/* Line Items */}
           <section>
             <h3 className="text-sm font-semibold mb-2">
-              Line Items {!allItemsIncluded && <span className="text-zinc-500 font-normal">(partial)</span>}
+              Line Items{" "}
+              {!allItemsIncluded && (
+                <span className="text-zinc-500 font-normal">(partial)</span>
+              )}
             </h3>
             {displayLineItems.length > 0 ? (
               <div className="space-y-2">
                 {displayLineItems.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between text-sm bg-zinc-50 rounded-lg p-2">
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between text-sm bg-zinc-50 rounded-lg p-2"
+                  >
                     <span className="truncate flex-1">{item.name}</span>
                     <Badge variant="secondary" className="ml-2">
                       x{item.quantity}
@@ -528,7 +658,9 @@ const ShipmentDetailsSheet = ({
                 ))}
               </div>
             ) : (
-              <div className="text-sm text-zinc-500 bg-zinc-50 rounded-lg p-3">No line items specified</div>
+              <div className="text-sm text-zinc-500 bg-zinc-50 rounded-lg p-3">
+                No line items specified
+              </div>
             )}
           </section>
 
@@ -553,9 +685,12 @@ const ShipmentDetailsSheet = ({
                 </div>
                 <div className="border-t pt-2">
                   <div className="text-zinc-500 text-xs mb-1">Template</div>
-                  <div className="text-sm font-medium">{parcel.parcelTemplate.name}</div>
+                  <div className="text-sm font-medium">
+                    {parcel.parcelTemplate.name}
+                  </div>
                   <div className="text-xs text-zinc-500">
-                    {parcel.parcelTemplate.lengthCm} × {parcel.parcelTemplate.widthCm} ×{" "}
+                    {parcel.parcelTemplate.lengthCm} ×{" "}
+                    {parcel.parcelTemplate.widthCm} ×{" "}
                     {parcel.parcelTemplate.heightCm} cm
                   </div>
                 </div>
@@ -577,7 +712,9 @@ const ShipmentDetailsSheet = ({
                   <div key={idx} className="px-2">
                     <div className="text-xs font-semibold">{msg.source}</div>
                     <div className="text-xs text-zinc-600">{msg.text}</div>
-                    {idx < shipment.messages.length - 1 && <hr className="mt-3" />}
+                    {idx < shipment.messages.length - 1 && (
+                      <hr className="mt-3" />
+                    )}
                   </div>
                 ))}
               </div>
@@ -615,5 +752,11 @@ export const ShippingAPI = ({
     SHIPPO: "text-green-700",
     EASYPOST: "text-blue-700",
   };
-  return <div className={cn(styles[api], "font-semibold uppercase text-sm", className)}>{api}</div>;
+  return (
+    <div
+      className={cn(styles[api], "font-semibold uppercase text-sm", className)}
+    >
+      {api}
+    </div>
+  );
 };

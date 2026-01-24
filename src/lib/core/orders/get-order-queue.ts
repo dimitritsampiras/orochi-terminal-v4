@@ -29,54 +29,62 @@ export const getOrderQueue = async (
   }
 ) => {
   try {
-    // const orders = await db.select().from(orders).where(eq(orders.status, 'pending'));
-    // return orders;
+    // Run both queries in parallel
+    const [queue, activeHolds] = await Promise.all([
+      db.query.orders.findMany({
+        where: {
+          createdAt: { gte: new Date("2024-01-01") },
+          displayIsCancelled: false,
+          queued: true,
+          displayFulfillmentStatus: { ne: "FULFILLED" },
+        },
+        with: {
+          batches: {
+            columns: {
+              id: true,
+              createdAt: true,
+            },
+          },
+          lineItems: {
+            columns: {
+              id: true,
+              name: true,
+              productId: true,
+              quantity: true,
+              requiresShipping: true,
+            },
+            with: {
+              productVariant: {
+                columns: {
+                  blankVariantId: true,
+                  id: true,
+                },
+              },
+              product: {
+                columns: {
+                  id: true,
+                  isBlackLabel: true,
+                  blankId: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      // Small query - just get order IDs with active holds
+      db.query.orderHolds.findMany({
+        where: { isResolved: false },
+        columns: { orderId: true },
+      }),
+    ]);
 
-    const queue = await db.query.orders.findMany({
-      where: {
-        createdAt: { gte: new Date("2024-01-01") },
-        displayIsCancelled: false,
-        queued: true,
-        displayFulfillmentStatus: { ne: "FULFILLED" },
-      },
-      with: {
-        batches: {
-          columns: {
-            id: true,
-            createdAt: true,
-          },
-        },
-        lineItems: {
-          columns: {
-            id: true,
-            name: true,
-            productId: true,
-            quantity: true,
-            requiresShipping: true,
-          },
-          with: {
-            productVariant: {
-              columns: {
-                blankVariantId: true,
-                id: true,
-              },
-            },
-            product: {
-              columns: {
-                id: true,
-                isBlackLabel: true,
-                blankId: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    // Create a Set for O(1) lookup
+    const ordersWithHolds = new Set(activeHolds.map((h) => h.orderId));
 
     const now = dayjs();
     const cutoffDate = now.subtract(28, "day");
 
-    return queue.sort((a, b) => {
+    return queue.filter((order) => !ordersWithHolds.has(order.id)).sort((a, b) => {
       // Helper to get effective fulfillment score (Promotes Low -> Normal if old)
       const getFulfillmentScore = (order: (typeof queue)[number]) => {
         const rawPrio = order.fulfillmentPriority;

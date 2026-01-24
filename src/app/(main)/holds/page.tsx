@@ -26,7 +26,7 @@ export default async function OrderHoldsPage({
 
   const params = await searchParams;
   const page = Number(params.page ?? 1);
-  const pageSize = 20;
+  const pageSize = 100;
   const offset = (page - 1) * pageSize;
   const searchQuery = params.q?.trim();
 
