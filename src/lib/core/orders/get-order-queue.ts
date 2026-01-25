@@ -29,8 +29,45 @@ export const getOrderQueue = async (
   }
 ) => {
   try {
-    // const orders = await db.select().from(orders).where(eq(orders.status, 'pending'));
-    // return orders;
+    // Build the 'with' clause dynamically based on options
+    // When we only need queue position, skip expensive nested relations
+    const withClause: Record<string, unknown> = {};
+
+    if (options.withBatchData !== false) {
+      withClause.batches = {
+        columns: {
+          id: true,
+          createdAt: true,
+        },
+      };
+    }
+
+    if (options.withItemData !== false) {
+      withClause.lineItems = {
+        columns: {
+          id: true,
+          name: true,
+          productId: true,
+          quantity: true,
+          requiresShipping: true
+        },
+        with: {
+          productVariant: {
+            columns: {
+              blankVariantId: true,
+              id: true,
+            },
+          },
+          product: {
+            columns: {
+              id: true,
+              isBlackLabel: true,
+              blankId: true,
+            },
+          },
+        },
+      };
+    }
 
     const queue = await db.query.orders.findMany({
       where: {
@@ -38,38 +75,7 @@ export const getOrderQueue = async (
         displayIsCancelled: false,
         queued: true,
       },
-      with: {
-        batches: {
-          columns: {
-            id: true,
-            createdAt: true,
-          },
-        },
-        lineItems: {
-          columns: {
-            id: true,
-            name: true,
-            productId: true,
-            quantity: true,
-            requiresShipping: true
-          },
-          with: {
-            productVariant: {
-              columns: {
-                blankVariantId: true,
-                id: true,
-              },
-            },
-            product: {
-              columns: {
-                id: true,
-                isBlackLabel: true,
-                blankId: true,
-              },
-            },
-          },
-        },
-      },
+      with: withClause as any,
     });
 
     const now = dayjs();
