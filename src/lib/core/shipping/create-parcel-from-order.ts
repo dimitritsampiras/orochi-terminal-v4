@@ -14,9 +14,9 @@ export { generalParcelSchema, type GeneralParcel } from "./parcel-schema";
 // TODO: figure out how to accomodate user selecting additional product to add to parcel
 
 const PARCEL_WEIGHT_REDUCER = 0.8;
-const ITEM_WEIGHT_FALLBACK = 16.0; // 16 ounces
+const ITEM_WEIGHT_FALLBACK = 18.0; // 16 ounces
 const ITEM_VALUE_FALLBACK = 10.0; // 10 dollars
-const ITEM_VOLUME_FALLBACK = 500; // max value to always overshoot parcel size
+const ITEM_VOLUME_FALLBACK = 2000; // max value to always overshoot parcel size
 const PARCEL_TEMPLATE_FALLBACK = {
   name: "Large Parcel",
   widthCm: "48.00",
