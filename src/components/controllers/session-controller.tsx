@@ -51,7 +51,7 @@ import type { GenerateSessionDocumentsResponse } from "@/lib/types/api";
 import type { GenerateSessionDocumentsSchema } from "@/lib/schemas/batch-schema";
 import { toast } from "sonner";
 
-import { cn } from "@/lib/utils";
+import { cn, sleep } from "@/lib/utils";
 import { VerifyBlankStockSheet } from "../dialog/verify-blank-stock-sheet";
 import { getShipmentIssue } from "@/lib/core/shipping/shipping-utils";
 import { orderReadyForFulfillment } from "@/lib/core/session/session.utils";
@@ -100,7 +100,7 @@ export function SessionController({
   const hasExistingSessionDocs = batchDocuments.some(
     (doc) =>
       doc.documentType === "picking_list" ||
-      doc.documentType === "assembly_list",
+      doc.documentType === "assembly_list"
   );
   const hasStoredAssemblyLine = !!session.assemblyLineJson;
   const hasStoredPickingList = !!session.pickingListJson;
@@ -119,9 +119,6 @@ export function SessionController({
         throw new Error(data.error ?? "Failed to update session");
       }
       return data;
-    },
-    onSuccess: () => {
-      router.refresh();
     },
   });
 
@@ -159,7 +156,7 @@ export function SessionController({
     },
     onSuccess: () => {
       toast.success(
-        "Session documents generated (Picking List + Assembly List)",
+        "Session documents generated (Picking List + Assembly List)"
       );
       setShowGenerateDocsDialog(false);
       router.refresh();
@@ -217,12 +214,16 @@ export function SessionController({
 
   const handleToggleActive = () => {
     toast.promise(
-      toggleActiveMutation.mutateAsync({ active: !session.active }),
+      async () => {
+        await toggleActiveMutation.mutateAsync({ active: !session.active });
+        router.refresh();
+        await sleep(1000);
+      },
       {
         loading: "Toggling session active status...",
         success: "Session active status toggled",
         error: (error) => error.message,
-      },
+      }
     );
   };
 
@@ -241,7 +242,7 @@ export function SessionController({
     router.refresh();
     toast.success(
       "Session documents generated (Picking List + Assembly List)",
-      { id: lt },
+      { id: lt }
     );
   };
 
@@ -260,8 +261,8 @@ export function SessionController({
           ?.toLowerCase()
           .includes(lowerSearchTerm) ||
         order.lineItems.some((li) =>
-          li.name.toLowerCase().includes(lowerSearchTerm),
-        ),
+          li.name.toLowerCase().includes(lowerSearchTerm)
+        )
     );
   }, [orders, searchTerm]);
 
@@ -362,7 +363,7 @@ export function SessionController({
                 disabled={isLoading}
                 className={cn(
                   session.shipmentsVerifiedAt &&
-                  "text-emerald-500 hover:text-emerald-500!",
+                    "text-emerald-500 hover:text-emerald-500!"
                 )}
               >
                 <Icon icon="ph:truck" className="size-4 text-inherit" />
@@ -373,14 +374,14 @@ export function SessionController({
                 // disabled={isLoading || !session.shipmentsVerifiedAt}
                 className={cn(
                   session.itemSyncVerifiedAt &&
-                  "text-emerald-500! hover:text-emerald-500!",
+                    "text-emerald-500! hover:text-emerald-500!"
                 )}
               >
                 <Icon
                   icon="ph:link"
                   className={cn(
                     session.itemSyncVerifiedAt && "text-emerald-500",
-                    "size-4",
+                    "size-4"
                   )}
                 />
                 Verify Item Sync
@@ -390,14 +391,14 @@ export function SessionController({
                 // disabled={isLoading || !session.itemSyncVerifiedAt}
                 className={cn(
                   session.premadeStockVerifiedAt &&
-                  "text-emerald-500! hover:text-emerald-500!",
+                    "text-emerald-500! hover:text-emerald-500!"
                 )}
               >
                 <Icon
                   icon="ph:t-shirt"
                   className={cn(
                     session.premadeStockVerifiedAt && "text-emerald-500",
-                    "size-4",
+                    "size-4"
                   )}
                 />
                 Verify Premade Stock Requirements
@@ -405,7 +406,7 @@ export function SessionController({
               <DropdownMenuItem
                 className={cn(
                   session.blankStockVerifiedAt &&
-                  "text-emerald-500! hover:text-emerald-500!",
+                    "text-emerald-500! hover:text-emerald-500!"
                 )}
                 // disabled={
                 //   isLoading ||
@@ -418,7 +419,7 @@ export function SessionController({
                   icon="ph:package"
                   className={cn(
                     session.blankStockVerifiedAt && "text-emerald-500",
-                    "size-4",
+                    "size-4"
                   )}
                 />
                 Verify Blank Inventory Requirements
@@ -508,32 +509,32 @@ export function SessionController({
           {(hasExistingSessionDocs ||
             hasStoredAssemblyLine ||
             hasStoredPickingList) && (
-              <Alert>
-                <Icon icon="ph:info" className="size-4" />
-                <AlertTitle>Existing Data Will Be Overwritten</AlertTitle>
-                <AlertDescription className="space-y-4">
-                  {hasStoredAssemblyLine && (
-                    <p>
-                      The stored assembly line sort order will be regenerated. If
-                      you've already started physical assembly, the new order may
-                      differ if product or blank data has changed.
-                    </p>
-                  )}
-                  {hasStoredPickingList && (
-                    <p>
-                      The stored picking requirements will be regenerated based on
-                      current product/blank sync states.
-                    </p>
-                  )}
-                  {hasExistingSessionDocs && (
-                    <p>
-                      New PDF documents will be created. Previous documents will
-                      remain but may be outdated.
-                    </p>
-                  )}
-                </AlertDescription>
-              </Alert>
-            )}
+            <Alert>
+              <Icon icon="ph:info" className="size-4" />
+              <AlertTitle>Existing Data Will Be Overwritten</AlertTitle>
+              <AlertDescription className="space-y-4">
+                {hasStoredAssemblyLine && (
+                  <p>
+                    The stored assembly line sort order will be regenerated. If
+                    you've already started physical assembly, the new order may
+                    differ if product or blank data has changed.
+                  </p>
+                )}
+                {hasStoredPickingList && (
+                  <p>
+                    The stored picking requirements will be regenerated based on
+                    current product/blank sync states.
+                  </p>
+                )}
+                {hasExistingSessionDocs && (
+                  <p>
+                    New PDF documents will be created. Previous documents will
+                    remain but may be outdated.
+                  </p>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
 
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
