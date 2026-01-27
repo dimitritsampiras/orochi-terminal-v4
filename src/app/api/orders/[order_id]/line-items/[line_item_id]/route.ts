@@ -6,29 +6,18 @@ import { and, eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { buildResourceGid } from "@/lib/utils";
 import { logger } from "@/lib/core/logger";
+import { authorizeApiUser } from "@/lib/core/auth/authorize-user";
 
-// TODO: edit these roles god damn
-const authorizedRoles: (typeof userRole.enumValues)[number][] = ["superadmin", "admin", "warehouse", "va"];
+
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ line_item_id: string; order_id: string }> }
 ) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
 
-    if (!authUser) {
-      return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = await db.query.profiles.findFirst({
-      where: { id: authUser.id },
-    });
-
-    if (user === undefined || !authorizedRoles.includes(user.role)) {
+    const user = await authorizeApiUser(["super_admin", "admin", "warehouse_staff"]);
+    if (!user) {
       return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
     }
 
