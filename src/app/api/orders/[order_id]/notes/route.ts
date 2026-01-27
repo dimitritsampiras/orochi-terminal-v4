@@ -11,7 +11,7 @@ const addNoteSchema = z.object({
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ order_id: string }> }) {
   try {
-    const user = await authorizeApiUser(["super_admin", "admin", "warehouse_staff"]);
+    const user = await authorizeApiUser(["super_admin", "admin", "warehouse_staff", "customer_support"]);
 
     if (!user) {
       return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
