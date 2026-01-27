@@ -3,10 +3,16 @@ import { createFulfillmentMutation, fulfillmentOrdersQuery } from "@/lib/graphql
 import { FulfillmentTrackingInfo } from "@/lib/types/admin.types";
 import { DataResponse } from "@/lib/types/misc";
 import dayjs from "dayjs";
+import { logger } from "../logger";
+import { db } from "@/lib/clients/db";
+import { orderHolds } from "@drizzle/schema";
+import { eq } from "drizzle-orm";
 
 export const fulfillOrder = async (
   orderId: string,
-  trackingInfo: FulfillmentTrackingInfo
+  trackingInfo: FulfillmentTrackingInfo & {
+    orderNumber?: string;
+  }
 ): Promise<DataResponse<"success">> => {
   try {
     const { data, errors } = await shopify.request(fulfillmentOrdersQuery, {
@@ -50,6 +56,15 @@ export const fulfillOrder = async (
       }
 
       if (data?.fulfillmentCreateV2?.fulfillment?.status === "SUCCESS") {
+        logger.info(`Fulfillment created successfully for order ${orderId}`, {
+          orderId,
+          category: 'AUTOMATED'
+        });
+        await db.update(orderHolds).set({
+          isResolved: true,
+          resolvedAt: new Date(),
+          resolvedNotes: `Order #${trackingInfo.orderNumber} fulfilled`,
+        }).where(eq(orderHolds.orderId, orderId));
         return { data: "success", error: null };
       }
       return { data: null, error: "Error creating fulfillment" };

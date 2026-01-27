@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
     if (shipment.order.displayFulfillmentStatus !== "FULFILLED" && shipment.order.displayIsCancelled === false) {
       await fulfillOrder(shipment.order.id, {
         company: carrier,
+        orderNumber: shipment.order.name,
         number: trackingNumber || shipment.trackingNumber,
       });
     }
