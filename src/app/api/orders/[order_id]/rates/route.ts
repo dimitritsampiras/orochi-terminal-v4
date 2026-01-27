@@ -14,7 +14,7 @@ export async function POST(
   { params }: { params: Promise<{ order_id: string }> }
 ): Promise<NextResponse<GetRateResponse>> {
   try {
-    const user = await authorizeApiUser();
+    const user = await authorizeApiUser(["super_admin", "admin"]);
     if (!user) {
       return NextResponse.json({ data: null, error: "Unauthorized" }, { status: 401 });
     }

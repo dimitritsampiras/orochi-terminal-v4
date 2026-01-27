@@ -16,7 +16,7 @@ export const POST = async (
   req: Request,
   { params }: { params: Promise<{ order_id: string }> }
 ): Promise<NextResponse<CreateShipmentResponse>> => {
-  const user = await authorizeApiUser();
+  const user = await authorizeApiUser(["super_admin", "admin"]);
   if (!user) {
     return NextResponse.json<CreateShipmentResponse>({ data: null, error: "Unauthorized" }, { status: 401 });
   }
