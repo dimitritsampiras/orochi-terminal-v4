@@ -6,15 +6,27 @@ import { db } from "@/lib/clients/db";
 async function main() {
 
   // count the amount of chosenCarrierName: "AsendiaUsa" 
-  const shipments = await db.query.shipments.findMany({
+  // const shipments = await db.query.shipments.findMany({
+  //   where: {
+  //     chosenCarrierName: "AsendiaUsa",
+  //   },
+  //   columns: {
+  //     id: true,
+  //   },
+  // });
+  // console.log(shipments.length);
+
+  const variants = await db.query.productVariants.findMany({
     where: {
-      chosenCarrierName: "AsendiaUsa",
+      productId: "gid://shopify/Product/9127560413398",
     },
     columns: {
       id: true,
     },
   });
-  console.log(shipments.length);
+
+  console.log(variants.length);
+
 
 
 
