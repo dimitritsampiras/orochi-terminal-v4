@@ -29,7 +29,11 @@ import { BackButton } from "@/components/nav/back-button";
 import { OrderNavigation } from "@/components/nav/order-navigation";
 import { authorizePageUser } from "@/lib/core/auth/authorize-user";
 
-export default async function OrderPage({ params }: { params: Promise<{ order_id: string }> }) {
+export default async function OrderPage({
+  params,
+}: {
+  params: Promise<{ order_id: string }>;
+}) {
   await authorizePageUser("orders");
   const { order_id } = await params;
 
@@ -40,53 +44,54 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
     data: { user: authUser },
   } = await supabase.auth.getUser();
 
-  const [shopifyOrder, databaseOrder, logs, orderHolds, currentUserProfile] = await Promise.all([
-    shopify.request(orderQuery, {
-      variables: {
-        id: gid,
-      },
-    }),
-    db.query.orders.findFirst({
-      where: { id: gid },
-      with: {
-        lineItems: true,
-        batches: {
-          columns: {
-            id: true,
-            createdAt: true,
-          },
+  const [shopifyOrder, databaseOrder, logs, orderHolds, currentUserProfile] =
+    await Promise.all([
+      shopify.request(orderQuery, {
+        variables: {
+          id: gid,
         },
-        shipments: true,
-        orderNotes: {
-          with: {
-            profile: {
-              columns: {
-                id: true,
-                username: true,
-              },
+      }),
+      db.query.orders.findFirst({
+        where: { id: gid },
+        with: {
+          lineItems: true,
+          batches: {
+            columns: {
+              id: true,
+              createdAt: true,
             },
           },
-          orderBy: {
-            createdAt: "desc",
+          shipments: true,
+          orderNotes: {
+            with: {
+              profile: {
+                columns: {
+                  id: true,
+                  username: true,
+                },
+              },
+            },
+            orderBy: {
+              createdAt: "desc",
+            },
           },
         },
-      },
-    }),
-    db.query.logs.findMany({
-      where: { orderId: gid },
-      orderBy: { createdAt: "desc" },
-    }),
-    db.query.orderHolds.findMany({
-      where: { orderId: gid },
-      orderBy: { createdAt: "desc" },
-    }),
-    authUser
-      ? db.query.profiles.findFirst({
-          where: { id: authUser.id },
-          columns: { username: true },
-        })
-      : null,
-  ]);
+      }),
+      db.query.logs.findMany({
+        where: { orderId: gid },
+        orderBy: { createdAt: "desc" },
+      }),
+      db.query.orderHolds.findMany({
+        where: { orderId: gid },
+        orderBy: { createdAt: "desc" },
+      }),
+      authUser
+        ? db.query.profiles.findFirst({
+            where: { id: authUser.id },
+            columns: { username: true },
+          })
+        : null,
+    ]);
 
   if (shopifyOrder.data?.node?.__typename !== "Order" || !databaseOrder) {
     throw Error("Something went wrong fetching the order");
@@ -94,7 +99,9 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
 
   const order = shopifyOrder.data.node;
 
-  const shipmentData = await retrieveShipmentDataFromOrder(databaseOrder.shipments);
+  const shipmentData = await retrieveShipmentDataFromOrder(
+    databaseOrder.shipments
+  );
 
   // Check if there are active (unresolved) holds
   const hasActiveHolds = orderHolds.some((h) => !h.resolvedAt);
@@ -121,7 +128,11 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
             {databaseOrder.batches.length > 1 ? "In sessions:" : "In session:"}
             {databaseOrder.batches.map((batch, index) => (
               <div key={batch.id}>
-                <Link key={batch.id} href={`/sessions/${batch.id}`} className="font-semibold hover:opacity-80">
+                <Link
+                  key={batch.id}
+                  href={`/sessions/${batch.id}`}
+                  className="font-semibold hover:opacity-80"
+                >
                   {batch.id} | {dayjs(batch.createdAt).format("MMM D")}
                 </Link>
                 {index < databaseOrder.batches.length - 1 && <span>,</span>}
@@ -141,19 +152,29 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
 
       <div className="my-4 flex md:items-center justify-between gap-2 md:flex-row flex-col">
         <div className="flex items-center gap-2">
-          <OrderCompletionStatusBadge status={isOrderComplete(databaseOrder.lineItems)} />
+          <OrderCompletionStatusBadge
+            status={isOrderComplete(databaseOrder.lineItems)}
+          />
           <FulfillmentStatusBadge status={order.displayFulfillmentStatus} />
           <QueueStatusBadge queued={databaseOrder.queued} />
           {order.cancelledAt && (
-            <Badge variant="destructive">cancelled at {dayjs(order.cancelledAt).format("MMM D, YYYY")}</Badge>
+            <Badge variant="destructive">
+              cancelled at {dayjs(order.cancelledAt).format("MMM D, YYYY")}
+            </Badge>
           )}
-          {order.displayFinancialStatus && order.displayFinancialStatus === "REFUNDED" && (
-            <Badge variant="destructive">cancelled at {dayjs(order.cancelledAt).format("MMM D, YYYY")}</Badge>
-          )}
+          {order.displayFinancialStatus &&
+            order.displayFinancialStatus === "REFUNDED" && (
+              <Badge variant="destructive">
+                cancelled at {dayjs(order.cancelledAt).format("MMM D, YYYY")}
+              </Badge>
+            )}
         </div>
         <div className="flex items-center gap-2">
           <CreateHoldForm orderId={order.id} />
-          <QueueOrderForm orderId={order.id} currentQueueStatus={databaseOrder.queued} />
+          <QueueOrderForm
+            orderId={order.id}
+            currentQueueStatus={databaseOrder.queued}
+          />
         </div>
       </div>
 
@@ -167,7 +188,11 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
             shopifyLineItems={order.lineItems.nodes}
             databaseLineItems={databaseOrder.lineItems}
           />
-          <ShippingInfo orderId={order.id} orderShipmentData={shipmentData} lineItems={order.lineItems.nodes} />
+          <ShippingInfo
+            orderId={order.id}
+            orderShipmentData={shipmentData}
+            lineItems={order.lineItems.nodes}
+          />
           <OrderLogs logs={logs || []} className="sm:block hidden" />
         </div>
         <div className="flex flex-col gap-4 sm:mt-0 mt-4">
@@ -184,7 +209,10 @@ export default async function OrderPage({ params }: { params: Promise<{ order_id
             />
           </div>
           {order.customer && (
-            <CustomerCard customer={order.customer} shippingAddress={order.shippingAddress ?? undefined} />
+            <CustomerCard
+              customer={order.customer}
+              shippingAddress={order.shippingAddress ?? undefined}
+            />
           )}
           <OrderNotesCard
             orderId={order.id}

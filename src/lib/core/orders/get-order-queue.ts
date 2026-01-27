@@ -33,7 +33,7 @@ export const getOrderQueue = async (
     const [queue, activeHolds] = await Promise.all([
       db.query.orders.findMany({
         where: {
-          createdAt: { gte: new Date("2024-01-01") },
+          createdAt: { gte: new Date("2025-09-01") },
           displayIsCancelled: false,
           queued: true,
           displayFulfillmentStatus: { ne: "FULFILLED" },
