@@ -4,7 +4,7 @@ import { logger } from "@/lib/core/logger";
 import { createOrderHoldSchema } from "@/lib/schemas/order-hold-schema";
 import { buildResourceGid } from "@/lib/utils";
 import { orderHolds, orders } from "@drizzle/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ order_id: string }> }) {
@@ -26,6 +26,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (!order) {
       return NextResponse.json({ data: null, error: "Order not found" }, { status: 404 });
+    }
+
+    // Check for existing unresolved hold
+    const existingHold = await db.query.orderHolds.findFirst({
+      where: { orderId, isResolved: false }
+    });
+
+    if (existingHold) {
+      return NextResponse.json({ data: null, error: "Order already has an active hold" }, { status: 400 });
     }
 
     const body = await request.json();
