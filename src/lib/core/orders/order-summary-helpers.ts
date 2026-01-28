@@ -97,11 +97,73 @@ interface QueuePositionData {
 // ============================================================================
 
 /**
- * Get average daily order output - default to 10 orders per day
+ * Get average daily order output based on orders processed in batches created in the last 21 days
  */
-export const getAverageDailyOrderOutput = (): number => {
-    // Simplified version - returns a reasonable default
-    return 10;
+export const getAverageDailyOrderOutput = async (): Promise<number> => {
+    try {
+        const twentyOneDaysAgo = dayjs().subtract(21, "day").toDate();
+
+        // Get all batches created in the last 21 days
+        const recentBatches = await db.query.batches.findMany({
+            where: {
+                createdAt: { gte: twentyOneDaysAgo }
+            },
+            columns: { id: true }
+        });
+
+        if (recentBatches.length === 0) {
+            // Fallback to default if no recent batches
+            return 10;
+        }
+
+        const batchIds = recentBatches.map(b => b.id);
+
+        // Count orders in those batches
+        const ordersInBatches = await db.query.ordersBatches.findMany({
+            where: {
+                batchId: { in: batchIds }
+            },
+            columns: { orderId: true }
+        });
+
+        // Get unique order count (an order can be in multiple batches)
+        const uniqueOrderIds = new Set(ordersInBatches.map(ob => ob.orderId));
+        const orderCount = uniqueOrderIds.size;
+
+        if (orderCount === 0) {
+            return 10; // Fallback
+        }
+
+        // Average per day over 21 days
+        const averagePerDay = Math.max(1, Math.round(orderCount / 21));
+
+        return averagePerDay;
+    } catch (error) {
+        console.error("Error calculating average daily output:", error);
+        return 10; // Fallback to default
+    }
+};
+
+/**
+ * Add business days to a date (skips weekends - Saturday and Sunday)
+ * @param startDate - The starting date
+ * @param businessDays - Number of business days to add
+ * @returns The resulting date after adding business days
+ */
+export const addBusinessDays = (startDate: dayjs.Dayjs, businessDays: number): dayjs.Dayjs => {
+    let result = startDate;
+    let daysAdded = 0;
+
+    while (daysAdded < businessDays) {
+        result = result.add(1, "day");
+        const dayOfWeek = result.day();
+        // Skip weekends (0 = Sunday, 6 = Saturday)
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            daysAdded++;
+        }
+    }
+
+    return result;
 };
 
 /**
@@ -226,13 +288,14 @@ export const getOrderStage = async (
     cachedShipmentData?: Awaited<ReturnType<typeof getShipmentTrackingData>>[]
 ): Promise<OrderDetails["statusInfo"]> => {
     try {
-        const averageDailyOrderOutput = getAverageDailyOrderOutput();
+        const averageDailyOrderOutput = await getAverageDailyOrderOutput();
         const { orderPosition } = await getOrderPositionInQueue(order.id, cachedQueueData);
 
         const daysTilInSession = Math.ceil(orderPosition / averageDailyOrderOutput);
-        const estimatedShipDate = dayjs()
-            .add(daysTilInSession + 3, "days")
-            .toISOString();
+        // Calculate ship date using business days (skips weekends)
+        // Total business days = days until in session + 3 day buffer for processing
+        const totalBusinessDays = daysTilInSession + 3;
+        const estimatedShipDate = addBusinessDays(dayjs(), totalBusinessDays).toISOString();
 
         // If order is still in queue
         if (order.queued) {
@@ -307,7 +370,7 @@ export const getOrderStage = async (
         return {
             status: "processing" as const,
             daysToNext: 1,
-            estimatedShipDate: dayjs().add(3, "days").toISOString(),
+            estimatedShipDate: addBusinessDays(dayjs(), 3).toISOString(),
             stageNumber: 3,
             shipmentInfo: null,
         };
@@ -327,7 +390,7 @@ export const getOrderTimeline = async (
 ): Promise<OrderDetails["timeline"]> => {
     try {
         const { orderPosition, count } = await getOrderPositionInQueue(order.id, cachedQueueData);
-        const averageDailyOrderOutput = getAverageDailyOrderOutput();
+        const averageDailyOrderOutput = await getAverageDailyOrderOutput();
         const estimatedDaysInQueue = Math.ceil(orderPosition / averageDailyOrderOutput);
 
         // Get batch information via raw SQL query
