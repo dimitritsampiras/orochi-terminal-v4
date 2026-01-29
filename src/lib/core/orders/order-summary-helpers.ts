@@ -84,23 +84,101 @@ const PRESHIPMENT_STAGES = [
 ];
 
 // ============================================================================
+// QUEUE POSITION CACHE
+// ============================================================================
+
+interface QueuePositionData {
+    orderPosition: number;
+    count: number;
+}
+
+// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
 /**
- * Get average daily order output - default to 10 orders per day
+ * Get average daily order output based on orders processed in batches created in the last 21 days
  */
-export const getAverageDailyOrderOutput = (): number => {
-    // Simplified version - returns a reasonable default
-    return 10;
+export const getAverageDailyOrderOutput = async (): Promise<number> => {
+    try {
+        const twentyOneDaysAgo = dayjs().subtract(21, "day").toDate();
+
+        // Get all batches created in the last 21 days
+        const recentBatches = await db.query.batches.findMany({
+            where: {
+                createdAt: { gte: twentyOneDaysAgo }
+            },
+            columns: { id: true }
+        });
+
+        if (recentBatches.length === 0) {
+            // Fallback to default if no recent batches
+            return 10;
+        }
+
+        const batchIds = recentBatches.map(b => b.id);
+
+        // Count orders in those batches
+        const ordersInBatches = await db.query.ordersBatches.findMany({
+            where: {
+                batchId: { in: batchIds }
+            },
+            columns: { orderId: true }
+        });
+
+        // Get unique order count (an order can be in multiple batches)
+        const uniqueOrderIds = new Set(ordersInBatches.map(ob => ob.orderId));
+        const orderCount = uniqueOrderIds.size;
+
+        if (orderCount === 0) {
+            return 10; // Fallback
+        }
+
+        // Average per day over 21 days
+        const averagePerDay = Math.max(1, Math.round(orderCount / 21));
+
+        return averagePerDay;
+    } catch (error) {
+        console.error("Error calculating average daily output:", error);
+        return 10; // Fallback to default
+    }
+};
+
+/**
+ * Add business days to a date (skips weekends - Saturday and Sunday)
+ * @param startDate - The starting date
+ * @param businessDays - Number of business days to add
+ * @returns The resulting date after adding business days
+ */
+export const addBusinessDays = (startDate: dayjs.Dayjs, businessDays: number): dayjs.Dayjs => {
+    let result = startDate;
+    let daysAdded = 0;
+
+    while (daysAdded < businessDays) {
+        result = result.add(1, "day");
+        const dayOfWeek = result.day();
+        // Skip weekends (0 = Sunday, 6 = Saturday)
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            daysAdded++;
+        }
+    }
+
+    return result;
 };
 
 /**
  * Get order's position in the fulfillment queue using existing getOrderQueue
+ * Can accept pre-fetched queue position data to avoid duplicate queries
  */
 export const getOrderPositionInQueue = async (
-    orderId: string
+    orderId: string,
+    cachedQueueData?: QueuePositionData
 ): Promise<{ orderPosition: number; count: number }> => {
+    // If we have cached data, return it immediately
+    if (cachedQueueData) {
+        return cachedQueueData;
+    }
+
     try {
         const queue = await getOrderQueue({ withItemData: false, withBatchData: false });
         const orderPosition = queue.findIndex((o) => o.id === orderId);
@@ -160,17 +238,64 @@ const getShipmentInfo = async (
 };
 
 /**
- * Get order's current fulfillment stage
+ * Shared helper to fetch tracking data for a single shipment
  */
-export const getOrderStage = async (order: OrderWithShipments): Promise<OrderDetails["statusInfo"]> => {
+const getShipmentTrackingData = async (shipment: typeof shipments.$inferSelect) => {
+    let status: string | null = null;
+    let trackingNumber: string | null = shipment.trackingNumber;
+    let trackingURL: string | null = null; // trackingURL not stored in DB, retrieved from API
+    let carrier: string | null = shipment.chosenCarrierName;
+
     try {
-        const averageDailyOrderOutput = getAverageDailyOrderOutput();
-        const { orderPosition } = await getOrderPositionInQueue(order.id);
+        if (shipment.api === "SHIPPO" && shipment.shippoTransactionId) {
+            const transaction = await shippo.transactions.get(shipment.shippoTransactionId).catch(() => null);
+            status = transaction?.trackingStatus || null;
+            trackingNumber = transaction?.trackingNumber || trackingNumber;
+            trackingURL = transaction?.trackingUrlProvider || null;
+            carrier = shipment.chosenCarrierName || ""; // Shippo transaction doesn't always have carrier name easily
+        } else if (shipment.api === "EASYPOST") {
+            const s = await easypost.Shipment.retrieve(shipment.shipmentId);
+            status = s.tracker?.status || null;
+            trackingNumber = s.tracker?.tracking_code || trackingNumber;
+            trackingURL = s.tracker?.public_url || null;
+            carrier = s.tracker?.carrier || carrier;
+        }
+    } catch (e) {
+        console.error("Error getting shipment status:", e);
+    }
+
+    return {
+        shipmentId: shipment.id,
+        status,
+        trackingNumber,
+        trackingURL,
+        carrier,
+        createdAt: shipment.createdAt,
+        isPurchased: shipment.isPurchased,
+        isRefunded: shipment.isRefunded
+    };
+};
+
+/**
+ * Get order's current fulfillment stage
+ * @param order - The order with shipments
+ * @param cachedQueueData - Pre-fetched queue position data
+ * @param cachedShipmentData - Pre-fetched shipment tracking data
+ */
+export const getOrderStage = async (
+    order: OrderWithShipments,
+    cachedQueueData?: QueuePositionData,
+    cachedShipmentData?: Awaited<ReturnType<typeof getShipmentTrackingData>>[]
+): Promise<OrderDetails["statusInfo"]> => {
+    try {
+        const averageDailyOrderOutput = await getAverageDailyOrderOutput();
+        const { orderPosition } = await getOrderPositionInQueue(order.id, cachedQueueData);
 
         const daysTilInSession = Math.ceil(orderPosition / averageDailyOrderOutput);
-        const estimatedShipDate = dayjs()
-            .add(daysTilInSession + 3, "days")
-            .toISOString();
+        // Calculate ship date using business days (skips weekends)
+        // Total business days = days until in session + 3 day buffer for processing
+        const totalBusinessDays = daysTilInSession + 3;
+        const estimatedShipDate = addBusinessDays(dayjs(), totalBusinessDays).toISOString();
 
         // If order is still in queue
         if (order.queued) {
@@ -195,12 +320,37 @@ export const getOrderStage = async (order: OrderWithShipments): Promise<OrderDet
 
         // Check if shipped
         if (order.shipments.length > 0) {
-            const shipmentInfo = await getShipmentInfo(order);
-            if (shipmentInfo) {
+            // Find the latest valid shipment from cached data if available, or compute locally (avoid if possible)
+            let latestShipmentInfo = null;
+
+            if (cachedShipmentData) {
+                // Use cached data
+                const validShipments = cachedShipmentData
+                    .filter(s => s.isPurchased && !s.isRefunded)
+                    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+                if (validShipments.length > 0) {
+                    const latest = validShipments[0];
+                    if (latest.status) {
+                        latestShipmentInfo = {
+                            trackingStatus: latest.status,
+                            trackingNumber: latest.trackingNumber || "",
+                            trackingURL: latest.trackingURL || "",
+                            carrier: latest.carrier || ""
+                        };
+                    }
+                }
+            } else {
+                // Fallback (redundant, but keeps signature valid if called without cache)
+                const shipmentInfo = await getShipmentInfo(order);
+                latestShipmentInfo = shipmentInfo;
+            }
+
+            if (latestShipmentInfo) {
                 return {
                     status: "shipped",
                     daysToNext: null,
-                    shipmentInfo,
+                    shipmentInfo: latestShipmentInfo,
                     estimatedShipDate,
                     stageNumber: 4,
                 };
@@ -220,7 +370,7 @@ export const getOrderStage = async (order: OrderWithShipments): Promise<OrderDet
         return {
             status: "processing" as const,
             daysToNext: 1,
-            estimatedShipDate: dayjs().add(3, "days").toISOString(),
+            estimatedShipDate: addBusinessDays(dayjs(), 3).toISOString(),
             stageNumber: 3,
             shipmentInfo: null,
         };
@@ -229,14 +379,21 @@ export const getOrderStage = async (order: OrderWithShipments): Promise<OrderDet
 
 /**
  * Get order timeline including queue position and batch info
+ * @param order - The order with shipments
+ * @param cachedQueueData - Pre-fetched queue position data
+ * @param cachedShipmentData - Pre-fetched shipment tracking data
  */
-export const getOrderTimeline = async (order: OrderWithShipments): Promise<OrderDetails["timeline"]> => {
+export const getOrderTimeline = async (
+    order: OrderWithShipments,
+    cachedQueueData?: QueuePositionData,
+    cachedShipmentData?: Awaited<ReturnType<typeof getShipmentTrackingData>>[]
+): Promise<OrderDetails["timeline"]> => {
     try {
-        const { orderPosition, count } = await getOrderPositionInQueue(order.id);
-        const averageDailyOrderOutput = getAverageDailyOrderOutput();
+        const { orderPosition, count } = await getOrderPositionInQueue(order.id, cachedQueueData);
+        const averageDailyOrderOutput = await getAverageDailyOrderOutput();
         const estimatedDaysInQueue = Math.ceil(orderPosition / averageDailyOrderOutput);
 
-        // Get batch information via raw SQL query to avoid Drizzle relational issues
+        // Get batch information via raw SQL query
         const orderBatchResult = await db
             .select({ batchId: ordersBatches.batchId })
             .from(ordersBatches)
@@ -261,34 +418,36 @@ export const getOrderTimeline = async (order: OrderWithShipments): Promise<Order
             }
         }
 
-        // Build shipment timeline
-        const shipmentTimeline = await Promise.all(
-            order.shipments.map(async (shipment) => {
-                let status: string | null = null;
+        // Build shipment timeline using cached data if available
+        let shipmentTimelineResults;
 
-                try {
-                    if (shipment.api === "SHIPPO" && shipment.shippoTransactionId) {
-                        const transaction = await shippo.transactions.get(shipment.shippoTransactionId).catch(() => null);
-                        status = transaction?.trackingStatus || null;
-                    } else if (shipment.api === "EASYPOST") {
-                        const s = await easypost.Shipment.retrieve(shipment.shipmentId);
-                        status = s.tracker?.status || null;
-                    }
-                } catch (e) {
-                    console.error("Error getting shipment status:", e);
-                }
-
-                return {
-                    shipmentId: shipment.id,
-                    createdAt: shipment.createdAt.toISOString(),
-                    carrier: shipment.chosenCarrierName,
-                    trackingNumber: shipment.trackingNumber,
-                    status,
-                    isPurchased: shipment.isPurchased,
-                    isRefunded: shipment.isRefunded,
-                };
-            })
-        );
+        if (cachedShipmentData) {
+            shipmentTimelineResults = cachedShipmentData.map(s => ({
+                shipmentId: s.shipmentId,
+                createdAt: s.createdAt.toISOString(),
+                carrier: s.carrier,
+                trackingNumber: s.trackingNumber,
+                status: s.status,
+                isPurchased: s.isPurchased,
+                isRefunded: s.isRefunded
+            }));
+        } else {
+            // Fallback to fetch individually
+            shipmentTimelineResults = await Promise.all(
+                order.shipments.map(async (shipment) => {
+                    const data = await getShipmentTrackingData(shipment);
+                    return {
+                        shipmentId: data.shipmentId,
+                        createdAt: data.createdAt.toISOString(),
+                        carrier: data.carrier,
+                        trackingNumber: data.trackingNumber,
+                        status: data.status,
+                        isPurchased: data.isPurchased,
+                        isRefunded: data.isRefunded
+                    };
+                })
+            );
+        }
 
         return {
             orderCreated: order.createdAt?.toISOString() || null,
@@ -297,7 +456,7 @@ export const getOrderTimeline = async (order: OrderWithShipments): Promise<Order
             totalOrdersInQueue: count,
             estimatedDaysInQueue,
             batchInformation,
-            shipmentTimeline: shipmentTimeline.length > 0 ? shipmentTimeline : null,
+            shipmentTimeline: shipmentTimelineResults.length > 0 ? shipmentTimelineResults : null,
         };
     } catch (error) {
         console.error("Error fetching timeline data:", error);
@@ -307,14 +466,28 @@ export const getOrderTimeline = async (order: OrderWithShipments): Promise<Order
 
 /**
  * Get complete order details for the summary endpoint
+ * Optimized to fetch heavy data in parallel once
  */
 export const getOrderDetails = async (
     order: OrderWithShipments,
     shopifyOrder: ShopifyOrder
 ): Promise<OrderDetails> => {
-    const stage = await getOrderStage(order);
+    // OPTIMIZATION: Fetch heavy external data in parallel
+    // 1. Queue Position (DB)
+    // 2. Shipment Tracking (External APIs - Shippo/EasyPost)
+    const [queueData, shipmentData] = await Promise.all([
+        getOrderPositionInQueue(order.id),
+        Promise.all(order.shipments.map(s => getShipmentTrackingData(s)))
+    ]);
+
+    // OPTIMIZATION: Run independent stage and timeline calculations in parallel
+    // passing the pre-fetched data
+    const [stage, timeline] = await Promise.all([
+        getOrderStage(order, queueData, shipmentData),
+        getOrderTimeline(order, queueData, shipmentData)
+    ]);
+
     const stageDescription = PRESHIPMENT_STAGES.find((s) => s.name === stage?.status)?.description;
-    const timeline = await getOrderTimeline(order);
 
     return {
         name: order.name,

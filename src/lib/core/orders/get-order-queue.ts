@@ -29,6 +29,46 @@ export const getOrderQueue = async (
   }
 ) => {
   try {
+    // Build the 'with' clause dynamically based on options
+    // When we only need queue position, skip expensive nested relations
+    const withClause: Record<string, unknown> = {};
+
+    if (options.withBatchData !== false) {
+      withClause.batches = {
+        columns: {
+          id: true,
+          createdAt: true,
+        },
+      };
+    }
+
+    if (options.withItemData !== false) {
+      withClause.lineItems = {
+        columns: {
+          id: true,
+          name: true,
+          productId: true,
+          quantity: true,
+          requiresShipping: true,
+        },
+        with: {
+          productVariant: {
+            columns: {
+              blankVariantId: true,
+              id: true,
+            },
+          },
+          product: {
+            columns: {
+              id: true,
+              isBlackLabel: true,
+              blankId: true,
+            },
+          },
+        },
+      };
+    }
+
     // Run both queries in parallel
     const [queue, activeHolds] = await Promise.all([
       db.query.orders.findMany({
@@ -38,38 +78,7 @@ export const getOrderQueue = async (
           queued: true,
           displayFulfillmentStatus: { ne: "FULFILLED" },
         },
-        with: {
-          batches: {
-            columns: {
-              id: true,
-              createdAt: true,
-            },
-          },
-          lineItems: {
-            columns: {
-              id: true,
-              name: true,
-              productId: true,
-              quantity: true,
-              requiresShipping: true,
-            },
-            with: {
-              productVariant: {
-                columns: {
-                  blankVariantId: true,
-                  id: true,
-                },
-              },
-              product: {
-                columns: {
-                  id: true,
-                  isBlackLabel: true,
-                  blankId: true,
-                },
-              },
-            },
-          },
-        },
+        with: withClause as any,
       }),
       // Small query - just get order IDs with active holds
       db.query.orderHolds.findMany({
@@ -88,7 +97,12 @@ export const getOrderQueue = async (
 
     return queue
       .filter((order) => !ordersWithHolds.has(order.id))
-      .filter((order) => !order.lineItems.some((item) => item.productId === EXCLUDED_PRODUCT_ID))
+      .filter((order) => {
+        // Only filter by excluded product if lineItems are loaded
+        const lineItems = (order as { lineItems?: { productId: string | null }[] }).lineItems;
+        if (!lineItems) return true;
+        return !lineItems.some((item) => item.productId === EXCLUDED_PRODUCT_ID);
+      })
       .sort((a, b) => {
         // Helper to get effective fulfillment score (Promotes Low -> Normal if old)
         const getFulfillmentScore = (order: (typeof queue)[number]) => {
