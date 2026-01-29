@@ -25,7 +25,7 @@ function Progress({ className, value, color = "black", ...props }: ProgressProps
       <ProgressPrimitive.Indicator
         data-slot="progress-indicator"
         className={cn(
-          "bg-primary h-full w-full flex-1 transition-all",
+          "h-full w-full flex-1 transition-all",
           color === "emerald" && (isCompleted ? "bg-emerald-500" : "bg-emerald-700"),
           color === "black" && "bg-black",
           color === "blue" && (isCompleted ? "bg-blue-600" : "bg-blue-700")

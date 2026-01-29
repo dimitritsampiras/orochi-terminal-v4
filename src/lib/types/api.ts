@@ -14,7 +14,7 @@ import type {
   orderHolds,
   profiles,
 } from "@drizzle/schema";
-import type { getOrderQueue } from "../core/orders/get-order-queue";
+import type { getOrderQueue, OrderQueueFull } from "../core/orders/get-order-queue";
 import type { DataResponse } from "./misc";
 import type { NormalizedShipmentRate } from "./shipping.types";
 import type { GeneralParcel } from "../core/shipping/parcel-schema";
@@ -34,7 +34,9 @@ export type LogoutResponse = DataResponse<"success">;
 export type QueueResponse = DataResponse<
   Awaited<ReturnType<typeof getOrderQueue>>
 >;
-export type GetOrdersResponse = QueueResponse;
+// Full response type with lineItems and batches guaranteed
+export type QueueResponseFull = DataResponse<OrderQueueFull>;
+export type GetOrdersResponse = QueueResponseFull;
 
 export type GetProductsResponse = DataResponse<
   (typeof products.$inferSelect & {

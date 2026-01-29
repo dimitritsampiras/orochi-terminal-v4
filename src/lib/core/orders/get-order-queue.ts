@@ -1,5 +1,5 @@
 import { db } from "@/lib/clients/db";
-import { fulfillmentPriority, shippingPriority } from "@drizzle/schema";
+import { fulfillmentPriority, shippingPriority, orders } from "@drizzle/schema";
 import dayjs from "dayjs";
 
 // Define strict scores for hierarchy
@@ -148,4 +148,34 @@ export const getOrderQueue = async (
   }
 };
 
+// Base type inferred from the function (may have optional fields based on options)
 export type OrderQueue = Awaited<ReturnType<typeof getOrderQueue>>;
+
+// Nested types for lineItems and batches when withItemData/withBatchData are true
+type QueueLineItem = {
+  id: string;
+  name: string;
+  productId: string | null;
+  quantity: number | null;
+  requiresShipping: boolean;
+  productVariant: {
+    blankVariantId: string | null;
+    id: string;
+  } | null;
+  product: {
+    id: string;
+    isBlackLabel: boolean;
+    blankId: string | null;
+  } | null;
+};
+
+type QueueBatch = {
+  id: number;
+  createdAt: Date;
+};
+
+// Full type with all nested data - use this when you need lineItems and batches guaranteed
+export type OrderQueueFull = (typeof orders.$inferSelect & {
+  lineItems: QueueLineItem[];
+  batches: QueueBatch[];
+})[];

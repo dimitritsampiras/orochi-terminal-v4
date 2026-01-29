@@ -1,6 +1,6 @@
 "use client";
 
-import { type OrderQueue } from "@/lib/core/orders/get-order-queue";
+import { type OrderQueueFull } from "@/lib/core/orders/get-order-queue";
 import { useMemo, useState } from "react";
 import { OrdersTable } from "../table/orders-table";
 import { Input } from "../ui/input";
@@ -13,7 +13,7 @@ import { Badge } from "../ui/badge";
 import { Icon } from "@iconify/react";
 
 type CreateSessionControllerProps = {
-  queue: OrderQueue;
+  queue: OrderQueueFull;
   blankVariants: (typeof blankVariants.$inferSelect & {
     blank: typeof blanks.$inferSelect | null;
   })[];

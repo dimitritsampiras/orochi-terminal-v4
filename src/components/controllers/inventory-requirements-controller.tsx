@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { toast } from "sonner";
-import type { GetOrdersResponse, QueueResponse } from "@/lib/types/api";
+import type { GetOrdersResponse, QueueResponseFull } from "@/lib/types/api";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Badge } from "../ui/badge";
@@ -87,7 +87,7 @@ export const InventoryRequirementsController = ({ blanks }: { blanks: Blank[] })
     isLoading: isLoadingOrderQueue,
     isSuccess: isSuccessOrderQueue,
     isError: isErrorOrderQueue,
-  } = useQuery<QueueResponse>({
+  } = useQuery<QueueResponseFull>({
     queryKey: ["order-queue"],
     queryFn: async () => {
       const res = await fetch("/api/orders/queue");

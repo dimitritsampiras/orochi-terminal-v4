@@ -13,7 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { type OrderQueue } from "@/lib/core/orders/get-order-queue";
+import { type OrderQueueFull } from "@/lib/core/orders/get-order-queue";
 import dayjs from "dayjs";
 import Link from "next/link";
 import { parseGid } from "@/lib/utils";
@@ -26,7 +26,7 @@ import { CreateBatchResponse } from "@/lib/types/api";
 interface CreateSessionDialogProps {
   numberOfOrders: number;
   numberOfLineItems: number;
-  ordersWithRecentSessions: OrderQueue;
+  ordersWithRecentSessions: OrderQueueFull;
   orderIds: string[];
   className?: string;
 }
