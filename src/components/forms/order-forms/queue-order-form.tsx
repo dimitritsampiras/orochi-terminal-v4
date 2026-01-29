@@ -1,6 +1,10 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { parseGid } from "@/lib/utils";
 import { useFetcher } from "@/lib/hooks/use-fetcher";
 import { type EditOrderSchema } from "@/lib/schemas/order-schema";
@@ -8,9 +12,14 @@ import { type EditOrderSchema } from "@/lib/schemas/order-schema";
 type QueueOrderFormProps = {
   orderId: string;
   currentQueueStatus: boolean;
+  hasActiveHold?: boolean;
 };
 
-export const QueueOrderForm = ({ orderId, currentQueueStatus }: QueueOrderFormProps) => {
+export const QueueOrderForm = ({
+  orderId,
+  currentQueueStatus,
+  hasActiveHold,
+}: QueueOrderFormProps) => {
   const { trigger, isLoading } = useFetcher<EditOrderSchema>({
     path: `/api/orders/${parseGid(orderId)}`,
     method: "PATCH",
@@ -24,21 +33,39 @@ export const QueueOrderForm = ({ orderId, currentQueueStatus }: QueueOrderFormPr
 
   if (currentQueueStatus === true) {
     return (
-      <Button variant="outline" onClick={() => handleQueueOrder(false)} loading={isLoading}>
-        {isLoading && <Spinner className="mr-2" />}
+      <Button
+        variant="outline"
+        onClick={() => handleQueueOrder(false)}
+        loading={isLoading}
+      >
         Unqueue Order
       </Button>
     );
   }
 
-  return (
+  const queueButton = (
     <Button
       className="bg-lime-600 hover:bg-lime-700 active:bg-lime-700"
       onClick={() => handleQueueOrder(true)}
       loading={isLoading}
+      disabled={hasActiveHold}
     >
-      {isLoading && <Spinner className="mr-2" />}
       Queue Order
     </Button>
   );
+
+  if (hasActiveHold) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-block">{queueButton}</span>
+        </TooltipTrigger>
+        <TooltipContent>
+          Cannot queue order with an active hold
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return queueButton;
 };

@@ -91,6 +91,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ or
     let logMessage = "";
 
     if (queued !== undefined) {
+      // Prevent queuing if there's an active hold
+      if (queued === true) {
+        const activeHold = await db.query.orderHolds.findFirst({
+          where: { orderId, isResolved: false },
+        });
+        if (activeHold) {
+          return NextResponse.json(
+            { data: null, error: "Cannot queue order with active hold" },
+            { status: 400 }
+          );
+        }
+      }
       updatePayload.queued = queued;
       logMessage = `Order ${queued ? "queued" : "unqueued"} by ${user.username}`;
     }

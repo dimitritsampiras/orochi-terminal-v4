@@ -75,6 +75,7 @@ export function CreateHoldForm({ orderId }: CreateHoldFormProps) {
           <DialogTitle>Add Order Hold</DialogTitle>
           <DialogDescription>
             Create a hold on this order. The order will be flagged until the hold is resolved.
+            This will also remove the order from the queue.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">

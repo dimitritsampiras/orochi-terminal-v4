@@ -50,8 +50,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       })
       .returning();
 
+    // Auto-unqueue the order when a hold is created
+    await db.update(orders).set({ queued: false }).where(eq(orders.id, orderId));
+
     // Log the action
-    await logger.info(`Order hold created: ${cause} - ${reasonNotes} by ${user.username}`, {
+    await logger.info(`Order hold created: ${cause} - ${reasonNotes} by ${user.username} (order unqueued)`, {
       orderId,
       profileId: user.id,
       metadata: { holdId: hold.id, cause },

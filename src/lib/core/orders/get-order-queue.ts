@@ -98,6 +98,9 @@ export const getOrderQueue = async (
     return queue
       .filter((order) => !ordersWithHolds.has(order.id))
       .filter((order) => {
+        // Don't filter critical orders
+        if (order.fulfillmentPriority === "critical") return true;
+
         // Only filter by excluded product if lineItems are loaded
         const lineItems = (order as { lineItems?: { productId: string | null }[] }).lineItems;
         if (!lineItems) return true;

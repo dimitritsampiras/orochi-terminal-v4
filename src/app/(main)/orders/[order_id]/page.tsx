@@ -174,6 +174,7 @@ export default async function OrderPage({
           <QueueOrderForm
             orderId={order.id}
             currentQueueStatus={databaseOrder.queued}
+            hasActiveHold={hasActiveHolds}
           />
         </div>
       </div>
