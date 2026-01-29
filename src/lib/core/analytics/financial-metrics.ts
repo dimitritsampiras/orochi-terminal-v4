@@ -44,9 +44,9 @@ export type FinancialMetrics = {
 async function getSupplyCosts() {
     const settings = await db.query.globalSettings.findFirst();
     return {
-        bagCost: settings?.bagCostPerOrder ?? 0,
-        labelCost: settings?.labelCostPerOrder ?? 0,
-        inkCostPerPrint: settings?.inkCostPerPrint ?? 0,
+        bagCost: settings?.polymailerCostPerOrder ?? 0,
+        labelCost: settings?.integratedPaperCostPerOrder ?? 0,
+        inkCostPerPrint: settings?.inkCostPerItem ?? 0,
     };
 }
 

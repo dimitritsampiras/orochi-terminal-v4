@@ -103,9 +103,9 @@ export async function calculateBatchProfitability(
     // 2. Fetch Global Settings (SQL API)
     const [settings] = await db.select().from(globalSettings).limit(1);
     const defaults = {
-        inkCostPerPrint: settings?.inkCostPerPrint ?? 0,
-        bagCostPerOrder: settings?.bagCostPerOrder ?? 0,
-        labelCostPerOrder: settings?.labelCostPerOrder ?? 0,
+        inkCostPerPrint: settings?.inkCostPerItem ?? 0,
+        bagCostPerOrder: settings?.polymailerCostPerOrder ?? 0,
+        labelCostPerOrder: settings?.integratedPaperCostPerOrder ?? 0,
     };
 
     // 3. Fetch Shipping Costs from Shipments

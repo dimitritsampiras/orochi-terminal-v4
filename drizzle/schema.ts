@@ -87,6 +87,8 @@ export const inventoryTransactionReason = pgEnum("inventory_transaction_reason",
 
 export const expenseCategory = pgEnum("expense_category", [
   "rent",
+  "utilities",
+  "subscriptions",
   "salary",
   "marketing_meta",
   "marketing_google",
@@ -464,12 +466,27 @@ export const warehouseExpenses = pgTable("warehouse_expenses", {
 
 export const globalSettings = pgTable("global_settings", {
   id: integer().primaryKey().generatedByDefaultAsIdentity(),
-  inkCostPerPrint: doublePrecision("ink_cost_per_print").default(0).notNull(),
-  bagCostPerOrder: doublePrecision("bag_cost_per_order").default(0).notNull(),
-  labelCostPerOrder: doublePrecision("label_cost_per_order").default(0).notNull(),
-  misprintCostMultiplier: doublePrecision("misprint_cost_multiplier").default(1.0).notNull(),
+
+  // Per-item production costs
+  inkCostPerItem: doublePrecision("ink_cost_per_item").default(1.20).notNull(),
+  printerRepairCostPerItem: doublePrecision("printer_repair_cost_per_item").default(0.45).notNull(),
+  pretreatCostPerItem: doublePrecision("pretreat_cost_per_item").default(0.27).notNull(),
+  electricityCostPerItem: doublePrecision("electricity_cost_per_item").default(0.24).notNull(),
+  neckLabelCostPerItem: doublePrecision("neck_label_cost_per_item").default(0.08).notNull(),
+  parchmentPaperCostPerItem: doublePrecision("parchment_paper_cost_per_item").default(0.06).notNull(),
+
+  // Per-order fulfillment costs
+  thankYouCardCostPerOrder: doublePrecision("thank_you_card_cost_per_order").default(0.14).notNull(),
+  polymailerCostPerOrder: doublePrecision("polymailer_cost_per_order").default(0.09).notNull(),
+  cleaningSolutionCostPerOrder: doublePrecision("cleaning_solution_cost_per_order").default(0.08).notNull(),
+  integratedPaperCostPerOrder: doublePrecision("integrated_paper_cost_per_order").default(0.06).notNull(),
+  blankPaperCostPerOrder: doublePrecision("blank_paper_cost_per_order").default(0.02).notNull(),
+
+  // Other settings
   supplementaryItemCost: doublePrecision("supplementary_item_cost").default(0).notNull(),
-  inkCostPerDesign: doublePrecision("ink_cost_per_design").default(2.5).notNull(),
+  misprintCostMultiplier: doublePrecision("misprint_cost_multiplier").default(1.0).notNull(),
+  costBufferPercentage: doublePrecision("cost_buffer_percentage").default(10.0).notNull(),
+
   updatedAt: timestamp("updated_at", { withTimezone: true }).default(sql`now()`),
 });
 

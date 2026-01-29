@@ -5,24 +5,50 @@ import { type NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const settingsSchema = z.object({
-    inkCostPerPrint: z.number().min(0),
-    bagCostPerOrder: z.number().min(0),
-    labelCostPerOrder: z.number().min(0),
-    misprintCostMultiplier: z.number().min(0).default(1.0),
+    // Per-item production costs
+    inkCostPerItem: z.number().min(0).default(1.20),
+    printerRepairCostPerItem: z.number().min(0).default(0.45),
+    pretreatCostPerItem: z.number().min(0).default(0.27),
+    electricityCostPerItem: z.number().min(0).default(0.24),
+    neckLabelCostPerItem: z.number().min(0).default(0.08),
+    parchmentPaperCostPerItem: z.number().min(0).default(0.06),
+
+    // Per-order fulfillment costs
+    thankYouCardCostPerOrder: z.number().min(0).default(0.14),
+    polymailerCostPerOrder: z.number().min(0).default(0.09),
+    cleaningSolutionCostPerOrder: z.number().min(0).default(0.08),
+    integratedPaperCostPerOrder: z.number().min(0).default(0.06),
+    blankPaperCostPerOrder: z.number().min(0).default(0.02),
+
+    // Other settings
     supplementaryItemCost: z.number().min(0).default(0),
-    inkCostPerDesign: z.number().min(0).default(2.5),
+    misprintCostMultiplier: z.number().min(0).default(1.0),
+    costBufferPercentage: z.number().min(0).max(100).default(10.0),
 });
 
 export async function GET(request: NextRequest) {
     try {
         const settings = await db.query.globalSettings.findFirst();
         return NextResponse.json(settings ?? {
-            inkCostPerPrint: 0,
-            bagCostPerOrder: 0,
-            labelCostPerOrder: 0,
-            misprintCostMultiplier: 1.0,
+            // Per-item production costs
+            inkCostPerItem: 1.20,
+            printerRepairCostPerItem: 0.45,
+            pretreatCostPerItem: 0.27,
+            electricityCostPerItem: 0.24,
+            neckLabelCostPerItem: 0.08,
+            parchmentPaperCostPerItem: 0.06,
+
+            // Per-order fulfillment costs
+            thankYouCardCostPerOrder: 0.14,
+            polymailerCostPerOrder: 0.09,
+            cleaningSolutionCostPerOrder: 0.08,
+            integratedPaperCostPerOrder: 0.06,
+            blankPaperCostPerOrder: 0.02,
+
+            // Other settings
             supplementaryItemCost: 0,
-            inkCostPerDesign: 2.5,
+            misprintCostMultiplier: 1.0,
+            costBufferPercentage: 10.0,
         });
     } catch (e) {
         return NextResponse.json({ error: "Failed to fetch settings" }, { status: 500 });

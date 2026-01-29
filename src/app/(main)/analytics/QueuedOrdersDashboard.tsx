@@ -205,32 +205,119 @@ export function QueuedOrdersDashboard() {
                     </CardContent>
                 </Card>
 
-                {/* Material & Labor Costs */}
+                {/* Detailed Cost Breakdown */}
                 <div className="space-y-6">
+                    {/* Per-Item Production Costs */}
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-lg font-medium flex items-center gap-2">
-                                <Package className="h-5 w-5" /> Material Costs
+                                <Package className="h-5 w-5" /> Per-Item Production Costs
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-3">
-                            <div className="flex justify-between items-center border-b pb-2">
+                        <CardContent className="space-y-2">
+                            <div className="flex justify-between items-center text-sm border-b pb-2">
                                 <span className="text-muted-foreground">Blanks</span>
                                 <span className="font-semibold">${summary.costs.blanks.toFixed(2)}</span>
                             </div>
-                            <div className="flex justify-between items-center border-b pb-2">
+                            <div className="flex justify-between items-center text-sm border-b pb-2">
                                 <span className="text-muted-foreground flex items-center gap-1">
                                     <Palette className="h-3 w-3" /> Ink
                                 </span>
                                 <span className="font-semibold">${summary.costs.ink.toFixed(2)}</span>
                             </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-muted-foreground">Supplementary Items</span>
+                            <div className="flex justify-between items-center text-sm border-b pb-2">
+                                <span className="text-muted-foreground">Printer Repairs</span>
+                                <span className="font-semibold">${summary.costs.printerRepairs.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm border-b pb-2">
+                                <span className="text-muted-foreground">Pretreat</span>
+                                <span className="font-semibold">${summary.costs.pretreat.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm border-b pb-2">
+                                <span className="text-muted-foreground">Electricity</span>
+                                <span className="font-semibold">${summary.costs.electricity.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm border-b pb-2">
+                                <span className="text-muted-foreground">Neck Labels</span>
+                                <span className="font-semibold">${summary.costs.neckLabels.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm border-b pb-2">
+                                <span className="text-muted-foreground">Parchment Paper</span>
+                                <span className="font-semibold">${summary.costs.parchmentPaper.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-muted-foreground">Supplementary</span>
                                 <span className="font-semibold">${summary.costs.supplementary.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center pt-3 border-t-2">
+                                <span className="font-medium">Subtotal</span>
+                                <span className="font-bold">${summary.costs.itemCostsSubtotal.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm text-green-600 dark:text-green-400">
+                                <span>+ 10% Buffer</span>
+                                <span className="font-semibold">+${(summary.costs.itemCostsWithBuffer - summary.costs.itemCostsSubtotal).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center pt-2 border-t-2">
+                                <span className="font-bold">Total with Buffer</span>
+                                <span className="font-bold text-lg">${summary.costs.itemCostsWithBuffer.toFixed(2)}</span>
                             </div>
                         </CardContent>
                     </Card>
 
+                    {/* Per-Order Fulfillment Costs */}
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-lg font-medium flex items-center gap-2">
+                                <Package className="h-5 w-5" /> Per-Order Fulfillment Costs
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            <div className="flex justify-between items-center text-sm border-b pb-2">
+                                <span className="text-muted-foreground">Thank You Cards</span>
+                                <span className="font-semibold">${summary.costs.thankYouCards.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm border-b pb-2">
+                                <span className="text-muted-foreground">Polymailers</span>
+                                <span className="font-semibold">${summary.costs.polymailers.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm border-b pb-2">
+                                <span className="text-muted-foreground">Cleaning Solution</span>
+                                <span className="font-semibold">${summary.costs.cleaningSolution.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm border-b pb-2">
+                                <span className="text-muted-foreground">Integrated Paper</span>
+                                <span className="font-semibold">${summary.costs.integratedPaper.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-muted-foreground">Blank Paper</span>
+                                <span className="font-semibold">${summary.costs.blankPaper.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center pt-3 border-t-2">
+                                <span className="font-medium">Subtotal</span>
+                                <span className="font-bold">${summary.costs.orderCostsSubtotal.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-sm text-green-600 dark:text-green-400">
+                                <span>+ 10% Buffer</span>
+                                <span className="font-semibold">+${(summary.costs.orderCostsWithBuffer - summary.costs.orderCostsSubtotal).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center pt-2 border-t-2">
+                                <span className="font-bold">Total with Buffer</span>
+                                <span className="font-bold text-lg">${summary.costs.orderCostsWithBuffer.toFixed(2)}</span>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Grand Total */}
+                    <Card className="bg-primary/5 border-primary/20">
+                        <CardContent className="pt-6">
+                            <div className="flex justify-between items-center">
+                                <span className="text-lg font-bold">Grand Total (All Costs)</span>
+                                <span className="text-2xl font-bold text-primary">${summary.costs.grandTotal.toFixed(2)}</span>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Labor & Time */}
                     <Card>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-lg font-medium flex items-center gap-2">

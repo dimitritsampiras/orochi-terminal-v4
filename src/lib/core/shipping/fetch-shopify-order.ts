@@ -30,10 +30,9 @@ export async function fetchShopifyOrder(orderId: string): Promise<ShopifyOrder |
 
         return null;
     } catch (error) {
-        logger.error(`[Shopify] Exception fetching order ${orderId}`, {
+        logger.error(`[Shopify] Exception fetching order ${orderId}: ${error instanceof Error ? error.message : String(error)}`, {
             category: "SHIPPING",
-            orderId,
-            error
+            orderId
         });
         return null;
     }

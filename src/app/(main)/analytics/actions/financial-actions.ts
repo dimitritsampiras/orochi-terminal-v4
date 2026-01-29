@@ -3,6 +3,11 @@
 import { getFinancialMetrics, getDailyFinancialMetrics, FinancialMetrics } from "@/lib/core/analytics/financial-metrics";
 import { eachDayOfInterval, format } from "date-fns";
 
+
+import { getUnifiedAnalytics, UnifiedAnalyticsSummary, AnalyticsMode, GarmentBreakdown, PerOrderCostBreakdown, PerItemCostBreakdown } from "@/lib/core/analytics/unified-analytics";
+
+export type { UnifiedAnalyticsSummary, AnalyticsMode, GarmentBreakdown, PerOrderCostBreakdown, PerItemCostBreakdown };
+
 export type FinancialChartData = {
     date: string;
     revenue: number;
@@ -40,12 +45,7 @@ export async function fetchDashboardFinancials(
     const [summary, dailyMetrics] = await Promise.all([summaryPromise, dailyMetricsPromise]);
 
     // 3. Map to Chart Data
-    // We assume dailyMetrics array matches individual days in range (getDailyFinancialMetrics ensures this)
     const days = eachDayOfInterval({ start: startDate, end: endDate });
-
-    // Note: getDailyFinancialMetrics returns array corresponding to days loop
-    // But let's map safely by index if lengths match, or by logic if needed. 
-    // The implementation iterates eachDayOfInterval so it should match the order.
 
     const chartData = dailyMetrics.map((metrics, i) => {
         const day = days[i] || new Date();
@@ -60,4 +60,15 @@ export async function fetchDashboardFinancials(
         summary,
         chartData
     };
+}
+
+export async function fetchUnifiedAnalytics(
+    mode: AnalyticsMode,
+    start?: Date | string,
+    end?: Date | string
+): Promise<UnifiedAnalyticsSummary> {
+    const startDate = start ? (typeof start === 'string' ? new Date(start) : start) : undefined;
+    const endDate = end ? (typeof end === 'string' ? new Date(end) : end) : undefined;
+
+    return await getUnifiedAnalytics(mode, startDate && endDate ? { from: startDate, to: endDate } : undefined);
 }

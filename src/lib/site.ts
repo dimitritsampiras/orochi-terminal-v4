@@ -14,6 +14,7 @@ const RESOURCE_ROLES: Record<string, readonly Role[] | undefined> = {
   packager: ["super_admin", "admin", "warehouse_staff"],
   "gate-scan": ["super_admin", "admin", "warehouse_staff"],
   staff: ["super_admin", "admin"],
+  analytics: ["super_admin", "admin"],
   profile: undefined, // all authenticated users
 };
 
@@ -37,6 +38,7 @@ export const SITE = {
   subRoutes: [
     { resource: "packager" as const, path: "/packager", name: "Packager", icon: "ph:package" },
     { resource: "gate-scan" as const, path: "/gate-scan", name: "Gate Scan", icon: "ph:barcode" },
+    { resource: "analytics" as const, path: "/analytics", name: "Analytics", icon: "ph:chart-line" },
     { resource: "staff" as const, path: "/staff", name: "Staff", icon: "ph:users" },
     { resource: "profile" as const, path: "/profile", name: "Profile", icon: "ph:user" },
   ],

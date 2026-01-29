@@ -27,9 +27,31 @@ export type QueuedAnalyticsSummary = {
         priority: { orders: number; items: number };
     };
     costs: {
+        // Material costs
         blanks: number;
         ink: number;
         supplementary: number;
+
+        // Per-item production costs
+        printerRepairs: number;
+        pretreat: number;
+        electricity: number;
+        neckLabels: number;
+        parchmentPaper: number;
+
+        // Per-order fulfillment costs
+        thankYouCards: number;
+        polymailers: number;
+        cleaningSolution: number;
+        integratedPaper: number;
+        blankPaper: number;
+
+        // Totals with buffer
+        itemCostsSubtotal: number;
+        itemCostsWithBuffer: number;
+        orderCostsSubtotal: number;
+        orderCostsWithBuffer: number;
+        grandTotal: number;
     };
     labor: {
         totalCost: number;
@@ -151,12 +173,58 @@ export async function getQueuedAnalyticsSummary(cutoffDate?: Date): Promise<Queu
 
     // Settings
     const settings = await db.query.globalSettings.findFirst();
-    const inkCostPerDesign = settings?.inkCostPerDesign ?? 2.5;
-    const supplementaryCostPerItem = settings?.supplementaryItemCost ?? 0;
 
-    const totalInkCost = totalFulfillableItems * inkCostPerDesign;
-    const totalSupplementaryCost =
-        totalFulfillableItems * supplementaryCostPerItem;
+    // Per-item production costs
+    const inkCostPerItem = settings?.inkCostPerItem ?? 1.20;
+    const printerRepairCostPerItem = settings?.printerRepairCostPerItem ?? 0.45;
+    const pretreatCostPerItem = settings?.pretreatCostPerItem ?? 0.27;
+    const electricityCostPerItem = settings?.electricityCostPerItem ?? 0.24;
+    const neckLabelCostPerItem = settings?.neckLabelCostPerItem ?? 0.08;
+    const parchmentPaperCostPerItem = settings?.parchmentPaperCostPerItem ?? 0.06;
+
+    // Per-order fulfillment costs
+    const thankYouCardCostPerOrder = settings?.thankYouCardCostPerOrder ?? 0.14;
+    const polymailerCostPerOrder = settings?.polymailerCostPerOrder ?? 0.09;
+    const cleaningSolutionCostPerOrder = settings?.cleaningSolutionCostPerOrder ?? 0.08;
+    const integratedPaperCostPerOrder = settings?.integratedPaperCostPerOrder ?? 0.06;
+    const blankPaperCostPerOrder = settings?.blankPaperCostPerOrder ?? 0.02;
+
+    // Other settings
+    const supplementaryCostPerItem = settings?.supplementaryItemCost ?? 0;
+    const costBufferPercentage = settings?.costBufferPercentage ?? 10.0;
+
+    // Calculate costs
+    const totalInkCost = totalFulfillableItems * inkCostPerItem;
+    const totalSupplementaryCost = totalFulfillableItems * supplementaryCostPerItem;
+
+    // Calculate new detailed per-item costs
+    const totalPrinterRepairs = totalFulfillableItems * printerRepairCostPerItem;
+    const totalPretreat = totalFulfillableItems * pretreatCostPerItem;
+    const totalElectricity = totalFulfillableItems * electricityCostPerItem;
+    const totalNeckLabels = totalFulfillableItems * neckLabelCostPerItem;
+    const totalParchmentPaper = totalFulfillableItems * parchmentPaperCostPerItem;
+
+    // Calculate per-order costs (total orders, not items)
+    const totalOrders = allQueuedOrders.length;
+    const totalThankYouCards = totalOrders * thankYouCardCostPerOrder;
+    const totalPolymailers = totalOrders * polymailerCostPerOrder;
+    const totalCleaningSolution = totalOrders * cleaningSolutionCostPerOrder;
+    const totalIntegratedPaper = totalOrders * integratedPaperCostPerOrder;
+    const totalBlankPaper = totalOrders * blankPaperCostPerOrder;
+
+    // Calculate subtotals
+    const itemCostsSubtotal = totalBlankCost + totalInkCost + totalSupplementaryCost +
+        totalPrinterRepairs + totalPretreat + totalElectricity +
+        totalNeckLabels + totalParchmentPaper;
+
+    const orderCostsSubtotal = totalThankYouCards + totalPolymailers +
+        totalCleaningSolution + totalIntegratedPaper + totalBlankPaper;
+
+    // Apply buffer
+    const bufferMultiplier = 1 + (costBufferPercentage / 100);
+    const itemCostsWithBuffer = itemCostsSubtotal * bufferMultiplier;
+    const orderCostsWithBuffer = orderCostsSubtotal * bufferMultiplier;
+    const grandTotal = itemCostsWithBuffer + orderCostsWithBuffer;
 
     // 3. Labor Costs
     // fetch payroll expenses in last 30 days
@@ -249,9 +317,31 @@ export async function getQueuedAnalyticsSummary(cutoffDate?: Date): Promise<Queu
     return {
         counts,
         costs: {
+            // Material costs
             blanks: totalBlankCost,
             ink: totalInkCost,
             supplementary: totalSupplementaryCost,
+
+            // Per-item production costs
+            printerRepairs: totalPrinterRepairs,
+            pretreat: totalPretreat,
+            electricity: totalElectricity,
+            neckLabels: totalNeckLabels,
+            parchmentPaper: totalParchmentPaper,
+
+            // Per-order fulfillment costs
+            thankYouCards: totalThankYouCards,
+            polymailers: totalPolymailers,
+            cleaningSolution: totalCleaningSolution,
+            integratedPaper: totalIntegratedPaper,
+            blankPaper: totalBlankPaper,
+
+            // Totals with buffer
+            itemCostsSubtotal,
+            itemCostsWithBuffer,
+            orderCostsSubtotal,
+            orderCostsWithBuffer,
+            grandTotal,
         },
         labor: {
             totalCost: totalLaborCost,
@@ -269,12 +359,63 @@ export async function* calculateShippingCostsGenerator(cutoffDate?: Date): Async
         whereConditions.push(gte(orders.createdAt, cutoffDate));
     }
 
+    // 1. Query all queued orders
     const queuedOrders = await db
         .select({ id: orders.id })
         .from(orders)
         .where(and(...whereConditions));
 
     const total = queuedOrders.length;
+    const orderIds = queuedOrders.map(o => o.id);
+
+    if (orderIds.length === 0) {
+        return; // No orders to process
+    }
+
+    // 2. Bulk fetch ALL cache entries upfront (single query)
+    console.log(`[Financials] Fetching cache for ${total} orders...`);
+    const allCachedEntries = await db
+        .select()
+        .from(shippingRateCache)
+        .where(inArray(shippingRateCache.orderId, orderIds));
+
+    const cacheMap = new Map();
+    for (const entry of allCachedEntries) {
+        cacheMap.set(entry.orderId, entry);
+    }
+
+    // 3. Bulk fetch country codes for all orders
+    const orderInfos = await db
+        .select({
+            id: orders.id,
+            code: orders.displayDestinationCountryCode
+        })
+        .from(orders)
+        .where(inArray(orders.id, orderIds));
+
+    const countryMap = new Map();
+    for (const info of orderInfos) {
+        countryMap.set(info.id, info.code || "UNKNOWN");
+    }
+
+    // 4. Separate orders into cached (fresh) vs. needs fresh rates
+    const now = new Date();
+    const cachedOrders: Array<{ id: string; cached: any }> = [];
+    const needsFreshRates: Array<{ id: string }> = [];
+
+    for (const order of queuedOrders) {
+        const cached = cacheMap.get(order.id);
+        if (cached && new Date(cached.expiresAt) > now) {
+            // Fresh cache available
+            cachedOrders.push({ id: order.id, cached });
+        } else {
+            // No cache or expired
+            needsFreshRates.push(order);
+        }
+    }
+
+    console.log(`[Financials] Cache: ${cachedOrders.length} fresh, ${needsFreshRates.length} need fetching`);
+
     let processed = 0;
     let totalShippingCost = 0;
 
@@ -288,76 +429,100 @@ export async function* calculateShippingCostsGenerator(cutoffDate?: Date): Async
         row: { avg: 0, count: 0, total: 0 },
     };
 
-    // Helper: Timeout wrapper for async operations
-    const withTimeout = <T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
-        return Promise.race([
-            promise,
-            new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))
-        ]);
+    // Helper: Update breakdown with cost
+    const updateBreakdown = (cost: number, countryCode: string) => {
+        if (cost > 0) {
+            breakdown.aggregate.total += cost;
+            breakdown.aggregate.count++;
+
+            const c = countryCode.toUpperCase();
+            if (c === 'US') { breakdown.domestic.total += cost; breakdown.domestic.count++; }
+            else if (c === 'CA') { breakdown.ca.total += cost; breakdown.ca.count++; }
+            else if (c === 'GB' || c === 'UK') { breakdown.uk.total += cost; breakdown.uk.count++; }
+            else if (c === 'DE') { breakdown.de.total += cost; breakdown.de.count++; }
+            else if (c === 'AU') { breakdown.au.total += cost; breakdown.au.count++; }
+            else { breakdown.row.total += cost; breakdown.row.count++; }
+        }
     };
 
-    // Process in batches - use smaller batch for DB, then sub-batch for API calls
-    const BATCH_SIZE = 45;
-    const CONCURRENT_API_CALLS = 5; // Limit concurrent Shopify/shipping API calls
-    const ORDER_TIMEOUT_MS = 15000; // 15s timeout per order
+    // Helper: Recalculate averages
+    const recalcAvg = () => {
+        const calcAvg = (b: any) => b.count > 0 ? b.total / b.count : 0;
+        breakdown.aggregate.avg = calcAvg(breakdown.aggregate);
+        breakdown.domestic.avg = calcAvg(breakdown.domestic);
+        breakdown.ca.avg = calcAvg(breakdown.ca);
+        breakdown.uk.avg = calcAvg(breakdown.uk);
+        breakdown.de.avg = calcAvg(breakdown.de);
+        breakdown.au.avg = calcAvg(breakdown.au);
+        breakdown.row.avg = calcAvg(breakdown.row);
+    };
 
-    for (let i = 0; i < total; i += BATCH_SIZE) {
-        const batch = queuedOrders.slice(i, i + BATCH_SIZE);
-        console.log(`[Financials] Processing batch ${Math.floor(i / BATCH_SIZE) + 1} (${batch.length} items)...`);
-        const batchIds = batch.map(o => o.id);
+    // 5. Process cached orders instantly (no API calls)
+    if (cachedOrders.length > 0) {
+        console.log(`[Financials] Processing ${cachedOrders.length} cached orders instantly...`);
+        for (const order of cachedOrders) {
+            try {
+                const rateData = order.cached.rate as any;
+                const r = rateData as { rate: any; otherRates: any[] };
+                const rates = [r.rate, ...(r.otherRates || [])];
+                const cheapest = rates.sort((a: any, b: any) => Number(a.cost) - Number(b.cost))[0];
+                const cost = cheapest ? Number(cheapest.cost) : 0;
 
-        if (batchIds.length === 0) continue;
-
-        // 1. Bulk Fetch Cache
-        const cachedEntries = await db
-            .select()
-            .from(shippingRateCache)
-            .where(inArray(shippingRateCache.orderId, batchIds));
-
-        const cacheMap = new Map();
-        for (const entry of cachedEntries) {
-            cacheMap.set(entry.orderId, entry);
+                totalShippingCost += cost;
+                const countryCode = countryMap.get(order.id) || "UNKNOWN";
+                updateBreakdown(cost, countryCode);
+            } catch (e) {
+                console.error(`Error processing cached order ${order.id}`, e);
+            }
         }
 
-        // 2. Bulk Fetch Orders (for Country Code)
-        const orderInfos = await db
-            .select({
-                id: orders.id,
-                code: orders.displayDestinationCountryCode
-            })
-            .from(orders)
-            .where(inArray(orders.id, batchIds));
+        processed += cachedOrders.length;
+        recalcAvg();
 
-        const countryMap = new Map();
-        for (const info of orderInfos) {
-            countryMap.set(info.id, info.code || "UNKNOWN");
-        }
+        // Yield progress after processing cached orders
+        yield {
+            processed,
+            total,
+            currentCost: totalShippingCost,
+            breakdown
+        };
+    }
 
-        const ratesToInsert: any[] = [];
-        const batchCosts: number[] = [];
+    // 6. Process orders needing fresh rates in batches with API calls
+    if (needsFreshRates.length > 0) {
+        console.log(`[Financials] Fetching live rates for ${needsFreshRates.length} orders...`);
 
-        // 3. Process in smaller sub-batches to avoid API throttling
-        for (let j = 0; j < batch.length; j += CONCURRENT_API_CALLS) {
-            const subBatch = batch.slice(j, j + CONCURRENT_API_CALLS);
+        const BATCH_SIZE = 45;
+        const CONCURRENT_API_CALLS = 5;
+        const ORDER_TIMEOUT_MS = 15000;
 
-            const subCosts = await Promise.all(subBatch.map(async (order) => {
-                return withTimeout(
-                    (async () => {
-                        try {
-                            let cost = 0;
-                            let countryCode = countryMap.get(order.id) || "UNKNOWN";
+        // Helper: Timeout wrapper for async operations
+        const withTimeout = <T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
+            return Promise.race([
+                promise,
+                new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))
+            ]);
+        };
 
-                            const cached = cacheMap.get(order.id);
+        for (let i = 0; i < needsFreshRates.length; i += BATCH_SIZE) {
+            const batch = needsFreshRates.slice(i, i + BATCH_SIZE);
+            console.log(`[Financials] Processing batch ${Math.floor(i / BATCH_SIZE) + 1} (${batch.length} items)...`);
 
-                            if (cached && new Date(cached.expiresAt) > new Date()) {
-                                // Cache Hit
-                                const rateData = cached.rate as any;
-                                const r = rateData as { rate: any; otherRates: any[] };
-                                const rates = [r.rate, ...(r.otherRates || [])];
-                                const cheapest = rates.sort((a: any, b: any) => Number(a.cost) - Number(b.cost))[0];
-                                cost = cheapest ? Number(cheapest.cost) : 0;
-                            } else {
-                                // Cache Miss - Fetch Live
+            const ratesToInsert: any[] = [];
+            const batchCosts: number[] = [];
+
+            // Process in smaller sub-batches to avoid API throttling
+            for (let j = 0; j < batch.length; j += CONCURRENT_API_CALLS) {
+                const subBatch = batch.slice(j, j + CONCURRENT_API_CALLS);
+
+                const subCosts = await Promise.all(subBatch.map(async (order) => {
+                    return withTimeout(
+                        (async () => {
+                            try {
+                                let cost = 0;
+                                let countryCode = countryMap.get(order.id) || "UNKNOWN";
+
+                                // Fetch live rate
                                 const shopifyOrder = await fetchShopifyOrder(order.id);
                                 if (shopifyOrder) {
                                     countryCode = shopifyOrder.shippingAddress?.countryCodeV2 || countryCode;
@@ -378,72 +543,51 @@ export async function* calculateShippingCostsGenerator(cutoffDate?: Date): Async
                                         cost = cheapest ? Number(cheapest.cost) : 0;
                                     }
                                 }
+
+                                // Update breakdown
+                                updateBreakdown(cost, countryCode);
+                                return cost;
+                            } catch (e) {
+                                console.error(`Error processing shipping for order ${order.id}`, e);
+                                return 0;
                             }
+                        })(),
+                        ORDER_TIMEOUT_MS,
+                        0 // Return 0 on timeout
+                    );
+                }));
 
-                            // Update Aggregates
-                            if (cost > 0) {
-                                breakdown.aggregate.total += cost;
-                                breakdown.aggregate.count++;
-
-                                const c = countryCode.toUpperCase();
-                                if (c === 'US') { breakdown.domestic.total += cost; breakdown.domestic.count++; }
-                                else if (c === 'CA') { breakdown.ca.total += cost; breakdown.ca.count++; }
-                                else if (c === 'GB' || c === 'UK') { breakdown.uk.total += cost; breakdown.uk.count++; }
-                                else if (c === 'DE') { breakdown.de.total += cost; breakdown.de.count++; }
-                                else if (c === 'AU') { breakdown.au.total += cost; breakdown.au.count++; }
-                                else { breakdown.row.total += cost; breakdown.row.count++; }
-                            }
-
-                            return cost;
-                        } catch (e) {
-                            console.error(`Error processing shipping for order ${order.id}`, e);
-                            return 0;
-                        }
-                    })(),
-                    ORDER_TIMEOUT_MS,
-                    0 // Return 0 on timeout
-                );
-            }));
-
-            batchCosts.push(...subCosts);
-        }
-
-        // 4. Bulk Insert New Rates
-        if (ratesToInsert.length > 0) {
-            try {
-                await db.insert(shippingRateCache)
-                    .values(ratesToInsert)
-                    .onConflictDoUpdate({
-                        target: shippingRateCache.orderId,
-                        set: {
-                            rate: sql`excluded.rate`,
-                            expiresAt: sql`excluded.expires_at`
-                        }
-                    });
-            } catch (err) {
-                console.error("Bulk cache insert failed", err);
+                batchCosts.push(...subCosts);
             }
+
+            // Bulk insert new rates
+            if (ratesToInsert.length > 0) {
+                try {
+                    await db.insert(shippingRateCache)
+                        .values(ratesToInsert)
+                        .onConflictDoUpdate({
+                            target: shippingRateCache.orderId,
+                            set: {
+                                rate: sql`excluded.rate`,
+                                expiresAt: sql`excluded.expires_at`
+                            }
+                        });
+                } catch (err) {
+                    console.error("Bulk cache insert failed", err);
+                }
+            }
+
+            const batchTotal = batchCosts.reduce((a, b) => a + b, 0);
+            totalShippingCost += batchTotal;
+            processed += batch.length;
+            recalcAvg();
+
+            yield {
+                processed: Math.min(processed, total),
+                total,
+                currentCost: totalShippingCost,
+                breakdown
+            };
         }
-
-        const batchTotal = batchCosts.reduce((a, b) => a + b, 0);
-        totalShippingCost += batchTotal;
-        processed += batch.length;
-
-        // Recalculate Averages
-        const calcAvg = (b: any) => b.count > 0 ? b.total / b.count : 0;
-        breakdown.aggregate.avg = calcAvg(breakdown.aggregate);
-        breakdown.domestic.avg = calcAvg(breakdown.domestic);
-        breakdown.ca.avg = calcAvg(breakdown.ca);
-        breakdown.uk.avg = calcAvg(breakdown.uk);
-        breakdown.de.avg = calcAvg(breakdown.de);
-        breakdown.au.avg = calcAvg(breakdown.au);
-        breakdown.row.avg = calcAvg(breakdown.row);
-
-        yield {
-            processed: Math.min(processed, total),
-            total,
-            currentCost: totalShippingCost,
-            breakdown
-        };
     }
 }

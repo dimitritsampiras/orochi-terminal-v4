@@ -1,7 +1,11 @@
+import { authorizePageUser } from "@/lib/core/auth/authorize-user";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
-export default function AnalyticsLayout({ children }: { children: React.ReactNode }) {
+export default async function AnalyticsLayout({ children }: { children: React.ReactNode }) {
+    // Restrict access to admin and super_admin roles
+    await authorizePageUser("analytics");
+
     return (
         <div className="flex flex-col gap-6 p-6 w-full max-w-7xl mx-auto">
             <div className="flex items-center justify-between border-b pb-4">

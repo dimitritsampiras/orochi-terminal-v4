@@ -10,12 +10,25 @@ export default async function SettingsPage() {
     const recurringExpensesData = await getRecurringExpenses();
 
     const defaults = {
-        inkCostPerPrint: settings?.inkCostPerPrint ?? 0,
-        bagCostPerOrder: settings?.bagCostPerOrder ?? 0,
-        labelCostPerOrder: settings?.labelCostPerOrder ?? 0,
-        misprintCostMultiplier: settings?.misprintCostMultiplier ?? 1.0,
+        // Per-item production costs
+        inkCostPerItem: settings?.inkCostPerItem ?? 1.20,
+        printerRepairCostPerItem: settings?.printerRepairCostPerItem ?? 0.45,
+        pretreatCostPerItem: settings?.pretreatCostPerItem ?? 0.27,
+        electricityCostPerItem: settings?.electricityCostPerItem ?? 0.24,
+        neckLabelCostPerItem: settings?.neckLabelCostPerItem ?? 0.08,
+        parchmentPaperCostPerItem: settings?.parchmentPaperCostPerItem ?? 0.06,
+
+        // Per-order fulfillment costs
+        thankYouCardCostPerOrder: settings?.thankYouCardCostPerOrder ?? 0.14,
+        polymailerCostPerOrder: settings?.polymailerCostPerOrder ?? 0.09,
+        cleaningSolutionCostPerOrder: settings?.cleaningSolutionCostPerOrder ?? 0.08,
+        integratedPaperCostPerOrder: settings?.integratedPaperCostPerOrder ?? 0.06,
+        blankPaperCostPerOrder: settings?.blankPaperCostPerOrder ?? 0.02,
+
+        // Other settings
         supplementaryItemCost: settings?.supplementaryItemCost ?? 0,
-        inkCostPerDesign: settings?.inkCostPerDesign ?? 2.5,
+        misprintCostMultiplier: settings?.misprintCostMultiplier ?? 1.0,
+        costBufferPercentage: settings?.costBufferPercentage ?? 10.0,
     };
 
     return (
