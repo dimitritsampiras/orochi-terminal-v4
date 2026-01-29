@@ -122,7 +122,7 @@ export const CreateSessionController = ({ queue, blankVariants }: CreateSessionC
           <div className="relative">
             <Input
               value={orderQuantity}
-              className="bg-white w-[10rem]"
+              className="bg-white w-40"
               onChange={handleOrderQuantityChange}
               onKeyDown={handleArrowKeyPress}
             />

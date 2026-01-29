@@ -3,7 +3,7 @@ import { OrdersTable } from "@/components/table/orders-table";
 import { db } from "@/lib/clients/db";
 import { authorizePageUser } from "@/lib/core/auth/authorize-user";
 import { getUserOrSignout } from "@/lib/core/auth/get-user-or-signout";
-import { getOrderQueue } from "@/lib/core/orders/get-order-queue";
+import { getOrderQueue, OrderQueueFull } from "@/lib/core/orders/get-order-queue";
 
 export default async function CreateSessionPage() {
   await authorizePageUser("sessions");
@@ -24,7 +24,7 @@ export default async function CreateSessionPage() {
   return (
     <div>
       <h1 className="page-title">Create Session</h1>
-      <CreateSessionController queue={queue} blankVariants={blankVariants} />
+      <CreateSessionController queue={queue as OrderQueueFull} blankVariants={blankVariants} />
     </div>
   );
 }
