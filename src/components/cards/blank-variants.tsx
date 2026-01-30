@@ -49,11 +49,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UpdateBlankVariantInput } from "@/components/forms/blank-forms/update-blank-variant-input";
 import { colorNameToHex } from "@/lib/core/products/color-name-to-hex";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Icon } from "@iconify/react";
 import { useFetcher } from "@/lib/hooks/use-fetcher";
+import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
+  BulkUpdateBlankVariantsSchema,
   CreateBlankVariantSchema,
   GARMENT_SIZES,
 } from "@/lib/schemas/product-schema";
@@ -215,8 +217,26 @@ export function BlankVariantsTable({
               <TableHead>Color</TableHead>
               <TableHead>Size</TableHead>
               <TableHead className="text-right">Quantity</TableHead>
-              <TableHead className="text-right">Weight (oz)</TableHead>
-              <TableHead className="text-right">Volume</TableHead>
+              <TableHead className="text-right">
+                <div className="flex flex-col items-end gap-1">
+                  <span>Weight (oz)</span>
+                  <BulkUpdateInput
+                    blankId={blankId}
+                    field="weight"
+                    placeholder="Set all"
+                  />
+                </div>
+              </TableHead>
+              <TableHead className="text-right">
+                <div className="flex flex-col items-end gap-1">
+                  <span>Volume</span>
+                  <BulkUpdateInput
+                    blankId={blankId}
+                    field="volume"
+                    placeholder="Set all"
+                  />
+                </div>
+              </TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -304,6 +324,86 @@ function VariantRow({
         />
       </TableCell>
     </TableRow>
+  );
+}
+
+// ============================================================================
+// BulkUpdateInput Component
+// ============================================================================
+
+function BulkUpdateInput({
+  blankId,
+  field,
+  placeholder,
+}: {
+  blankId: string;
+  field: "weight" | "volume";
+  placeholder?: string;
+}) {
+  const [inputValue, setInputValue] = useState("");
+  const isSubmittingRef = useRef(false);
+  const router = useRouter();
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: async (data: BulkUpdateBlankVariantsSchema) => {
+      const res = await fetch(`/api/blanks/${blankId}/blank-variants`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      return res.json();
+    },
+    onSuccess: async () => {
+      router.refresh();
+      await sleep(1000);
+      toast.success(`All ${field} values updated`);
+      setInputValue("");
+      isSubmittingRef.current = false;
+    },
+    onError: () => {
+      toast.error(`Failed to update ${field} values`);
+      isSubmittingRef.current = false;
+    },
+  });
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && inputValue) {
+      isSubmittingRef.current = true;
+      handleSubmit();
+      e.currentTarget.blur();
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value;
+    if (raw === "" || /^-?\d*\.?\d*$/.test(raw)) {
+      setInputValue(raw);
+    }
+  };
+
+  const handleBlur = () => {
+    if (!isSubmittingRef.current) {
+      setInputValue("");
+    }
+  };
+
+  const handleSubmit = () => {
+    const numValue = parseFloat(inputValue);
+    if (isNaN(numValue) || numValue < 0) return;
+    mutate({ [field]: numValue });
+  };
+
+  return (
+    <Input
+      className="max-w-20! my-2 h-9 text-xs text-right font-normal"
+      placeholder={placeholder}
+      value={inputValue}
+      onChange={handleChange}
+      onKeyDown={handleKeyDown}
+      onBlur={handleBlur}
+      disabled={isPending}
+    />
   );
 }
 
@@ -724,7 +824,7 @@ function AddColorDialog({
                     className={cn(
                       "flex h-9 w-9 items-center justify-center rounded-md border bg-zinc-50 text-xs text-zinc-600 transition uppercase font-medium hover:bg-zinc-100",
                       selectedSizes.includes(size) &&
-                      "bg-zinc-900 text-white hover:bg-zinc-800",
+                        "bg-zinc-900 text-white hover:bg-zinc-800",
                       isDisabled && "opacity-50 cursor-not-allowed"
                     )}
                   >

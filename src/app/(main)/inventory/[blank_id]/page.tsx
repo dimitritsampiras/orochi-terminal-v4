@@ -9,7 +9,11 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { BackButton } from "@/components/nav/back-button";
 import { authorizePageUser } from "@/lib/core/auth/authorize-user";
-export default async function BlankInventoryPage({ params }: { params: Promise<{ blank_id: string }> }) {
+export default async function BlankInventoryPage({
+  params,
+}: {
+  params: Promise<{ blank_id: string }>;
+}) {
   await authorizePageUser("inventory");
 
   const { blank_id } = await params;
@@ -43,9 +47,12 @@ export default async function BlankInventoryPage({ params }: { params: Promise<{
         </div>
       </div>
 
-      <div className="mb-24 mt-6 grid-cols-[2fr_1fr] gap-4 md:grid">
+      <div className="mb-24 mt-6 grid-cols-[3fr_1fr] gap-4 md:grid">
         <div className="flex flex-col gap-4">
-          <BlankVariantsTable blankId={blank.id} variants={blank.blankVariants} />
+          <BlankVariantsTable
+            blankId={blank.id}
+            variants={blank.blankVariants}
+          />
         </div>
         <div className="flex flex-col gap-4 sm:mt-0 mt-4">
           <BlankInfoCard blank={blank} />

@@ -25,7 +25,7 @@ async function debugQueue() {
             const isHold = status === "ON_HOLD"; // Check if this status exists in ENUM
 
             // Also check batches
-            const hasBatches = o.batches && o.batches.length > 0;
+            const hasBatches = "batches" in o && o.batches && o.batches.length > 0;
 
             if (isUnfulfilled) unfulfilledCount++;
             if (isUS) usCount++;

@@ -32,7 +32,7 @@ export const SetLineItemStatusForm = ({ lineItemId, orderId, className }: { line
     },
     onSuccess: async () => {
       router.refresh();
-      await sleep(1000);
+      await sleep(1400);
       toast.success("Line item status updated");
     },
     onError: (error: Error) => {
@@ -44,7 +44,7 @@ export const SetLineItemStatusForm = ({ lineItemId, orderId, className }: { line
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="secondary" size="icon" className={cn("h-7 w-7", className)} loading={mutation.isPending}>
-          <Icon icon="ph:bookmark-simple" className="h-4 w-4" />
+          <Icon icon="ph:bookmark-simple" className="h-3.5 w-3.5" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

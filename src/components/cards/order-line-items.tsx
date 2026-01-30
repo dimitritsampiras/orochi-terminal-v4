@@ -130,8 +130,8 @@ function LineItemRow({
               packaged
             </Badge>
           )}
-
           <LineItemStatusBadge status={dbItem.completionStatus} />
+          <SetLineItemStatusForm lineItemId={dbItem.id} orderId={orderId} className="size-6" />
         </div>
       </div>
 

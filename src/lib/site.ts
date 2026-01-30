@@ -34,11 +34,11 @@ export const SITE = {
     { resource: "orderHolds" as const, path: "/holds", name: "Order Holds", icon: "ph:call-bell" },
     { resource: "products" as const, path: "/products", name: "Products", icon: "ph:tag" },
     { resource: "inventory" as const, path: "/inventory", name: "Inventory", icon: "ph:cube" },
+    { resource: "analytics" as const, path: "/analytics", name: "Analytics", icon: "ph:chart-line" },
   ],
   subRoutes: [
     { resource: "packager" as const, path: "/packager", name: "Packager", icon: "ph:package" },
     { resource: "gate-scan" as const, path: "/gate-scan", name: "Gate Scan", icon: "ph:barcode" },
-    { resource: "analytics" as const, path: "/analytics", name: "Analytics", icon: "ph:chart-line" },
     { resource: "staff" as const, path: "/staff", name: "Staff", icon: "ph:users" },
     { resource: "profile" as const, path: "/profile", name: "Profile", icon: "ph:user" },
   ],

@@ -16,6 +16,13 @@ export const updateBlankVariantSchema = z.object({
 
 export type UpdateBlankVariantSchema = z.infer<typeof updateBlankVariantSchema>;
 
+export const bulkUpdateBlankVariantsSchema = z.object({
+  weight: z.number().min(0).optional(),
+  volume: z.number().min(0).optional(),
+});
+
+export type BulkUpdateBlankVariantsSchema = z.infer<typeof bulkUpdateBlankVariantsSchema>;
+
 export const updateProductSchema = z.object({
   isBlackLabel: z.boolean().optional(),
 });
