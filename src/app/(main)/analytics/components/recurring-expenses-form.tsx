@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { addRecurringExpense, deleteRecurringExpense, RecurringExpense } from "./actions";
 import { Trash2 } from "lucide-react";
 import { useState, useTransition } from "react";
+import { formatInEastern, nowInEastern } from "@/lib/utils";
 
 const formSchema = z.object({
     name: z.string().min(1, "Name is required"),
@@ -43,7 +44,7 @@ export function RecurringExpensesForm({ existingExpenses }: { existingExpenses: 
             amount: 0,
             frequency: "monthly",
             category: "other",
-            startDate: new Date().toISOString().split("T")[0],
+            startDate: formatInEastern(nowInEastern(), "yyyy-MM-dd"),
         },
     });
 
@@ -64,7 +65,7 @@ export function RecurringExpensesForm({ existingExpenses }: { existingExpenses: 
                     amount: 0,
                     frequency: "monthly",
                     category: "other",
-                    startDate: new Date().toISOString().split("T")[0],
+                    startDate: formatInEastern(nowInEastern(), "yyyy-MM-dd"),
                 });
                 toast.success("Recurring expense added");
             } catch (error) {

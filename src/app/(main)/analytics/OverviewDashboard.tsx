@@ -5,7 +5,8 @@ import { fetchDashboardFinancials, DashboardFinancials } from "@/app/(main)/anal
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { subDays, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { subDays, subMonths } from "date-fns";
+import { startOfMonthEastern, endOfMonthEastern, nowInEastern } from "@/lib/utils";
 import { Loader2, Info } from "lucide-react";
 
 export function OverviewDashboard() {
@@ -19,7 +20,7 @@ export function OverviewDashboard() {
 
     function fetchData(selectedRange: string) {
         startTransition(async () => {
-            const now = new Date();
+            const now = nowInEastern();
             let from = subDays(now, 30);
             let to = now;
 
@@ -28,12 +29,12 @@ export function OverviewDashboard() {
             } else if (selectedRange === "90d") {
                 from = subDays(now, 90);
             } else if (selectedRange === "month") {
-                from = startOfMonth(now);
-                to = endOfMonth(now);
+                from = startOfMonthEastern(now);
+                to = endOfMonthEastern(now);
             } else if (selectedRange === "last_month") {
                 const lastMonth = subMonths(now, 1);
-                from = startOfMonth(lastMonth);
-                to = endOfMonth(lastMonth);
+                from = startOfMonthEastern(lastMonth);
+                to = endOfMonthEastern(lastMonth);
             }
 
             try {

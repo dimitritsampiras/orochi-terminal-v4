@@ -2,7 +2,8 @@
 import { db } from "@/lib/clients/db";
 import { orders, lineItems, productVariants, shipments, warehouseExpenses, recurringExpenses, blanks, blankVariants, products, prints } from "@drizzle/schema";
 import { and, gte, lte, lt, eq, desc, isNotNull, sum, sql } from "drizzle-orm";
-import { differenceInDays, startOfDay, endOfDay, subDays, eachDayOfInterval } from "date-fns";
+import { differenceInDays, subDays, eachDayOfInterval, startOfDay, endOfDay } from "date-fns";
+import { startOfDayEastern, endOfDayEastern } from "@/lib/utils";
 
 
 
@@ -51,8 +52,8 @@ async function getSupplyCosts() {
 }
 
 export async function getFinancialMetrics(startDate: Date, endDate: Date): Promise<FinancialMetrics> {
-    const start = startOfDay(startDate);
-    const end = endOfDay(endDate);
+    const start = startOfDayEastern(startDate);
+    const end = endOfDayEastern(endDate);
     const daysInRange = differenceInDays(end, start) + 1;
 
     // 1. Revenue & Items (Real Data)
@@ -485,8 +486,8 @@ export async function getDailyFinancialMetrics(startDate: Date, endDate: Date): 
 
     for (const day of dateRange) {
         const dayStr = day.toISOString().split('T')[0];
-        const dayStart = startOfDay(day);
-        const dayEnd = endOfDay(day);
+        const dayStart = startOfDayEastern(day);
+        const dayEnd = endOfDayEastern(day);
 
         // Match Revenue
         const revRow = revenueQuery.find((r: any) => new Date(r.day).toISOString().split('T')[0] === dayStr);

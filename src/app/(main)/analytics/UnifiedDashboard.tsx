@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { subDays, startOfMonth, endOfMonth, subMonths, format } from "date-fns";
+import { subDays, subMonths, format } from "date-fns";
+import { startOfMonthEastern, endOfMonthEastern, nowInEastern } from "@/lib/utils";
 import { Loader2, CalendarClock, TrendingUp, DollarSign, Package, Truck, CreditCard, ShoppingBag, Settings2 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -39,7 +40,7 @@ export function UnifiedDashboard() {
 
     function fetchData() {
         startTransition(async () => {
-            const now = new Date();
+            const now = nowInEastern();
             let from: Date | undefined;
             let to: Date | undefined;
 
@@ -48,12 +49,12 @@ export function UnifiedDashboard() {
                 if (range === "30d") from = subDays(now, 30);
                 else if (range === "90d") from = subDays(now, 90);
                 else if (range === "month") {
-                    from = startOfMonth(now);
-                    to = endOfMonth(now);
+                    from = startOfMonthEastern(now);
+                    to = endOfMonthEastern(now);
                 } else if (range === "last_month") {
                     const lastMonth = subMonths(now, 1);
-                    from = startOfMonth(lastMonth);
-                    to = endOfMonth(lastMonth);
+                    from = startOfMonthEastern(lastMonth);
+                    to = endOfMonthEastern(lastMonth);
                 }
             }
 

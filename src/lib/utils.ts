@@ -10,6 +10,19 @@ import {
 } from "@drizzle/schema";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import {
+  toZonedTime,
+  fromZonedTime,
+  format as formatTz
+} from 'date-fns-tz';
+import {
+  startOfDay as startOfDayFns,
+  endOfDay as endOfDayFns,
+  startOfWeek as startOfWeekFns,
+  endOfWeek as endOfWeekFns,
+  startOfMonth as startOfMonthFns,
+  endOfMonth as endOfMonthFns,
+} from 'date-fns';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -157,3 +170,138 @@ export const normalizeSizeName = (size: (typeof garmentSize.enumValues)[number])
   }
   return size.toLowerCase().replace(/ /g, "_");
 };
+
+/**
+ * Timezone utilities for consistent EST/EDT handling across the application
+ *
+ * All analytics should use these functions to ensure dates are calculated
+ * in Eastern Time (America/New_York), which automatically handles DST transitions.
+ */
+
+/**
+ * Eastern Time Zone identifier
+ * Automatically handles EST (UTC-5) and EDT (UTC-4) based on DST rules
+ */
+export const EASTERN_TIMEZONE = 'America/New_York';
+
+/**
+ * Get current date/time in Eastern Time
+ */
+export function nowInEastern(): Date {
+  return toZonedTime(new Date(), EASTERN_TIMEZONE);
+}
+
+/**
+ * Convert a Date to Eastern Time
+ */
+export function toEastern(date: Date): Date {
+  return toZonedTime(date, EASTERN_TIMEZONE);
+}
+
+/**
+ * Convert an Eastern Time date back to UTC/system time
+ */
+export function fromEastern(date: Date): Date {
+  return fromZonedTime(date, EASTERN_TIMEZONE);
+}
+
+/**
+ * Get start of day in Eastern Time
+ */
+export function startOfDayEastern(date: Date): Date {
+  const easternDate = toEastern(date);
+  const startOfDayET = startOfDayFns(easternDate);
+  return fromEastern(startOfDayET);
+}
+
+/**
+ * Get end of day in Eastern Time
+ */
+export function endOfDayEastern(date: Date): Date {
+  const easternDate = toEastern(date);
+  const endOfDayET = endOfDayFns(easternDate);
+  return fromEastern(endOfDayET);
+}
+
+/**
+ * Get start of week (Monday) in Eastern Time
+ */
+export function startOfWeekEastern(date: Date): Date {
+  const easternDate = toEastern(date);
+  const startOfWeekET = startOfWeekFns(easternDate, { weekStartsOn: 1 }); // Monday
+  return fromEastern(startOfWeekET);
+}
+
+/**
+ * Get end of week (Sunday) in Eastern Time
+ */
+export function endOfWeekEastern(date: Date): Date {
+  const easternDate = toEastern(date);
+  const endOfWeekET = endOfWeekFns(easternDate, { weekStartsOn: 1 }); // Monday-Sunday
+  return fromEastern(endOfWeekET);
+}
+
+/**
+ * Get start of month in Eastern Time
+ */
+export function startOfMonthEastern(date: Date): Date {
+  const easternDate = toEastern(date);
+  const startOfMonthET = startOfMonthFns(easternDate);
+  return fromEastern(startOfMonthET);
+}
+
+/**
+ * Get end of month in Eastern Time
+ */
+export function endOfMonthEastern(date: Date): Date {
+  const easternDate = toEastern(date);
+  const endOfMonthET = endOfMonthFns(easternDate);
+  return fromEastern(endOfMonthET);
+}
+
+/**
+ * Get current week (Monday-Sunday) in Eastern Time
+ */
+export function getCurrentWeekEastern(): { start: Date; end: Date } {
+  const now = nowInEastern();
+
+  // Get day of week (0 = Sunday, 1 = Monday, etc.)
+  const dayOfWeek = now.getDay();
+  const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+
+  // Calculate Monday at midnight Eastern
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - daysFromMonday);
+  monday.setHours(0, 0, 0, 0);
+
+  // Calculate Sunday at 23:59:59.999 Eastern
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+
+  // Convert to UTC for storage/API
+  return {
+    start: fromEastern(monday),
+    end: fromEastern(sunday)
+  };
+}
+
+/**
+ * Format a date in Eastern Time
+ * @param date - Date to format
+ * @param formatString - Format string (date-fns format)
+ */
+export function formatInEastern(date: Date, formatString: string): string {
+  return formatTz(date, formatString, { timeZone: EASTERN_TIMEZONE });
+}
+
+/**
+ * Get date range for analytics queries in Eastern Time
+ * Ensures consistent boundaries for all analytics calculations
+ */
+export function getAnalyticsDateRange(start: Date, end: Date): { start: Date; end: Date } {
+  return {
+    start: startOfDayEastern(start),
+    end: endOfDayEastern(end)
+  };
+}

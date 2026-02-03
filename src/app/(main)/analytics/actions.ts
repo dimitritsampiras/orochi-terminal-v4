@@ -1,7 +1,8 @@
 "use server";
 
 import { calculatePeriodProfitability, PeriodProfitability } from "@/lib/core/analytics/calculate-period-profitability";
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, eachDayOfInterval, format, startOfDay, endOfDay } from "date-fns";
+import { subDays, eachDayOfInterval, format } from "date-fns";
+import { startOfDayEastern, endOfDayEastern, startOfMonthEastern, endOfMonthEastern, startOfWeekEastern, endOfWeekEastern } from "@/lib/utils";
 
 export type DashboardData = {
     summary: PeriodProfitability;
@@ -29,10 +30,10 @@ export async function getDashboardData(
     const intervals = eachDayOfInterval({ start: range.from, end: range.to });
 
     // Parallelize calculations for separate days
-    // Warning: This creates heavy DB/API load. 
+    // Warning: This creates heavy DB/API load.
     const seriesPromises = intervals.map(async (date) => {
-        const dayStart = startOfDay(date);
-        const dayEnd = endOfDay(date);
+        const dayStart = startOfDayEastern(date);
+        const dayEnd = endOfDayEastern(date);
         const data = await calculatePeriodProfitability(dayStart, dayEnd);
         return {
             date: format(date, "MMM dd"),
