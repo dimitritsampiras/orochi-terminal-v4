@@ -3,6 +3,7 @@ import { DataResponse } from "@/lib/types/misc";
 import { shipments } from "@drizzle/schema";
 import dayjs from "dayjs";
 import { PDFDocument, StandardFonts, rgb, degrees } from "pdf-lib";
+import QRCode from 'qrcode'
 
 type Order = Extract<NonNullable<OrderQuery["node"]>, { __typename: "Order" }>;
 type Shipment = typeof shipments.$inferSelect;
@@ -12,6 +13,17 @@ type Options = {
   shippingLabelURL?: string;
   lineItemIds?: string[];
 };
+
+const generateQrBuffer = async (text: string) => {
+  const buffer = await QRCode.toBuffer(text, {
+    type: "png",
+    errorCorrectionLevel: "M", // good balance for phone scanning on labels
+    margin: 1,
+    scale: 6, // ~ 200–300px, fine for 2–3 cm print
+  });
+
+  return buffer
+}
 
 export const generatePackingSlip = async (
   order: Order,
@@ -176,8 +188,21 @@ export const generatePackingSlip = async (
     // Then rotate 90° around (imageX, imageY) and draw at (imageX, inchesToPoint(0.725))
 
     const imageX = inchesToPoint(2.375); // 171pt
-    const imageWidth = inchesToPoint(4); // 288pt - becomes vertical extent after rotation
-    const imageHeight = inchesToPoint(6); // 432pt - becomes horizontal extent after rotation
+    // const imageWidth = inchesToPoint(3.4); // 288pt - becomes vertical extent after rotation
+    // const imageHeight = inchesToPoint(5.1); // 432pt - becomes horizontal extent after rotation
+    // const imageWidth = inchesToPoint(3.6); // 288pt - becomes vertical extent after rotation
+    // const imageHeight = inchesToPoint(5.4); // 432pt - becomes horizontal extent after rotation
+    const imageWidth = inchesToPoint(3.5); // Scaled proportionally (~87.5%)
+    const imageHeight = inchesToPoint(5.25);
+
+    const qrBuffer = await generateQrBuffer(shipment.trackingNumber || shipment.id);
+    const qrImage = await pdfDoc.embedPng(qrBuffer);
+    // const qrWidth = inchesToPoint(0.7);
+    // const qrHeight = inchesToPoint(0.7);
+    const qrWidth = inchesToPoint(0.5);
+    const qrHeight = inchesToPoint(0.5);
+
+
 
     // After 90° rotation around origin point, the image placement changes
     // The original draws at Y = inchesToPoint(0.85 - 0.125) = inchesToPoint(0.725) ≈ 52.2pt from top
@@ -189,6 +214,14 @@ export const generatePackingSlip = async (
 
     const labelX = pageWidth - inchesToPoint(0.125); // 594pt (right edge minus margin)
     const labelY = inchesToPoint(0.25); // 18pt (bottom margin)
+    // qr code needs to be placed left of the image
+    // Calculate QR X based on the label's anchor (labelX) minus the label's rotated width (imageHeight)
+    // We also subtract the QR width and a small margin to push it further left
+    const spacing = inchesToPoint(0.1);
+    const qrX = labelX - imageHeight - qrWidth - spacing;
+
+    const qrY = labelY; // Aligns bottom of QR with bottom of Label
+
 
     page.drawImage(image, {
       x: labelX,
@@ -197,13 +230,20 @@ export const generatePackingSlip = async (
       height: imageHeight,
       rotate: degrees(90),
     });
+
+    page.drawImage(qrImage, {
+      x: qrX,
+      y: qrY,
+      width: qrWidth,
+      height: qrHeight,
+    });
   }
 
   // Order number in big bold letters at bottom left, rotated 90 degrees
   const orderNumberFontSize = 50;
   const orderNumberX = inchesToPoint(1); // Left margin
   const orderNumberY = inchesToPoint(0.5); // Bottom margin (in pdf-lib coordinates, bottom-up)
-  
+
   page.drawText(order.name, {
     x: orderNumberX,
     y: orderNumberY,

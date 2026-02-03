@@ -7,6 +7,7 @@ import { purchaseShippoRateAndUpdateDatabase } from "@/lib/core/shipping/shippo/
 import { purchaseEasypostRateAndUpdateDatabase } from "@/lib/core/shipping/easypost/purchase-easypost-rate";
 import { createAndStoreShippingDocs } from "@/lib/core/shipping/create-and-store-shipping-docs";
 import { shipments } from "@drizzle/schema";
+import { sleep } from "@/lib/utils";
 
 export type ShipmentStatus = "none" | "unpurchased" | "purchased" | "refunded";
 
@@ -76,6 +77,7 @@ export const bulkPurchaseShipmentsTask = task({
 
       try {
         await processOrder(order, sessionId);
+        await sleep(1000)
         items[i].status = "completed";
         completed++;
         logger.info(`Completed ${order.orderName}`, { orderId: order.orderId });

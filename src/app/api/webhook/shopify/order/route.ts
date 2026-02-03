@@ -51,10 +51,12 @@ export const POST = async (request: NextRequest) => {
 
   const { data, error } = await upsertOrderToDb(adminGraphqlApiId);
 
+
   if (error) {
-    console.error(error);
+    console.log('[order webhook] error', error);
     return new NextResponse("Error upserting order to db", { status: 500 });
   }
+  console.log('[order webhook] success', data);
 
   return new NextResponse("OK");
 

@@ -3,7 +3,7 @@ import shopify from "@/lib/clients/shopify";
 import { orderQuery } from "@/lib/graphql/order.graphql";
 import { OrderQuery } from "@/lib/types/admin.generated";
 import { DataResponse } from "@/lib/types/misc";
-import { fulfillmentPriority, lineItems, orders, shippingPriority } from "@drizzle/schema";
+import { fulfillmentPriority, lineItems, logs, orders, shippingPriority } from "@drizzle/schema";
 import { logger } from "../logger";
 import { eq, sql } from "drizzle-orm";
 
@@ -12,11 +12,12 @@ type ShopifyOrder = Extract<NonNullable<OrderQuery["node"]>, { __typename: "Orde
 
 export const upsertOrderToDb = async (adminGraphqlApiId: string) => {
 
-  const { data } = await shopify.request(orderQuery, {
+  const { data, errors } = await shopify.request(orderQuery, {
     variables: { id: adminGraphqlApiId },
   });
 
   if (!data?.node || data.node?.__typename !== "Order") {
+    console.log('[upsertOrderToDb] Error fetching shopify order', errors);
     return { data: null, error: "Error fetching shopify order" };
   }
 
@@ -124,7 +125,7 @@ const createOrder = async (adminGraphqlApiId: string, shopifyOrder: ShopifyOrder
   console.log("[upsertOrderToDb] Creating order in db");
 
   try {
-    const { priority: fulfillmentPriority, displayReason: fulfillmentPriorityReason } = determineFulfillmentPriority(shopifyOrder);
+    const { priority: fulfillmentPriority, displayReason: fulfillmentPriorityReason, logs: priorityLogs } = determineFulfillmentPriority(shopifyOrder);
     await db.transaction(async (tx) => {
       await tx.insert(orders).values({
         displayFulfillmentStatus: shopifyOrder.displayFulfillmentStatus,
@@ -155,6 +156,19 @@ const createOrder = async (adminGraphqlApiId: string, shopifyOrder: ShopifyOrder
         }))
       );
     });
+
+    // insert logs post order creation
+    for (const log of priorityLogs ?? []) {
+      try {
+        logger.info(log, {
+          category: "AUTOMATED",
+          orderId: shopifyOrder.id,
+        });
+      } catch (error) {
+        console.log("[upsertOrderToDb] Error logging priority log", error);
+      }
+    }
+
   } catch (error) {
     console.log("[upsertOrderToDb] Error creating order in db", error);
     return { data: null, error: "Error upserting order to db" };
@@ -167,14 +181,12 @@ const createOrder = async (adminGraphqlApiId: string, shopifyOrder: ShopifyOrder
 
 const determineFulfillmentPriority = (
   order: Extract<NonNullable<OrderQuery["node"]>, { __typename: "Order" }>
-): { priority: (typeof fulfillmentPriority.enumValues)[number], displayReason?: string } => {
+): { priority: (typeof fulfillmentPriority.enumValues)[number], displayReason?: string, logs?: string[] } => {
 
+  const logs: string[] = [];
   if (order.discountCodes?.some((code) => code.toLowerCase().includes("norush"))) {
-    logger.info("[upsertOrderToDb] Order was set to low priority because it contains a norush discount code", {
-      category: "AUTOMATED",
-      orderId: order.id,
-    });
-    return { priority: "low", displayReason: "NORUSH discount was applied" };
+    logs.push("[upsertOrderToDb] Order was set to low priority because it contains a norush discount code");
+    return { priority: "low", displayReason: "NORUSH discount was applied", logs };
   }
 
   const customerPrestigeStatus = order.customer?.tags
@@ -186,62 +198,43 @@ const determineFulfillmentPriority = (
   const priceAsNumber = totalPrice ? Number(totalPrice) : 0;
 
   if (customerPrestigeStatus === "VIP") {
-    logger.info("Order was set to critical priority because customer is VIP", {
-      category: "AUTOMATED",
-      orderId: order.id,
-    });
-    return { priority: "urgent", displayReason: "Customer is VIP" };
+    logs.push("[upsertOrderToDb] Order was set to critical priority because customer is VIP");
+    return { priority: "urgent", displayReason: "Customer is VIP", logs };
   }
 
   if (order.app?.name === "TikTok") {
-    logger.info("Order was set to critical priority because it is from TikTok", {
-      category: "AUTOMATED",
-    });
-    return { priority: "urgent" };
+    logs.push("[upsertOrderToDb] Order was set to critical priority because it is from TikTok");
+    return { priority: "urgent", logs };
   }
 
   if (priceAsNumber > 300) {
-    logger.info("Order was set to priority because customer is high spender", {
-      category: "AUTOMATED",
-      orderId: order.id,
-    });
-    return { priority: "critical" };
+    logs.push("[upsertOrderToDb] Order was set to priority because customer is high spender");
+    return { priority: "critical", logs };
   }
 
   if (customerPrestigeStatus && ["GOLD", "SILVER", "PLATINUM"].includes(customerPrestigeStatus)) {
-    logger.info("Order was set to priority priority due to loyalty tier", {
-      category: "AUTOMATED",
-      orderId: order.id,
-    });
-    return { priority: "priority", displayReason: `${customerPrestigeStatus} tier priority` };
+    logs.push("[upsertOrderToDb] Order was set to priority priority due to loyalty tier");
+    return { priority: "priority", displayReason: `${customerPrestigeStatus} tier priority`, logs };
   }
 
   // if order has care package
   if (order.lineItems.nodes.some((item) => item.name.toLowerCase().includes("care package"))) {
-    logger.info("Order was set to priority because it contains a care package", {
-      category: "AUTOMATED",
-      orderId: order.id,
-    });
-    return { priority: "priority" };
+    logs.push("[upsertOrderToDb] Order was set to priority because it contains a care package");
+    return { priority: "priority", logs };
   }
 
   if (priceAsNumber > 150) {
-    logger.info("Order was set to priority because customer is a medium-high spender", {
-      category: "AUTOMATED",
-    });
-    return { priority: "priority" };
+    logs.push("[upsertOrderToDb] Order was set to priority because customer is a medium-high spender");
+    return { priority: "priority", logs };
   }
 
   const customerOrderNumber = parseInt(order.customer?.numberOfOrders ?? "0");
   if (customerOrderNumber > 3) {
-    logger.info("Order was set to priority because customer has multiple orders", {
-      category: "AUTOMATED",
-      orderId: order.id,
-    });
-    return { priority: "priority" };
+    logs.push("[upsertOrderToDb] Order was set to priority because customer has multiple orders");
+    return { priority: "priority", logs };
   }
 
-  return { priority: "normal" };
+  return { priority: "normal", logs };
 };
 
 const determineShippingPriority = (

@@ -4,7 +4,6 @@ import { productQuery } from "@/lib/graphql/product.graphql";
 import { ProductQuery } from "@/lib/types/admin.generated";
 import { DataResponse } from "@/lib/types/misc";
 import { products, productVariants } from "@drizzle/schema";
-import { logger } from "../logger";
 import { eq, sql } from "drizzle-orm";
 
 type ShopifyProduct = NonNullable<ProductQuery["product"]>;
@@ -82,7 +81,7 @@ const updateProduct = async (
           title: shopifyProduct.title,
           vendor: shopifyProduct.vendor,
           status: shopifyProduct.status,
-          updatedAt: shopifyProduct.updatedAt,
+          updatedAt: new Date(shopifyProduct.updatedAt),
         })
         .where(eq(products.id, existingProduct.id));
 
@@ -95,8 +94,8 @@ const updateProduct = async (
               title: variant.title,
               price: variant.price,
               productId: shopifyProduct.id,
-              createdAt: variant.createdAt,
-              updatedAt: variant.updatedAt,
+              createdAt: new Date(variant.createdAt),
+              updatedAt: new Date(variant.updatedAt),
             }))
           )
           .onConflictDoUpdate({
@@ -110,9 +109,8 @@ const updateProduct = async (
       }
     });
   } catch (error) {
-    logger.error("[upsertProductToDb] Error updating product in db", {
-      category: "AUTOMATED",
-    });
+    console.log('[upsertProductToDb] Error updating product in db', error);
+    
     return { data: null, error: "Error updating product in db" };
   }
 

@@ -143,14 +143,14 @@ export async function generateMergedShipmentPdf(
 
   // Fetch all PDFs in parallel batches, preserving order
   const fetchedPdfs: (PDFDocument | null)[] = [];
-  
+
   for (let i = 0; i < shipmentsWithCategory.length; i += BATCH_SIZE) {
     const batch = shipmentsWithCategory.slice(i, i + BATCH_SIZE);
-    
+
     const batchResults = await Promise.all(
       batch.map(async ({ shipment }) => {
         const pdfUrl = `${PACKING_SLIPS_BASE_URL}/${shipment.labelSlipPath}`;
-        
+
         try {
           const response = await fetch(pdfUrl);
           if (!response.ok) {
@@ -165,7 +165,7 @@ export async function generateMergedShipmentPdf(
         }
       })
     );
-    
+
     fetchedPdfs.push(...batchResults);
   }
 
@@ -211,6 +211,7 @@ export async function generateMergedShipmentPdf(
     documentPath: fileName,
     batchId,
     documentType: "merged_label_slips",
+    mergedPdfOrderIds: orderIds,
   });
 
   return { data: { documentPath: fileName }, error: null };
