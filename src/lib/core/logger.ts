@@ -42,8 +42,34 @@ class Logger {
 
       return log?.id;
     } catch (error) {
-      // Fallback to console if DB fails, so you still see it in Vercel/server logs
-      console.error("CRITICAL: Failed to save log to DB", error);
+      // Check if this is a foreign key constraint violation for orderId
+      // The error could be in the main message or in the cause (Drizzle wraps PostgreSQL errors)
+      const errorMessage = error instanceof Error ? error.message : '';
+      const causeMessage = error instanceof Error && error.cause instanceof Error ? error.cause.message : '';
+      const fullErrorText = `${errorMessage} ${causeMessage}`;
+      const isForeignKeyError = fullErrorText.includes('foreign key constraint') ||
+        fullErrorText.includes('logs_order_id_fkey') ||
+        fullErrorText.includes('violates foreign key');
+
+      if (isForeignKeyError && orderId) {
+        // Retry without orderId, storing it in metadata instead
+        try {
+          const [log] = await db.insert(logs).values({
+            category,
+            type: level,
+            message,
+            profileId,
+            metadata: { ...((metadata as object) || {}), unmatchedOrderId: orderId },
+          }).returning({ id: logs.id });
+
+          return log?.id;
+        } catch (retryError) {
+          console.error("CRITICAL: Failed to save log to DB (retry without orderId)", retryError);
+        }
+      } else {
+        // Fallback to console if DB fails, so you still see it in Vercel/server logs
+        console.error("CRITICAL: Failed to save log to DB", error);
+      }
     }
   }
 

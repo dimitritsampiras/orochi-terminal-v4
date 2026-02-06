@@ -58,15 +58,38 @@ export function ExpenseForm() {
             const { from, to } = values.dateRange;
             const isRange = to && from.getTime() !== to.getTime();
 
+            // Convert dates to Eastern timezone midnight to preserve the calendar date
+            // This ensures Jan 26 stays Jan 26 regardless of the user's timezone
+            const toEasternMidnight = (date: Date): string => {
+                // Get the date string in YYYY-MM-DD format
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                // Return as Eastern midnight (05:00 UTC during EST, 04:00 UTC during EDT)
+                // Using 05:00 UTC which is midnight EST
+                return `${year}-${month}-${day}T05:00:00.000Z`;
+            };
+
             const payload = {
                 category: values.category,
                 amount: values.amount,
                 notes: values.notes,
                 batchId: values.batchId,
-                date: from.toISOString(),
-                periodStart: isRange ? from.toISOString() : undefined,
-                periodEnd: isRange ? to!.toISOString() : undefined,
+                date: toEasternMidnight(from),
+                periodStart: isRange ? toEasternMidnight(from) : undefined,
+                periodEnd: isRange ? toEasternMidnight(to!) : undefined,
             };
+
+            // Debug logging for expense submission
+            console.log('[EXPENSE FORM] Submitting expense:', {
+                category: payload.category,
+                amount: payload.amount,
+                selectedFromDate: from.toLocaleDateString(),
+                selectedToDate: to?.toLocaleDateString(),
+                convertedDate: payload.date,
+                convertedPeriodStart: payload.periodStart,
+                convertedPeriodEnd: payload.periodEnd,
+            });
 
             const res = await fetch("/api/analytics/expenses", {
                 method: "POST",

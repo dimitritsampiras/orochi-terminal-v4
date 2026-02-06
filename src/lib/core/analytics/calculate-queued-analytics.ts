@@ -16,7 +16,8 @@ import {
 import { eq, and, inArray, sql, gte, lte, or, sum } from "drizzle-orm";
 import { fetchShopifyOrder } from "@/lib/core/shipping/fetch-shopify-order";
 import { getRateForOrder } from "@/lib/core/shipping/get-rate-for-order";
-import { startOfDay, subDays, endOfDay } from "date-fns";
+import { subDays } from "date-fns";
+import { startOfDayEastern, endOfDayEastern } from "@/lib/utils";
 
 export type QueuedAnalyticsSummary = {
     counts: {
@@ -359,11 +360,15 @@ export async function* calculateShippingCostsGenerator(cutoffDate?: Date): Async
         whereConditions.push(gte(orders.createdAt, cutoffDate));
     }
 
-    // 1. Query all queued orders
+    // 1. Query all queued orders (exclude already fulfilled orders)
     const queuedOrders = await db
-        .select({ id: orders.id })
+        .select({ id: orders.id, fulfillmentStatus: orders.displayFulfillmentStatus })
         .from(orders)
-        .where(and(...whereConditions));
+        .where(and(
+            ...whereConditions,
+            // Skip already fulfilled orders - they don't need shipping rate calculations
+            sql`${orders.displayFulfillmentStatus} NOT IN ('FULFILLED', 'RESTOCKED')`
+        ));
 
     const total = queuedOrders.length;
     const orderIds = queuedOrders.map(o => o.id);
@@ -398,12 +403,33 @@ export async function* calculateShippingCostsGenerator(cutoffDate?: Date): Async
         countryMap.set(info.id, info.code || "UNKNOWN");
     }
 
-    // 4. Separate orders into cached (fresh) vs. needs fresh rates
+    // 4. Pre-filter: Find orders that have at least one fulfillable line item
+    // This avoids expensive API calls for orders with only gift cards, tips, etc.
+    const fulfillableOrderIds = await db
+        .selectDistinct({ orderId: lineItems.orderId })
+        .from(lineItems)
+        .where(
+            and(
+                inArray(lineItems.orderId, orderIds),
+                eq(lineItems.requiresShipping, true)
+            )
+        );
+    const fulfillableSet = new Set(fulfillableOrderIds.map(o => o.orderId));
+    console.log(`[Financials] ${fulfillableSet.size} of ${orderIds.length} orders have fulfillable items`);
+
+    // 5. Separate orders into cached (fresh) vs. needs fresh rates
     const now = new Date();
     const cachedOrders: Array<{ id: string; cached: any }> = [];
     const needsFreshRates: Array<{ id: string }> = [];
+    let skippedNoFulfillable = 0;
 
     for (const order of queuedOrders) {
+        // Skip orders with no fulfillable items entirely
+        if (!fulfillableSet.has(order.id)) {
+            skippedNoFulfillable++;
+            continue;
+        }
+
         const cached = cacheMap.get(order.id);
         if (cached && new Date(cached.expiresAt) > now) {
             // Fresh cache available
@@ -414,7 +440,10 @@ export async function* calculateShippingCostsGenerator(cutoffDate?: Date): Async
         }
     }
 
-    console.log(`[Financials] Cache: ${cachedOrders.length} fresh, ${needsFreshRates.length} need fetching`);
+    console.log(`[Financials] Cache: ${cachedOrders.length} fresh, ${needsFreshRates.length} need fetching, ${skippedNoFulfillable} skipped (no fulfillable items)`);
+
+    // Recalculate total to only include orders with fulfillable items
+    const actualTotal = cachedOrders.length + needsFreshRates.length;
 
     let processed = 0;
     let totalShippingCost = 0;
@@ -457,7 +486,7 @@ export async function* calculateShippingCostsGenerator(cutoffDate?: Date): Async
         breakdown.row.avg = calcAvg(breakdown.row);
     };
 
-    // 5. Process cached orders instantly (no API calls)
+    // 6. Process cached orders instantly (no API calls)
     if (cachedOrders.length > 0) {
         console.log(`[Financials] Processing ${cachedOrders.length} cached orders instantly...`);
         for (const order of cachedOrders) {
@@ -482,27 +511,23 @@ export async function* calculateShippingCostsGenerator(cutoffDate?: Date): Async
         // Yield progress after processing cached orders
         yield {
             processed,
-            total,
+            total: actualTotal,
             currentCost: totalShippingCost,
             breakdown
         };
     }
 
-    // 6. Process orders needing fresh rates in batches with API calls
+    // 7. Process orders needing fresh rates in batches with API calls
     if (needsFreshRates.length > 0) {
         console.log(`[Financials] Fetching live rates for ${needsFreshRates.length} orders...`);
 
-        const BATCH_SIZE = 45;
-        const CONCURRENT_API_CALLS = 5;
-        const ORDER_TIMEOUT_MS = 15000;
+        const BATCH_SIZE = 12;  // Reduced from 45 to match orochi-portal stability
+        const DELAY_BETWEEN_BATCHES_MS = 150; // Match orochi-portal
 
-        // Helper: Timeout wrapper for async operations
-        const withTimeout = <T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> => {
-            return Promise.race([
-                promise,
-                new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))
-            ]);
-        };
+        // Tracking counters
+        let errorCount = 0;
+        let successCount = 0;
+        let noRateCount = 0;
 
         for (let i = 0; i < needsFreshRates.length; i += BATCH_SIZE) {
             const batch = needsFreshRates.slice(i, i + BATCH_SIZE);
@@ -511,53 +536,67 @@ export async function* calculateShippingCostsGenerator(cutoffDate?: Date): Async
             const ratesToInsert: any[] = [];
             const batchCosts: number[] = [];
 
-            // Process in smaller sub-batches to avoid API throttling
-            for (let j = 0; j < batch.length; j += CONCURRENT_API_CALLS) {
-                const subBatch = batch.slice(j, j + CONCURRENT_API_CALLS);
+            // Process entire batch concurrently with Promise.allSettled
+            const settled = await Promise.allSettled(batch.map(async (order) => {
+                try {
+                    let cost = 0;
+                    let countryCode = countryMap.get(order.id) || "UNKNOWN";
 
-                const subCosts = await Promise.all(subBatch.map(async (order) => {
-                    return withTimeout(
-                        (async () => {
-                            try {
-                                let cost = 0;
-                                let countryCode = countryMap.get(order.id) || "UNKNOWN";
+                    // Fetch live rate from Shopify
+                    const shopifyOrder = await fetchShopifyOrder(order.id);
 
-                                // Fetch live rate
-                                const shopifyOrder = await fetchShopifyOrder(order.id);
-                                if (shopifyOrder) {
-                                    countryCode = shopifyOrder.shippingAddress?.countryCodeV2 || countryCode;
+                    if (!shopifyOrder) {
+                        return { type: 'no-rate', cost: 0, countryCode };
+                    }
 
-                                    const rateResult = await getRateForOrder(shopifyOrder as any);
+                    countryCode = shopifyOrder.shippingAddress?.countryCodeV2 || countryCode;
+                    const rateResult = await getRateForOrder(shopifyOrder as any);
 
-                                    if (rateResult.data) {
-                                        // Collect for bulk insert
-                                        ratesToInsert.push({
-                                            orderId: order.id,
-                                            rate: rateResult.data,
-                                            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-                                        });
+                    if (rateResult.data) {
+                        const r = rateResult.data;
+                        const rates = [r.rate, ...(r.otherRates || [])];
+                        const cheapest = rates.sort((a: any, b: any) => Number(a.cost) - Number(b.cost))[0];
+                        cost = cheapest ? Number(cheapest.cost) : 0;
 
-                                        const r = rateResult.data;
-                                        const rates = [r.rate, ...(r.otherRates || [])];
-                                        const cheapest = rates.sort((a: any, b: any) => Number(a.cost) - Number(b.cost))[0];
-                                        cost = cheapest ? Number(cheapest.cost) : 0;
-                                    }
-                                }
-
-                                // Update breakdown
-                                updateBreakdown(cost, countryCode);
-                                return cost;
-                            } catch (e) {
-                                console.error(`Error processing shipping for order ${order.id}`, e);
-                                return 0;
+                        return {
+                            type: 'success',
+                            cost,
+                            countryCode,
+                            rateData: {
+                                orderId: order.id,
+                                rate: rateResult.data,
+                                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
                             }
-                        })(),
-                        ORDER_TIMEOUT_MS,
-                        0 // Return 0 on timeout
-                    );
-                }));
+                        };
+                    } else {
+                        return { type: 'no-rate', cost: 0, countryCode };
+                    }
+                } catch (e) {
+                    console.error(`Error processing shipping for order ${order.id}`, e);
+                    return { type: 'error', cost: 0, countryCode: countryMap.get(order.id) || "UNKNOWN" };
+                }
+            }));
 
-                batchCosts.push(...subCosts);
+            // Process results
+            for (const result of settled) {
+                if (result.status === 'fulfilled') {
+                    const val = result.value;
+                    if (val.type === 'success') {
+                        successCount++;
+                        batchCosts.push(val.cost);
+                        ratesToInsert.push(val.rateData);
+                        updateBreakdown(val.cost, val.countryCode);
+                    } else if (val.type === 'no-rate') {
+                        noRateCount++;
+                        updateBreakdown(0, val.countryCode);
+                    } else {
+                        errorCount++;
+                        updateBreakdown(0, val.countryCode);
+                    }
+                } else {
+                    // unexpected promise rejection matching (should be caught above)
+                    errorCount++;
+                }
             }
 
             // Bulk insert new rates
@@ -582,12 +621,21 @@ export async function* calculateShippingCostsGenerator(cutoffDate?: Date): Async
             processed += batch.length;
             recalcAvg();
 
+            console.log(`[Financials] Batch ${Math.floor(i / BATCH_SIZE) + 1} complete. Cumulative: ${successCount} success, ${noRateCount} no-rate, ${errorCount} errors. Running total: $${totalShippingCost.toFixed(2)}`);
+
             yield {
-                processed: Math.min(processed, total),
-                total,
+                processed: Math.min(processed, actualTotal),
+                total: actualTotal,
                 currentCost: totalShippingCost,
                 breakdown
             };
+
+            // Small delay between batches to respect rate limits
+            if (i + BATCH_SIZE < needsFreshRates.length) {
+                await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_BATCHES_MS));
+            }
         }
+
+        console.log(`[Financials] All batches complete. Final stats: ${successCount} success, ${noRateCount} no-rate, ${errorCount} errors`);
     }
 }

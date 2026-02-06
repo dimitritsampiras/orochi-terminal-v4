@@ -13,6 +13,9 @@ export default async function AnalyticsLayout({ children }: { children: React.Re
                 <div className="flex gap-2">
                     <Link href="/analytics"><Button variant="ghost">Dashboard</Button></Link>
                     <Link href="/analytics/expenses"><Button variant="ghost">Expenses</Button></Link>
+                    <Link href="/analytics/weekly-profitability"><Button variant="ghost">Weekly Profitability</Button></Link>
+                    <Link href="/analytics/monthly-overview"><Button variant="ghost">Monthly Overview</Button></Link>
+                    <Link href="/analytics/csv-upload-tool"><Button variant="ghost">Import CSV</Button></Link>
                     <Link href="/analytics/settings"><Button variant="ghost">Settings</Button></Link>
                 </div>
             </div>

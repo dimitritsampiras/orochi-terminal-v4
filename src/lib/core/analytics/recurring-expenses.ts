@@ -1,7 +1,7 @@
 import { db } from "@/lib/clients/db";
 import { recurringExpenses } from "@drizzle/schema";
-import { and, lte, gte, isNull, or, desc } from "drizzle-orm";
-import { addDays, differenceInDays, isAfter, isBefore, max, min, startOfDay, endOfDay } from "date-fns";
+import { and, lte, gte, isNull, or, desc, eq } from "drizzle-orm";
+import { addDays, differenceInDays, isAfter, isBefore, max, min } from "date-fns";
 
 export type RecurringExpenseAllocation = {
     expenseId: string;
@@ -88,6 +88,3 @@ export async function calculateRecurringExpenses(
 
     return { total, breakdown };
 }
-
-// Helper for Drizzle EQ import (was missing in standard imports above)
-import { eq } from "drizzle-orm";

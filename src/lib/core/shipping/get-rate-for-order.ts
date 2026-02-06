@@ -55,17 +55,25 @@ export const getRateForOrder = async (order: Order, options?: ShippingOptions): 
     return { data: null, error: "No items to ship" };
   }
 
-  const databaseOrder = await db.query.orders.findFirst({
-    where: { id: order.id },
-    columns: { shippingPriority: true },
-  });
+  // Get shipping priority - either from options (for analytics) or from database
+  let shippingPriorityToUse: typeof shippingPriority.enumValues[number] = options?.shippingPriority ?? 'standard';
 
-  if (!databaseOrder) {
-    logger.error("[get rate for order] Database order not found", {
-      category: "SHIPPING",
-      orderId: order.id,
+  if (!options?.shippingPriority) {
+    const databaseOrder = await db.query.orders.findFirst({
+      where: { id: order.id },
+      columns: { shippingPriority: true },
     });
-    return { data: null, error: "Order not found in database" };
+
+    if (!databaseOrder) {
+      // For analytics purposes, default to standard (cheapest) if order not in DB
+      console.log(`[DRIFT] Order exists in Shopify but not in local DB: ${order.id}`);
+      logger.warn("[get rate for order] Database order not found, defaulting to standard priority", {
+        category: "SHIPPING",
+        orderId: order.id,
+      });
+    } else {
+      shippingPriorityToUse = databaseOrder.shippingPriority;
+    }
   }
 
   // TODO: only choose one of the two shipments based on the api option
@@ -75,11 +83,11 @@ export const getRateForOrder = async (order: Order, options?: ShippingOptions): 
   ] = await Promise.all([
     createShippoShipment(shipmentOrder, parcel, {
       ...options,
-      shippingPriority: databaseOrder.shippingPriority,
+      shippingPriority: shippingPriorityToUse,
     }),
     createEasypostShipment(shipmentOrder, parcel, {
       ...options,
-      shippingPriority: databaseOrder.shippingPriority,
+      shippingPriority: shippingPriorityToUse,
     }),
   ]);
 
@@ -111,7 +119,7 @@ export const getRateForOrder = async (order: Order, options?: ShippingOptions): 
     return { data: null, error: "Target rate not found" };
   }
 
-  switch (databaseOrder.shippingPriority) {
+  switch (shippingPriorityToUse) {
     case "standard":
       rate = determineCheapestRate(rates);
       break;
@@ -124,7 +132,7 @@ export const getRateForOrder = async (order: Order, options?: ShippingOptions): 
     default:
       // Fallback to cheapest if priority is unknown or handled incorrectly
       logger.warn(
-        `[get rate for order] Unknown shipping priority: ${databaseOrder.shippingPriority}. Defaulting to standard.`,
+        `[get rate for order] Unknown shipping priority: ${shippingPriorityToUse}. Defaulting to standard.`,
         {
           category: "SHIPPING",
           orderId: order.id,
