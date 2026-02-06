@@ -23,12 +23,16 @@ const shippoTrackingUpdateSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
+  console.log('[shippo webhook] Received request');
+
   const body = await request.json();
   console.log(body);
 
   const parsedBody = shippoTrackingUpdateSchema.safeParse(body);
 
   if (!parsedBody.success) {
+    console.log('[shippo webhook] Invalid request body', parsedBody.error.message);
+
     return new NextResponse("Invalid request body", { status: 400 });
   }
 
@@ -53,10 +57,12 @@ export async function POST(request: NextRequest) {
   });
 
   if (!shipment) {
+    console.log('[shippo webhook] Shipment not found', trackingNumber, transaction);
     return new NextResponse("Shipment not found", { status: 404 });
   }
 
   if (!shipment.order) {
+    console.log('[shippo webhook] Order not found', trackingNumber, transaction);
     return new NextResponse("Order not found", { status: 404 });
   }
 
