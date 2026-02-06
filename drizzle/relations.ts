@@ -146,6 +146,7 @@ export const relations = defineRelations(schema, (r) => ({
     shippingRateCaches: r.many.shippingRateCache(),
   },
   products: {
+    productVariants: r.many.productVariants(),
     lineItems: r.many.lineItems(),
     prints: r.many.prints(),
     blankVariants: r.many.blankVariants({
