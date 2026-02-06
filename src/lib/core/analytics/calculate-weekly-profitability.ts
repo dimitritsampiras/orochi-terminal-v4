@@ -29,7 +29,6 @@ import { and, between, eq, gte, lte, sql, inArray, desc } from "drizzle-orm";
 import shopify from "@/lib/clients/shopify";
 import { batchOrdersForShippingQuery } from "@/lib/graphql/analytics.graphql";
 import { getRateForOrder } from "@/lib/core/shipping/get-rate-for-order";
-import { logger } from "@/lib/core/logger";
 import { startOfDayEastern, endOfDayEastern } from "@/lib/utils";
 
 // Shopify fee constants
@@ -711,7 +710,7 @@ async function calculateShippingCostsForOrders(
                             return { orderId, error: "Order not in cache" };
                         }
 
-                        const { data, error } = await getRateForOrder(order);
+                        const { data, error } = await getRateForOrder(order, { shippingPriority: 'standard', withLogs: false });
 
                         if (!data || error) {
                             return { orderId, error: error || "Unknown error" };

@@ -11,6 +11,7 @@ export type ShippingOptions = {
   shippingPriority?: (typeof shippingPriority.enumValues)[number]; // if provided, skips database lookup for priority
   // TODO: much later
   additionalProductIds?: string[]; // if the user selects additional products to add to the parcel -> not yet implemented
+  withLogs?: boolean; // if true, will log the request and response from the API
 };
 
 export type EasypostShipmentStatus =

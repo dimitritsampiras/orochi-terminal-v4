@@ -57,7 +57,7 @@ export async function adjustInventory(
       // 3. Create log if message provided
       let logId: number | undefined;
       if (logMessage) {
-        logId = await logger.info(logMessage, { profileId, batchId, lineItemId, orderId: orderIdForLog }, tx);
+        logId = await logger.info(logMessage, { profileId, batchId, lineItemId, orderId: orderIdForLog }, { tx });
         console.log(`[adjustInventory:${txId}] Step 4: Created log, logId=${logId}`);
       }
 

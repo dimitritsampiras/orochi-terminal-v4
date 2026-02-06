@@ -149,7 +149,8 @@ async function main() {
 
                 // Fetch shipping rate with explicit line item selection
                 const rateResult = await getRateForOrder(shopifyOrder as any, {
-                    targetLineItemIds
+                    targetLineItemIds,
+                    withLogs: false
                 });
 
                 if (rateResult.error) {

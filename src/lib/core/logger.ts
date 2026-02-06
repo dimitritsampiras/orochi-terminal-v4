@@ -16,10 +16,16 @@ type LogLevel = (typeof logType.enumValues)[number];
 
 type Transaction = PgTransaction<PostgresJsQueryResultHKT, typeof schema>;
 
+
+export type LoggerOptions = {
+  suppress?: boolean;
+  tx?: Transaction;
+};
+
 class Logger {
-  private async insert(level: LogLevel, entry: LogEntry, tx?: Transaction): Promise<number | undefined> {
+  private async insert(level: LogLevel, entry: LogEntry, options?: LoggerOptions): Promise<number | undefined> {
     const { message, orderId, profileId, category, type, metadata, lineItemId, batchId } = entry;
-    const ctx = tx ?? db;
+    const ctx = options?.tx ?? db;
 
 
 
@@ -29,6 +35,10 @@ class Logger {
       //   return;
       // }
 
+      if (options?.suppress) {
+        console.log(`[Supressed log]: ${message}`);
+        return;
+      }
       const [log] = await ctx.insert(logs).values({
         category,
         type: level,
@@ -73,19 +83,19 @@ class Logger {
     }
   }
 
-  async info(message: string, opts: Omit<LogEntry, "message"> = {}, tx?: Transaction) {
+  async info(message: string, opts: Omit<LogEntry, "message"> = {}, options?: LoggerOptions) {
     console.log(`🟢 [INFO] ${message}`); // Keep console for vercel runtime logs
-    return await this.insert("INFO", { message, ...opts }, tx);
+    return await this.insert("INFO", { message, ...opts }, options);
   }
 
-  async warn(message: string, opts: Omit<LogEntry, "message"> = {}, tx?: Transaction) {
+  async warn(message: string, opts: Omit<LogEntry, "message"> = {}, options?: LoggerOptions) {
     console.warn(`🟡 [WARN] ${message}`);
-    return await this.insert("WARN", { message, ...opts }, tx);
+    return await this.insert("WARN", { message, ...opts }, options);
   }
 
-  async error(message: string, opts: Omit<LogEntry, "message"> = {}, tx?: Transaction) {
+  async error(message: string, opts: Omit<LogEntry, "message"> = {}, options?: LoggerOptions) {
     console.error(`🔴 [ERROR] ${message}`);
-    return await this.insert("ERROR", { message, ...opts }, tx);
+    return await this.insert("ERROR", { message, ...opts }, options);
   }
 }
 
