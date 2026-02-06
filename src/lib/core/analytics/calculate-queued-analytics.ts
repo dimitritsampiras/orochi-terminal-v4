@@ -550,7 +550,7 @@ export async function* calculateShippingCostsGenerator(cutoffDate?: Date): Async
                     }
 
                     countryCode = shopifyOrder.shippingAddress?.countryCodeV2 || countryCode;
-                    const rateResult = await getRateForOrder(shopifyOrder, { shippingPriority: 'standard', withLogs: false });
+                    const rateResult = await getRateForOrder(shopifyOrder as any);
 
                     if (rateResult.data) {
                         const r = rateResult.data;

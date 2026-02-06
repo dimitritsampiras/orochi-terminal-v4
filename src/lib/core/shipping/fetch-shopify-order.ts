@@ -17,10 +17,10 @@ export async function fetchShopifyOrder(orderId: string): Promise<ShopifyOrder |
         });
 
         if (errors) {
-            logger.error(`[Shopify] Error fetching order ${orderId}: ${JSON.stringify(errors)}`, {
-                category: "SHIPPING",
-                orderId
-            });
+            // logger.error(`[Shopify] Error fetching order ${orderId}: ${JSON.stringify(errors)}`, {
+            //     category: "SHIPPING",
+            //     orderId
+            // });
             return null;
         }
 
@@ -30,10 +30,10 @@ export async function fetchShopifyOrder(orderId: string): Promise<ShopifyOrder |
 
         return null;
     } catch (error) {
-        logger.error(`[Shopify] Exception fetching order ${orderId}: ${error instanceof Error ? error.message : String(error)}`, {
-            category: "SHIPPING",
-            orderId
-        });
+        // logger.error(`[Shopify] Exception fetching order ${orderId}: ${error instanceof Error ? error.message : String(error)}`, {
+        //     category: "SHIPPING",
+        //     orderId
+        // });
         return null;
     }
 }

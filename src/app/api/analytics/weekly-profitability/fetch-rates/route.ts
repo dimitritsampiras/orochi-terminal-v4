@@ -3,6 +3,7 @@ import { z } from "zod";
 import shopify from "@/lib/clients/shopify";
 import { batchOrdersForShippingQuery } from "@/lib/graphql/analytics.graphql";
 import { getRateForOrder } from "@/lib/core/shipping/get-rate-for-order";
+import { logger } from "@/lib/core/logger";
 import { db } from "@/lib/clients/db";
 import { shippingRateCache, orders } from "@drizzle/schema";
 import { inArray, sql } from "drizzle-orm";
@@ -229,11 +230,10 @@ export async function POST(request: NextRequest) {
           const errorMsg = result.reason instanceof Error ? result.reason.message : "Unknown error";
           failedOrders.push({ orderId, error: errorMsg });
           batchFailed++;
-          // Suppressed: Analytics context, avoid polluting logs with rate fetch failures
-          // logger.warn(`[fetch-rates] Promise rejected for order ${orderId}: ${errorMsg}`, {
-          //   category: "SHIPPING",
-          //   orderId,
-          // }, { suppress: true });
+          logger.warn(`[fetch-rates] Promise rejected for order ${orderId}: ${errorMsg}`, {
+            category: "SHIPPING",
+            orderId,
+          });
         }
       }
 

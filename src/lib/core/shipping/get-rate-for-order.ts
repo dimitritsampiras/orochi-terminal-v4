@@ -25,7 +25,7 @@ type Order = Extract<NonNullable<OrderQuery["node"]>, { __typename: "Order" }>;
  */
 export const getRateForOrder = async (order: Order, options?: ShippingOptions): Promise<GetRateResponse> => {
   // 1. Determine which items we are actually shipping right now
-  const itemsToShip = resolveLineItems(order, options?.targetLineItemIds, options?.withLogs);
+  const itemsToShip = resolveLineItems(order, options?.targetLineItemIds);
 
   if (!itemsToShip.data) {
     return { data: null, error: itemsToShip.error };
@@ -95,7 +95,7 @@ export const getRateForOrder = async (order: Order, options?: ShippingOptions): 
     logger.error("[get rate for order] Error creating shipments. One or both (easypost or shippo) failed to create.", {
       category: "SHIPPING",
       orderId: order.id,
-    }, { suppress: options?.withLogs === false });
+    });
     return { data: null, error: shippoShipmentError || easypostShipmentError || "Unknown error" };
   }
 
@@ -114,7 +114,7 @@ export const getRateForOrder = async (order: Order, options?: ShippingOptions): 
     logger.warn("[get rate for order] Target rate not found", {
       category: "SHIPPING",
       orderId: order.id,
-    }, { suppress: options?.withLogs === false });
+    });
 
     return { data: null, error: "Target rate not found" };
   }
@@ -124,10 +124,10 @@ export const getRateForOrder = async (order: Order, options?: ShippingOptions): 
       rate = determineCheapestRate(rates);
       break;
     case "express":
-      rate = determineExpressPriorityRate(rates, order, options?.withLogs);
+      rate = determineExpressPriorityRate(rates, order);
       break;
     case "fastest":
-      rate = determineFastestRate(rates, order, options?.withLogs);
+      rate = determineFastestRate(rates, order);
       break;
     default:
       // Fallback to cheapest if priority is unknown or handled incorrectly
@@ -193,7 +193,7 @@ export const storeShipmentAndRate = async (order: Order, rate: NormalizedShipmen
  *
  * Resolves the line items to ship based on the target line item ids
  */
-const resolveLineItems = (order: Order, targetIds?: string[], withLogs?: boolean): DataResponse<Order["lineItems"]["nodes"]> => {
+const resolveLineItems = (order: Order, targetIds?: string[]): DataResponse<Order["lineItems"]["nodes"]> => {
   // Case A: User specified specific items
   if (targetIds) {
     if (targetIds.length === 0) {
@@ -210,7 +210,7 @@ const resolveLineItems = (order: Order, targetIds?: string[], withLogs?: boolean
   }
 
   // Case B: Auto-detect fulfillable items
-  const fulfillableItems = determineFulfillableLineItems(order, withLogs);
+  const fulfillableItems = determineFulfillableLineItems(order);
 
   if (!fulfillableItems || fulfillableItems.length === 0) {
     return { data: null, error: "No fulfillable line items found" };
@@ -224,7 +224,7 @@ const resolveLineItems = (order: Order, targetIds?: string[], withLogs?: boolean
  * Determines the fulfillable line items for an order. Meant only to run if target line item ids are not provided.
  *
  */
-const determineFulfillableLineItems = (order: Order, withLogs?: boolean) => {
+const determineFulfillableLineItems = (order: Order) => {
   const fulfillableLineItems = order.lineItems.nodes.filter((lineItem) => {
     if (!lineItem.requiresShipping) {
       logger.info(
@@ -232,8 +232,7 @@ const determineFulfillableLineItems = (order: Order, withLogs?: boolean) => {
         {
           category: "SHIPPING",
           orderId: order.id,
-        },
-        { suppress: withLogs === false }
+        }
       );
       return false;
     }
@@ -244,8 +243,7 @@ const determineFulfillableLineItems = (order: Order, withLogs?: boolean) => {
         {
           category: "SHIPPING",
           orderId: order.id,
-        },
-        { suppress: withLogs === false }
+        }
       );
       return false;
     }
@@ -308,7 +306,7 @@ const determineCheapestRate = (rates: NormalizedShipmentRate[]): NormalizedShipm
  * Determines the express priority rate from a list of shipment rates
  * // TODO: determine correct threshold
  */
-const determineExpressPriorityRate = (rates: NormalizedShipmentRate[], order: Order, withLogs?: boolean): NormalizedShipmentRate | null => {
+const determineExpressPriorityRate = (rates: NormalizedShipmentRate[], order: Order): NormalizedShipmentRate | null => {
   if (rates.length === 0) {
     return null;
   }
@@ -326,7 +324,7 @@ const determineExpressPriorityRate = (rates: NormalizedShipmentRate[], order: Or
     logger.warn("[get rate for order] No affordable rates found for express priority", {
       category: "SHIPPING",
       orderId: order.id,
-    }, { suppress: withLogs === false });
+    });
     // No affordable rates, default to cheapest
     return determineCheapestRate(rates);
   }
@@ -339,7 +337,7 @@ const determineExpressPriorityRate = (rates: NormalizedShipmentRate[], order: Or
  * Determines the fastest rate from a list of shipment rates
  * // TODO: determine correct threshold
  */
-const determineFastestRate = (rates: NormalizedShipmentRate[], order: Order, withLogs?: boolean): NormalizedShipmentRate | null => {
+const determineFastestRate = (rates: NormalizedShipmentRate[], order: Order): NormalizedShipmentRate | null => {
   if (rates.length === 0) {
     return null;
   }
@@ -364,7 +362,7 @@ const determineFastestRate = (rates: NormalizedShipmentRate[], order: Order, wit
     logger.warn("[get rate for order] Fastest rate exceeds threshold", {
       category: "SHIPPING",
       orderId: order.id,
-    }, { suppress: withLogs === false });
+    });
   }
 
   return fastestRate;
