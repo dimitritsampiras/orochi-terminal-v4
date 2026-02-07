@@ -1,5 +1,6 @@
 import { logger } from "@/lib/core/logger";
 import { upsertOrderToDb } from "@/lib/core/orders/upsert-order-to-db";
+import { forwardWebhookData } from "@/lib/core/webhook/forwardWebhookData";
 import { buildResourceGid } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import z from "zod";
@@ -47,9 +48,14 @@ export const POST = async (request: NextRequest) => {
     adminGraphqlApiId = buildResourceGid("Order", parsedBody.data.order_edit.order_id);
   } else {
     adminGraphqlApiId = parsedBody.data.admin_graphql_api_id;
+
+
   }
 
+  await forwardWebhookData({ id: adminGraphqlApiId })
+
   const { data, error } = await upsertOrderToDb(adminGraphqlApiId);
+
 
 
   if (error) {
